@@ -13,6 +13,13 @@
 # testing
 /coverage
 
+# api service
+/api/.venv
+/api/.cache
+/api/__pycache__
+/api/**/__pycache__
+/api/*.egg-info
+
 # next.js
 /.next/
 /out/
@@ -42,3 +49,4 @@ next-env.d.ts
 .claude/*.local.*
 # next-agents-md
 # .next-docs/
+*.sql

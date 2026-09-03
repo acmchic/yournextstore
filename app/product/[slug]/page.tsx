@@ -23,6 +23,8 @@ import { commerce, meGetCached } from "@/lib/commerce";
 import { buildProductBreadcrumbJsonLd, buildProductJsonLd, JsonLdScript } from "@/lib/json-ld";
 import { cn } from "@/lib/utils";
 
+export const instant = false;
+
 function StarRow({ rating }: { rating: number }) {
 	const rounded = Math.round(rating);
 	return (
@@ -74,18 +76,78 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 function ProductDetailsSkeleton() {
 	return (
-		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+		<div
+			className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
+			role="status"
+			aria-busy="true"
+			aria-label="Loading product details"
+		>
+			<div className="mb-6 flex items-center gap-3" aria-hidden>
+				<Skeleton className="h-3 w-10" />
+				<Skeleton className="h-px w-3" />
+				<Skeleton className="h-3 w-16" />
+				<Skeleton className="hidden h-px w-3 sm:block" />
+				<Skeleton className="hidden h-3 w-24 sm:block" />
+			</div>
+
 			<div className="lg:grid lg:grid-cols-2 lg:gap-16">
-				<Skeleton className="aspect-square rounded-2xl" />
-				<div className="mt-8 lg:mt-0 space-y-8">
-					<div className="space-y-4">
-						<Skeleton className="h-12 w-3/4" />
-						<Skeleton className="h-8 w-1/4" />
-						<Skeleton className="h-20 w-full" />
+				<div aria-hidden>
+					<Skeleton className="aspect-square w-full border border-border" />
+					<div className="mt-4 hidden gap-3 md:flex">
+						{Array.from({ length: 4 }, (_, index) => (
+							<Skeleton key={index} className="aspect-square w-20 border border-border" />
+						))}
 					</div>
-					<Skeleton className="h-14 w-full rounded-full" />
+				</div>
+
+				<div className="mt-8 space-y-8 lg:mt-0" aria-hidden>
+					<div className="space-y-4">
+						<Skeleton className="h-12 w-[82%] lg:h-14" />
+						<div className="space-y-2">
+							<Skeleton className="h-4 w-full max-w-lg" />
+							<Skeleton className="h-4 w-3/4 max-w-md" />
+						</div>
+					</div>
+
+					<div className="space-y-3">
+						<Skeleton className="h-9 w-28" />
+						<div className="flex gap-4">
+							<Skeleton className="h-3 w-20" />
+							<Skeleton className="h-3 w-40" />
+						</div>
+					</div>
+
+					<div className="space-y-3">
+						<Skeleton className="h-4 w-10" />
+						<div className="flex flex-wrap gap-3">
+							{[60, 64, 60, 68, 72].map((width, index) => (
+								<Skeleton key={index} className="h-12 border border-border" style={{ width }} />
+							))}
+						</div>
+					</div>
+
+					<div className="space-y-3">
+						<Skeleton className="h-4 w-12" />
+						<div className="flex gap-3">
+							{Array.from({ length: 4 }, (_, index) => (
+								<Skeleton key={index} className="h-12 w-12 rounded-full border border-border" />
+							))}
+						</div>
+					</div>
+
+					<div className="space-y-3">
+						<Skeleton className="h-4 w-20" />
+						<div className="flex flex-wrap gap-3">
+							{[72, 74, 68, 112].map((width) => (
+								<Skeleton key={width} className="h-12 border border-border" style={{ width }} />
+							))}
+						</div>
+					</div>
+
+					<Skeleton className="h-14 w-full" />
 				</div>
 			</div>
+			<span className="sr-only">Loading product details</span>
 		</div>
 	);
 }

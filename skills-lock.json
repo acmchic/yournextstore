@@ -86,6 +86,18 @@
 			"sourceType": "github",
 			"computedHash": "139b3e3c9d43b79b4e6ccffaeb874265bc916d7d90662950e9f05581d6e0c06a"
 		},
+		"seo-audit": {
+			"source": "coreyhaines31/marketingskills",
+			"sourceType": "github",
+			"skillPath": "skills/seo-audit/SKILL.md",
+			"computedHash": "f2dc52130189068981f21e1c0bdc4471ac7cd9b08d8a1320604411aa0f950385"
+		},
+		"site-architecture": {
+			"source": "coreyhaines31/marketingskills",
+			"sourceType": "github",
+			"skillPath": "skills/site-architecture/SKILL.md",
+			"computedHash": "48a38c5e2b000d134c3db282364b1014bad362fa91d4618ad8c2eb7cee991208"
+		},
 		"teach-impeccable": {
 			"source": "pbakaus/impeccable",
 			"sourceType": "github",

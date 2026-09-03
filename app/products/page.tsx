@@ -8,12 +8,13 @@ import { ProductsPagination } from "./products-pagination";
 import { SortLinks, SortSelect } from "./products-sort-select";
 
 const PRODUCTS_PER_PAGE = 12;
+export const instant = false;
 
 const sortOptions = [
 	{ value: "newest", label: "Newest", orderBy: "createdAt", orderDirection: "desc" },
 	{ value: "price-asc", label: "Price: Low to High", orderBy: "price", orderDirection: "asc" },
 	{ value: "price-desc", label: "Price: High to Low", orderBy: "price", orderDirection: "desc" },
-	{ value: "name", label: "Name: A–Z", orderBy: "name", orderDirection: "asc" },
+	{ value: "name", label: "Name: A-Z", orderBy: "name", orderDirection: "asc" },
 ] as const;
 
 type ProductFilterParams = {
@@ -41,16 +42,16 @@ export async function generateMetadata({
 	const { page } = await searchParams;
 	const pageNum = Math.max(1, Number(page) || 1);
 	const canonical = pageNum > 1 ? `/products?page=${pageNum}` : "/products";
-	const title = pageNum > 1 ? `All Products — Page ${pageNum}` : "All Products";
+	const title = pageNum > 1 ? `All Drops - Page ${pageNum}` : "All Drops";
 
 	return {
 		title,
-		description: "Browse our complete product collection.",
+		description: "Browse graphic tees, hoodies, and sweatshirts from the current edit.",
 		alternates: { canonical },
 		openGraph: {
 			type: "website",
 			title,
-			description: "Browse our complete product collection.",
+			description: "Browse graphic tees, hoodies, and sweatshirts from the current edit.",
 			url: canonical,
 		},
 	};
@@ -106,7 +107,7 @@ function ProductGridSkeleton() {
 		<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
 			{Array.from({ length: 6 }).map((_, i) => (
 				<div key={`skeleton-${i}`}>
-					<div className="aspect-square bg-secondary rounded-2xl mb-4 animate-pulse" />
+					<div className="aspect-square bg-secondary mb-4 animate-pulse" />
 					<div className="space-y-2">
 						<div className="h-5 w-3/4 bg-secondary rounded animate-pulse" />
 						<div className="h-5 w-1/4 bg-secondary rounded animate-pulse" />
@@ -139,8 +140,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
 	return (
 		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
 			<div className="mb-10">
-				<h1 className="text-3xl sm:text-4xl font-medium tracking-tight">All Products</h1>
-				<p className="mt-2 text-muted-foreground">Browse our complete collection</p>
+				<h1 className="text-3xl sm:text-4xl font-medium tracking-tight">All Drops</h1>
+				<p className="mt-2 text-muted-foreground">
+					Graphic apparel edited for tees, hoodies, and sweatshirts.
+				</p>
 			</div>
 
 			<div className={filtersAvailable ? "lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-10" : ""}>

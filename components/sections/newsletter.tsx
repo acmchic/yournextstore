@@ -22,10 +22,10 @@ export function Newsletter() {
 					) : (
 						<>
 							<h2 className="text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight">
-								Stay in the loop
+								Get the next drop
 							</h2>
 							<p className="mt-4 text-lg leading-relaxed text-background/60 max-w-md mx-auto">
-								Be the first to know about new arrivals, exclusive offers, and stories from behind the scenes.
+								Release notes for new graphics, blank tests, and limited apparel edits.
 							</p>
 							<form action={action} className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:flex-row">
 								<input
@@ -33,14 +33,14 @@ export function Newsletter() {
 									name="email"
 									placeholder="your@email.com"
 									required
-									className="h-12 w-full flex-1 rounded-full border border-background/20 bg-background/10 px-5 text-background outline-none transition-all placeholder:text-background/30 focus:border-background/40 focus:ring-2 focus:ring-background/10"
+									className="h-12 w-full flex-1 border border-background/30 bg-background/10 px-5 text-background outline-none transition-all placeholder:text-background/45 focus:border-background focus:ring-2 focus:ring-background/20"
 								/>
 								<button
 									type="submit"
 									disabled={isPending}
-									className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-background px-8 font-medium text-foreground transition-all hover:bg-background/90 disabled:opacity-50"
+									className="inline-flex h-12 shrink-0 items-center justify-center gap-2 bg-background px-8 font-bold uppercase tracking-[0.12em] text-foreground transition-all hover:bg-background/90 active:translate-y-px disabled:opacity-50"
 								>
-									{isPending ? "Subscribing\u2026" : "Subscribe"}
+									{isPending ? "Joining..." : "Join"}
 									{!isPending && <ArrowRightIcon className="h-4 w-4" />}
 								</button>
 							</form>

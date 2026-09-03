@@ -43,7 +43,7 @@ export function QuickAddButton({ variantId, variantPrice, variantImages, product
 				},
 			});
 
-			// The server clamps to available stock and still returns the cart — surface
+			// The server clamps to available stock and still returns the cart, so surface
 			// the failure instead of letting the optimistic item silently vanish.
 			const result = await addToCart(variantId, 1);
 			const line = result.cart?.lineItems.find((item) => item.productVariant.id === variantId);
@@ -60,7 +60,7 @@ export function QuickAddButton({ variantId, variantPrice, variantImages, product
 					<button
 						type="button"
 						onClick={handleClick}
-						className="absolute bottom-3 left-3 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-background/80 backdrop-blur-sm transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:bg-background hover:scale-110 active:scale-95"
+						className="absolute bottom-3 left-3 z-10 flex h-9 w-9 cursor-pointer items-center justify-center bg-background/80 opacity-100 backdrop-blur-sm transition-all hover:scale-110 hover:bg-background active:scale-95 sm:opacity-0 sm:group-hover:opacity-100"
 						aria-label={`Add ${product.name} to cart`}
 					>
 						<ShoppingBag className="h-3.5 w-3.5" />

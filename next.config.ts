@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const isProd = process.env.NODE_ENV === "production";
 
 const nextConfig: NextConfig = {
+	output: "standalone",
 	/* config options here */
 	allowedDevOrigins: ["*.vercel.run", "*.yns.store", "*.yns.cx"],
 	devIndicators: false,

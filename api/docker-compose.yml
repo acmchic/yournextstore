@@ -1,0 +1,65 @@
+services:
+  db:
+    image: mysql:8.4
+    container_name: pod_store_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_NAME:-pod_store}
+      MYSQL_USER: ${DB_USER:-ac}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-password}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - pod_store_mysql:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: localhost/pod-store-api:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pod_mockup_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      MOCKUP_ASSET_ROOT: /app/public
+      MOCKUP_CACHE_DIR: /app/.cache/mockups
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./public:/app/public:ro
+      - pod_mockup_cache:/app/.cache/mockups
+
+  worker:
+    image: localhost/pod-store-api:local
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      MOCKUP_ASSET_ROOT: /app/public
+      MOCKUP_CACHE_DIR: /app/.cache/mockups
+    command: ["python", "-m", "app.worker"]
+    volumes:
+      - ./public:/app/public:ro
+      - pod_mockup_cache:/app/.cache/mockups
+
+volumes:
+  pod_store_mysql:
+  pod_mockup_cache:

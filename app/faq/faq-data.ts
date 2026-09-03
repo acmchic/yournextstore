@@ -22,7 +22,7 @@ export const faqCategories: FAQCategory[] = [
 			{
 				question: "How long does order processing take?",
 				answer:
-					"Most orders are processed within 1–3 business days. Processing times may vary depending on product availability and order volume. You'll receive a confirmation email once your order has shipped.",
+					"Most orders are processed within 1-3 business days. Processing times may vary depending on product availability and order volume. You'll receive a confirmation email once your order has shipped.",
 			},
 			{
 				question: "Can I request an invoice for my order?",
@@ -115,7 +115,7 @@ export const faqCategories: FAQCategory[] = [
 			{
 				question: "How long does it take to receive a refund?",
 				answer:
-					"Once we receive and inspect your returned item, refunds are typically processed within 5–10 business days. The refund will be credited to your original payment method.",
+					"Once we receive and inspect your returned item, refunds are typically processed within 5-10 business days. The refund will be credited to your original payment method.",
 			},
 		],
 	},

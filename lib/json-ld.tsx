@@ -5,6 +5,7 @@ import type {
 } from "commerce-kit";
 import { getCanonicalUrl, meGetCached } from "@/lib/commerce";
 import { CURRENCY } from "@/lib/constants";
+import { storefront } from "@/lib/storefront-config";
 
 async function getCurrency(): Promise<string> {
 	try {
@@ -41,14 +42,46 @@ export async function buildProductJsonLd(
 	const highPrice = getDecimalPrice(String(Math.max(...prices)));
 	const baseUrl = getBaseUrl();
 	const currency = await getCurrency();
+	const variants = product.variants.map((variant) => {
+		const options = Object.fromEntries(
+			variant.combinations.map((combination) => [
+				combination.variantValue.variantType.label,
+				combination.variantValue.value,
+			]),
+		);
+		const query = new URLSearchParams(options).toString();
+		return {
+			"@type": "Product",
+			name: product.name,
+			sku: variant.sku ?? variant.id,
+			image: variant.images,
+			color: options.Color,
+			size: options.Size,
+			offers: {
+				"@type": "Offer",
+				url: `${baseUrl}/product/${product.slug}${query ? `?${query}` : ""}`,
+				priceCurrency: currency,
+				price: getDecimalPrice(variant.price),
+				itemCondition: "https://schema.org/NewCondition",
+				availability:
+					variant.stock === null || variant.stock > 0
+						? "https://schema.org/InStock"
+						: "https://schema.org/OutOfStock",
+			},
+		};
+	});
 
 	const jsonLd: Record<string, unknown> = {
 		"@context": "https://schema.org",
-		"@type": "Product",
+		"@type": product.variants.length > 1 ? "ProductGroup" : "Product",
 		name: product.name,
 		description: product.summary,
 		image: product.images,
 		sku: product.variants[0]?.sku ?? product.id,
+		productGroupID: product.variants.length > 1 ? product.id : undefined,
+		variesBy:
+			product.variants.length > 1 ? ["https://schema.org/color", "https://schema.org/size"] : undefined,
+		hasVariant: product.variants.length > 1 ? variants : undefined,
 		brand: product.category ? { "@type": "Brand", name: product.category.name } : undefined,
 		offers:
 			product.variants.length === 1
@@ -185,8 +218,8 @@ export function buildCategoryBreadcrumbJsonLd(
 
 export async function StoreJsonLd() {
 	const me = await meGetCached();
-	const storeName = me.store.name || "Your Next Store";
-	const storeDescription = me.store.settings?.storeDescription || undefined;
+	const storeName = me.store.name || storefront.brandName;
+	const storeDescription = me.store.settings?.storeDescription || storefront.description;
 	const baseUrl = getBaseUrl();
 	const ogImage = me.store.settings?.ogimage || undefined;
 	const logo =

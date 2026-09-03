@@ -114,27 +114,32 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 	const handleOptionSelect = (label: string, optionId: string) => {
 		const newSelectedOptions = { ...selectedOptions, [label]: optionId };
 
-		const params = Object.entries(newSelectedOptions).reduce((acc, [key, value]) => {
+		const params = new URLSearchParams(searchParams.toString());
+		Object.entries(newSelectedOptions).forEach(([key, value]) => {
 			const option = optionsById.get(key)?.get(value);
 			if (option) {
-				acc.set(key, option.value);
+				params.set(key, option.value);
 			}
-			return acc;
-		}, new URLSearchParams());
+		});
 		router.push(`${pathname}?${params.toString()}`, { scroll: false });
 	};
 
 	// Auto-redirect to first variant when no URL params exist (for multi-variant products)
 	useEffect(() => {
-		if (variants.length <= 1 || searchParams.size > 0) return;
+		if (variants.length <= 1) return;
 
 		const firstVariant = variants[0];
-		const params = new URLSearchParams();
+		const params = new URLSearchParams(searchParams.toString());
+		let changed = false;
 		firstVariant.combinations.forEach((c) => {
-			params.set(c.variantValue.variantType.label, c.variantValue.value);
+			const label = c.variantValue.variantType.label;
+			if (!params.has(label)) {
+				params.set(label, c.variantValue.value);
+				changed = true;
+			}
 		});
-		router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-	}, [variants, searchParams.size, pathname]);
+		if (changed) router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+	}, [variants, searchParams, pathname]);
 
 	const groupsWithChoices = variantGroups.filter((group) => group.options.length > 1);
 

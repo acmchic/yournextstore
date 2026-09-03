@@ -1,0 +1,81 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_NAME:-pod_store}
+      MYSQL_USER: ${DB_USER:-ac}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-password}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./api/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-ac}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_NAME: ${DB_NAME:-pod_store}
+      MOCKUP_ASSET_ROOT: /app/public
+      MOCKUP_CACHE_DIR: /app/.cache/mockups
+    volumes:
+      - ./api/public:/app/public:ro
+      - mockup_cache:/app/.cache/mockups
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: ./api
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-ac}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_NAME: ${DB_NAME:-pod_store}
+      MOCKUP_ASSET_ROOT: /app/public
+      MOCKUP_CACHE_DIR: /app/.cache/mockups
+    volumes:
+      - ./api/public:/app/public:ro
+      - mockup_cache:/app/.cache/mockups
+
+  storefront:
+    build:
+      context: .
+      args:
+        STORE_API_URL: http://api:8000
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      STORE_API_URL: http://api:8000
+      POD_MOCKUP_API_URL: http://api:8000
+      NEXT_PUBLIC_URL: ${NEXT_PUBLIC_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+
+volumes:
+  mysql_data:
+  mockup_cache:

@@ -48,10 +48,7 @@ function FilterRow({
 				onClick={onClick}
 				className={`flex items-baseline justify-between gap-2 border-b border-border ${py} transition-colors hover:text-foreground ${activeClass}`}
 			>
-				<span>
-					{isActive ? "— " : ""}
-					{label}
-				</span>
+				<span>{label}</span>
 				{typeof count === "number" ? <span className="text-xs tabular-nums">{count}</span> : null}
 			</YnsLink>
 		</li>

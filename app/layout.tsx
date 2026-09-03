@@ -23,6 +23,7 @@ import { AUTH_ENABLED } from "@/lib/auth-config";
 import { commerce, getCanonicalUrl, getStoreFaviconUrl, meGetCached } from "@/lib/commerce";
 import { getCartCookieJson } from "@/lib/cookies";
 import { StoreJsonLd } from "@/lib/json-ld";
+import { storefront } from "@/lib/storefront-config";
 
 const inter = Inter({
 	variable: "--font-display",
@@ -40,8 +41,8 @@ async function getStoreMetadata(): Promise<Metadata> {
 	"use cache";
 	cacheLife("hours");
 	const me = await meGetCached();
-	const storeName = me.store.name || "Your Next Store";
-	const storeDescription = me.store.settings?.storeDescription || "Your next e-commerce store";
+	const storeName = me.store.name || storefront.brandName;
+	const storeDescription = me.store.settings?.storeDescription || storefront.description;
 	const faviconUrl = getStoreFaviconUrl(me.store.settings) ?? "/logo.svg";
 	const storeLogo =
 		typeof me.store.settings?.logo === "string" ? me.store.settings.logo : me.store.settings?.logo?.imageUrl;
@@ -50,7 +51,7 @@ async function getStoreMetadata(): Promise<Metadata> {
 	return {
 		title: {
 			default: storeName,
-			template: `%s — ${storeName}`,
+			template: `%s - ${storeName}`,
 		},
 		description: storeDescription,
 		applicationName: storeName,
@@ -147,7 +148,7 @@ async function CartProviderWrapper({ children }: { children: React.ReactNode }) 
 	const [{ cart, cartId }, links] = await Promise.all([getInitialCart(), getNavLinks()]);
 
 	const isStaging = process.env.YNS_API_KEY?.startsWith("sk-s-");
-	const baseUrl = isStaging ? "https://yns.cx" : "https://yns.store";
+	const baseUrl = process.env.YNS_API_KEY ? (isStaging ? "https://yns.cx" : "https://yns.store") : "";
 
 	return (
 		<CartProvider initialCart={cart} initialCartId={cartId}>
@@ -158,7 +159,9 @@ async function CartProviderWrapper({ children }: { children: React.ReactNode }) 
 						{/* Logo */}
 						<div className="col-span-4 md:col-span-3 h-full flex items-center px-6 grid-border-r">
 							<Link href="/">
-								<h1 className="font-display font-bold text-lg tracking-tighter uppercase">Sneakers</h1>
+								<h1 className="font-display font-bold text-lg tracking-tighter uppercase">
+									{storefront.brandName}
+								</h1>
 							</Link>
 						</div>
 
@@ -224,7 +227,7 @@ export default async function RootLayout({
 	const lang = await getHtmlLang();
 
 	return (
-		<html lang={lang} className="scroll-smooth" suppressHydrationWarning>
+		<html lang={lang} className="scroll-smooth" data-scroll-behavior="smooth" suppressHydrationWarning>
 			<body className={`${inter.variable} ${spaceGrotesk.variable} font-body antialiased`}>
 				{/* DO NOT REMOVE / REORDER: required for GDPR + GTM Consent Mode v2. Must stay at top of <body>. */}
 				<Suspense>

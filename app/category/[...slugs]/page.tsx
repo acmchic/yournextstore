@@ -18,6 +18,7 @@ import { buildCategoryBreadcrumbJsonLd, JsonLdScript } from "@/lib/json-ld";
 import { CategoryPagination } from "./category-pagination";
 
 const PRODUCTS_PER_PAGE = 12;
+export const instant = false;
 
 // Filters that apply on top of the path-locked category.
 type CategoryFilterParams = {
@@ -107,7 +108,7 @@ function ProductGridSkeleton() {
 		<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
 			{Array.from({ length: 6 }).map((_, i) => (
 				<div key={`skeleton-${i}`}>
-					<div className="aspect-square bg-secondary rounded-2xl mb-4 animate-pulse" />
+					<div className="aspect-square bg-secondary mb-4 animate-pulse" />
 					<div className="space-y-2">
 						<div className="h-5 w-3/4 bg-secondary rounded animate-pulse" />
 						<div className="h-5 w-1/4 bg-secondary rounded animate-pulse" />

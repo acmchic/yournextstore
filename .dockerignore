@@ -1,0 +1,8 @@
+.git
+.next
+node_modules
+api/.venv
+api/.cache
+api/.pytest_cache
+api/.ruff_cache
+plans

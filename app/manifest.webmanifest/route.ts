@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { getStoreFaviconUrl, meGetCached } from "@/lib/commerce";
+import { storefront } from "@/lib/storefront-config";
 
 export async function GET() {
 	const me = await meGetCached();
-	const storeName = me.store.name || "Your Next Store";
+	const storeName = me.store.name || storefront.brandName;
 	const faviconUrl = getStoreFaviconUrl(me.store.settings) ?? "/logo.svg";
 
 	const manifest = {
 		name: storeName,
-		short_name: storeName,
+		short_name: storefront.shortName,
 		start_url: "/",
 		display: "standalone" as const,
 		background_color: "#ffffff",

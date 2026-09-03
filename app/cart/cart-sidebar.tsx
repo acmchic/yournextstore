@@ -20,7 +20,11 @@ import { cn } from "@/lib/utils";
 export function CartSidebar({ baseUrl }: { baseUrl: string }) {
 	const { isOpen, closeCart, items, itemCount, subtotal, cartId, isMutating } = useCart();
 
-	const checkoutUrl = cartId ? `${baseUrl}/api/v1/carts/${cartId}/checkout` : "#";
+	const checkoutUrl = cartId
+		? baseUrl
+			? `${baseUrl}/api/v1/carts/${cartId}/checkout`
+			: `/checkout?cartId=${cartId}`
+		: "#";
 
 	return (
 		<Sheet open={isOpen} onOpenChange={(open) => !open && closeCart()}>

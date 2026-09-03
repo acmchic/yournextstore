@@ -1,4 +1,5 @@
 import { commerce, getCanonicalUrl, meGetCached } from "@/lib/commerce";
+import { storefront } from "@/lib/storefront-config";
 
 const FEATURED_PRODUCTS = 30;
 const FEATURED_COLLECTIONS = 15;
@@ -7,8 +8,8 @@ const FEATURED_POSTS = 20;
 export async function GET() {
 	const baseUrl = getCanonicalUrl();
 	const me = await meGetCached();
-	const storeName = me.store.name || "Your Next Store";
-	const storeDescription = me.store.settings?.storeDescription || "An e-commerce store.";
+	const storeName = me.store.name || storefront.brandName;
+	const storeDescription = me.store.settings?.storeDescription || storefront.description;
 	const blogEnabled = me.store.settings?.enabledTools?.blog ?? false;
 	const contactFormEnabled = me.store.settings?.enabledTools?.contactForm ?? false;
 
@@ -61,7 +62,7 @@ export async function GET() {
 		sections.push("## Featured products");
 		sections.push("");
 		for (const p of products.data) {
-			const summary = p.summary?.trim() || `${p.name} — available at ${storeName}.`;
+			const summary = p.summary?.trim() || `${p.name} - available at ${storeName}.`;
 			sections.push(`- [${p.name}](${baseUrl}/product/${p.slug}): ${summary}`);
 		}
 		sections.push("");

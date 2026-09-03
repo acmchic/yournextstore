@@ -9,13 +9,13 @@ import { JsonLdScript } from "@/lib/json-ld";
 export const metadata: Metadata = {
 	title: "Contact Us",
 	description:
-		"Get in touch with our team. Questions about orders, products, or anything else — we're here to help.",
+		"Get in touch with our team. Questions about orders, products, or anything else. We're here to help.",
 	alternates: { canonical: "/contact" },
 	openGraph: {
 		type: "website",
 		title: "Contact Us",
 		description:
-			"Get in touch with our team. Questions about orders, products, or anything else — we're here to help.",
+			"Get in touch with our team. Questions about orders, products, or anything else. We're here to help.",
 		url: "/contact",
 	},
 };

@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { addToCart } from "@/app/cart/actions";
 import { useCart } from "@/app/cart/cart-context";
+import { PrintPlacementSelector } from "@/app/product/[slug]/print-placement-selector";
 import { QuantitySelector } from "@/app/product/[slug]/quantity-selector";
 import { TrustBadges } from "@/app/product/[slug]/trust-badges";
 import { VariantSelector } from "@/app/product/[slug]/variant-selector";
@@ -100,7 +101,7 @@ export function AddToCartButton({
 		if (!selectedVariant) return "Select options";
 		if (isOutOfStock) return "Out of stock";
 		if (totalPrice) {
-			return `Add to Cart — ${formatMoney({ amount: totalPrice, currency: CURRENCY, locale: LOCALE })}`;
+			return `Add to Cart - ${formatMoney({ amount: totalPrice, currency: CURRENCY, locale: LOCALE })}`;
 		}
 		return "Add to Cart";
 	}, [selectedVariant, isOutOfStock, totalPrice]);
@@ -184,7 +185,7 @@ export function AddToCartButton({
 			if (!result.success || !line) {
 				toast.error("This item is out of stock");
 			} else if (line.quantity < previousQuantity + addedQuantity) {
-				toast.warning(`Only ${line.quantity} in stock — quantity adjusted`);
+				toast.warning(`Only ${line.quantity} in stock - quantity adjusted`);
 			}
 		});
 	};
@@ -201,7 +202,7 @@ export function AddToCartButton({
 						<span className="text-lg text-muted-foreground line-through">{priceInfo.compareAt}</span>
 					)}
 					{priceInfo.discountPercent ? (
-						<span className="rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-semibold text-destructive">
+						<span className="bg-destructive/10 px-2.5 py-0.5 text-xs font-semibold text-destructive">
 							Save {priceInfo.discountPercent}%
 						</span>
 					) : null}
@@ -238,6 +239,8 @@ export function AddToCartButton({
 
 			{variants.length > 1 && <VariantSelector variants={variants} selectedVariantId={selectedVariant?.id} />}
 
+			<PrintPlacementSelector />
+
 			<QuantitySelector
 				quantity={effectiveQuantity}
 				onQuantityChange={setQuantity}
@@ -251,7 +254,7 @@ export function AddToCartButton({
 				<button
 					type="submit"
 					disabled={!selectedVariant || isOutOfStock}
-					className="w-full h-14 bg-foreground text-background py-4 px-8 rounded-full text-base font-medium tracking-wide hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					className="w-full h-14 bg-foreground text-background py-4 px-8 text-base font-medium tracking-wide hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					{buttonText}
 				</button>

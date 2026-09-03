@@ -63,7 +63,7 @@ export function VolumePricingDisplay({
 
 			<div>
 				<p className="text-sm font-medium mb-2">Buy more, save more</p>
-				<div className="overflow-hidden rounded-lg border border-border text-sm">
+				<div className="overflow-hidden border border-border text-sm">
 					<table className="w-full">
 						<thead>
 							<tr className="bg-muted/50 text-muted-foreground">
@@ -83,7 +83,7 @@ export function VolumePricingDisplay({
 										}
 									>
 										<td className="px-3 py-1.5">
-											{tier.maxQuantity ? `${tier.minQuantity}–${tier.maxQuantity}` : `${tier.minQuantity}+`}
+											{tier.maxQuantity ? `${tier.minQuantity}-${tier.maxQuantity}` : `${tier.minQuantity}+`}
 										</td>
 										<td className="px-3 py-1.5 text-right font-medium">
 											{formatMoney({ amount: BigInt(tier.price), currency: CURRENCY, locale: LOCALE })}

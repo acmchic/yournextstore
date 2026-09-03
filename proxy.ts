@@ -5,7 +5,11 @@ import { getSubdomainPublicUrl } from "./lib/commerce";
 
 // /account is auth-only: when auth is off it is neither protected nor proxied.
 const protectedRoutes = AUTH_ENABLED ? ["/account"] : [];
-const proxiedRoutes = AUTH_ENABLED ? ["/checkout", "/api/feed/", "/account"] : ["/checkout", "/api/feed/"];
+const shouldProxyBackend = Boolean(process.env.YNS_API_KEY || process.env.NEXT_PUBLIC_YNS_API_TENANT);
+const proxiedRoutes = [
+	...(AUTH_ENABLED ? ["/account"] : []),
+	...(shouldProxyBackend ? ["/checkout", "/api/feed/"] : ["/api/feed/"]),
+];
 
 export async function proxy(request: NextRequest) {
 	// Auth: redirect unauthenticated users away from protected routes

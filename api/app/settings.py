@@ -1,0 +1,57 @@
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+except ImportError:
+    pass
+
+
+def _int_env(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if not value:
+        return default
+    return int(value)
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env(primary: str, fallback: str, default: str) -> str:
+    return os.getenv(primary) or os.getenv(fallback) or default
+
+
+@dataclass(frozen=True)
+class Settings:
+    mysql_host: str = _env("DB_HOST", "MYSQL_HOST", "127.0.0.1")
+    mysql_port: int = _int_env("DB_PORT", _int_env("MYSQL_PORT", 3306))
+    mysql_user: str = _env("DB_USER", "MYSQL_USER", "root")
+    mysql_password: str = _env("DB_PASSWORD", "MYSQL_PASSWORD", "")
+    mysql_database: str = _env("DB_NAME", "MYSQL_DATABASE", "pod_store")
+
+    asset_root: Path = field(
+        default_factory=lambda: Path(os.getenv("MOCKUP_ASSET_ROOT", "./public")).resolve()
+    )
+    cache_dir: Path = field(
+        default_factory=lambda: Path(os.getenv("MOCKUP_CACHE_DIR", "./.cache/mockups")).resolve()
+    )
+    default_width: int = _int_env("MOCKUP_DEFAULT_WIDTH", 1200)
+    max_width: int = _int_env("MOCKUP_MAX_WIDTH", 2400)
+    default_format: str = os.getenv("MOCKUP_DEFAULT_FORMAT", "webp")
+    webp_quality: int = _int_env("MOCKUP_WEBP_QUALITY", 88)
+    jpeg_quality: int = _int_env("MOCKUP_JPEG_QUALITY", 90)
+    url_signing_secret: str = os.getenv("MOCKUP_URL_SECRET") or mysql_password
+    allow_unsigned_urls: bool = _bool_env("MOCKUP_ALLOW_UNSIGNED_URLS", False)
+    signing_admin_key: str = os.getenv("MOCKUP_SIGNING_ADMIN_KEY", "")
+
+
+settings = Settings()
