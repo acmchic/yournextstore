@@ -19,9 +19,8 @@ RUN sed -i \
 	&& rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
+RUN pip install --no-cache-dir --timeout 120 --retries 5 -r requirements.txt
 COPY app ./app
-
-RUN pip install --no-cache-dir --index-url https://mirrors.aliyun.com/pypi/simple/ -r requirements.txt
 
 EXPOSE 8000
 

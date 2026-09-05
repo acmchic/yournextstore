@@ -54,6 +54,7 @@ type ApiVariant = {
 	size: string;
 	size_label: string;
 	stock: number;
+	images?: string[];
 };
 
 type ApiMedia = {
@@ -80,10 +81,20 @@ type ApiProduct = {
 };
 
 type ApiBrowse = { data: ApiProduct[]; meta: { count: number; limit: number; offset: number } };
-type ApiCatalog = {
+export type ApiCatalog = {
 	id: string;
 	slug: string;
 	name: string;
+	product_type: string;
+	material: string | null;
+	brand: string | null;
+	product_count: number;
+	taxonomy: Array<{
+		department: "men" | "women" | "kids" | "home-living" | "accessories";
+		type_slug: string;
+		type_label: string;
+		sort_order: number;
+	}>;
 	colors: Array<{ slug: string; name: string; hex: string | null }>;
 	sizes: Array<{ code: string; label: string }>;
 };
@@ -164,9 +175,11 @@ function mapProduct(product: ApiProduct): NonNullable<APIProductGetByIdResult> {
 	const catalogName = product.variants[0]?.catalog_name ?? "Products";
 	const catalogSlug = product.variants[0]?.catalog ?? "products";
 	const variants = product.variants.map((variant) => {
-		const variantImages = product.media
-			.filter((media) => media.catalog === variant.catalog && media.color === variant.color)
-			.flatMap((media) => [media.url, media.blank_url].filter(Boolean));
+		const variantImages =
+			variant.images ??
+			product.media
+				.filter((media) => media.catalog === variant.catalog && media.color === variant.color)
+				.flatMap((media) => [media.url, media.blank_url].filter(Boolean));
 		return {
 			id: variant.id,
 			createdAt: product.created_at,
@@ -266,6 +279,18 @@ function mapProduct(product: ApiProduct): NonNullable<APIProductGetByIdResult> {
 		variants,
 		volumePricingTiers: [],
 	} as unknown as NonNullable<APIProductGetByIdResult>;
+}
+
+export async function productGetByCatalog(slug: string, catalog: string) {
+	const search = new URLSearchParams({ catalog });
+	const product = await apiFetch<ApiProduct | null>(
+		`/v1/products/${encodeURIComponent(slug)}?${search.toString()}`,
+	);
+	return product ? mapProduct(product) : null;
+}
+
+export async function catalogBrowse() {
+	return apiFetch<{ data: ApiCatalog[] }>("/v1/catalogs");
 }
 
 function mapCart(cart: ApiCart | null): APICartGetResult {

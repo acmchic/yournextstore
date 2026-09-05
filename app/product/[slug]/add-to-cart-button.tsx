@@ -191,13 +191,13 @@ export function AddToCartButton({
 	};
 
 	return (
-		<div className="space-y-8">
-			{summary && <p className="text-muted-foreground leading-relaxed">{summary}</p>}
+		<div className="space-y-6">
+			{summary && <p className="max-w-[62ch] text-sm leading-relaxed text-muted-foreground">{summary}</p>}
 
 			{/* Price & sale */}
-			<div className="space-y-2">
+			<div className="space-y-2 border-b border-border/60 pb-6">
 				<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-					<span className="text-3xl font-semibold tracking-tight">{priceInfo.display}</span>
+					<span className="text-lg font-medium tracking-tight">{priceInfo.display}</span>
 					{priceInfo.compareAt && (
 						<span className="text-lg text-muted-foreground line-through">{priceInfo.compareAt}</span>
 					)}
@@ -214,11 +214,11 @@ export function AddToCartButton({
 
 				{/* SKU & stock availability */}
 				{(selectedVariant?.sku || stockStatus) && (
-					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] uppercase tracking-[0.06em]">
 						{stockStatus && (
 							<span
 								className={cn(
-									"inline-flex items-center gap-1.5 font-medium",
+									"inline-flex items-center gap-1.5",
 									stockStatus.tone === "out" && "text-destructive",
 									stockStatus.tone === "low" && "text-amber-600 dark:text-amber-500",
 									stockStatus.tone === "in" && "text-green-600 dark:text-green-500",
@@ -229,8 +229,8 @@ export function AddToCartButton({
 							</span>
 						)}
 						{selectedVariant?.sku && (
-							<span className="text-muted-foreground">
-								SKU: <span className="font-medium text-foreground">{selectedVariant.sku}</span>
+							<span className="normal-case tracking-normal text-muted-foreground">
+								SKU: <span className="text-foreground">{selectedVariant.sku}</span>
 							</span>
 						)}
 					</div>
@@ -254,7 +254,7 @@ export function AddToCartButton({
 				<button
 					type="submit"
 					disabled={!selectedVariant || isOutOfStock}
-					className="w-full h-14 bg-foreground text-background py-4 px-8 text-base font-medium tracking-wide hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					className="h-12 w-full bg-foreground px-8 py-3 text-sm font-medium uppercase tracking-[0.06em] text-background transition-colors hover:bg-foreground/85 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{buttonText}
 				</button>

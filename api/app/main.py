@@ -246,10 +246,67 @@ async def render_catalog_image(
     )
 
 
-@app.get("/v1/products/{slug}")
-async def get_product(slug: str, repo: Annotated[CatalogRepository, Depends(get_repository)]):
+@app.get("/v1/products/{product_slug}/catalogs/{catalog_slug}/mockup")
+async def render_catalog_product_mockup(
+    product_slug: str,
+    catalog_slug: str,
+    color: Annotated[str, Query(alias="Color", min_length=1)],
+    size: Annotated[str | None, Query(alias="Size")] = None,
+    placement: Annotated[str, Query(alias="Placement", pattern="^(front|back)$")] = "front",
+    width: Annotated[int, Query(ge=120)] = 1500,
+    format: ImageFormat = "webp",
+    refresh: bool = False,
+    repo: CatalogRepository = Depends(get_repository),  # noqa: B008
+):
     try:
-        product = await repo.get_product_detail(slug)
+        job = await repo.get_catalog_render_job(
+            product_slug=product_slug,
+            catalog_slug=catalog_slug,
+            color=color,
+            size=size,
+            placement=placement,
+        )
+    except Exception as error:
+        raise HTTPException(status_code=503, detail=f"MySQL unavailable: {error}") from error
+    if not job:
+        raise HTTPException(status_code=404, detail="Product catalog variant or mockup not found")
+
+    safe_width = min(width, settings.max_width)
+    cache_key = cache.key_for(job, width=safe_width, image_format=format)
+    cache_path = cache.path_for(cache_key, format)
+    headers = {"Cache-Control": "public, max-age=31536000, immutable"}
+    if cache_path.exists() and not refresh:
+        return FileResponse(
+            cache_path,
+            media_type=_media_type(format),
+            headers={**headers, "X-Mockup-Cache": "hit"},
+        )
+    try:
+        image_bytes = await run_in_threadpool(
+            render_mockup,
+            job,
+            width=safe_width,
+            image_format=format,
+            settings=settings,
+        )
+    except Exception as error:
+        raise HTTPException(status_code=422, detail=f"Could not render mockup: {error}") from error
+    cache_path.write_bytes(image_bytes)
+    return Response(
+        image_bytes,
+        media_type=_media_type(format),
+        headers={**headers, "X-Mockup-Cache": "miss"},
+    )
+
+
+@app.get("/v1/products/{slug}")
+async def get_product(
+    slug: str,
+    catalog: str | None = None,
+    repo: CatalogRepository = Depends(get_repository),  # noqa: B008
+):
+    try:
+        product = await repo.get_product_detail(slug, catalog_slug=catalog)
     except Exception as error:
         raise HTTPException(status_code=503, detail=f"MySQL unavailable: {error}") from error
     if not product:

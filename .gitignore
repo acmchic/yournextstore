@@ -50,3 +50,5 @@ next-env.d.ts
 # next-agents-md
 # .next-docs/
 *.sql
+!api/mysql/init/003_gearment_catalog.sql
+api/public/mockup

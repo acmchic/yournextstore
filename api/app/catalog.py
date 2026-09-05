@@ -194,6 +194,13 @@ def parse_placement(value: str) -> Placement:
     return cast(Placement, value)
 
 
+def resolve_design_path(slug: str, settings: Settings) -> str:
+    design_path = _load_design_manifest(settings).get(slug)
+    if not design_path:
+        raise FileNotFoundError(f"Design slug not found: {slug}")
+    return design_path
+
+
 def _placement_quad(
     width: int, height: int, placement: Placement, style: MockupStyle
 ) -> list[tuple[float, float]]:

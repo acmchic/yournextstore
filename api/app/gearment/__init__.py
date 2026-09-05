@@ -1,0 +1,1 @@
+"""Gearment catalog import boundary."""

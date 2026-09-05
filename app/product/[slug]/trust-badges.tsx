@@ -15,12 +15,14 @@ const defaultBadges: TrustBadge[] = [
 
 export function TrustBadges({ badges = defaultBadges }: { badges?: TrustBadge[] }) {
 	return (
-		<div className="grid grid-cols-3 border border-border bg-secondary/40 p-4">
+		<div className="grid grid-cols-1 border-t border-border/60 sm:grid-cols-3">
 			{badges.map((badge) => (
-				<div key={badge.title} className="flex flex-col items-center text-center">
-					<badge.icon className="mb-2 h-5 w-5 text-muted-foreground" />
-					<span className="text-xs font-medium">{badge.title}</span>
-					<span className="text-[10px] text-muted-foreground">{badge.description}</span>
+				<div key={badge.title} className="flex items-start gap-2.5 py-4 sm:pr-3">
+					<badge.icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+					<div className="flex flex-col">
+						<span className="text-[11px] font-medium uppercase tracking-[0.05em]">{badge.title}</span>
+						<span className="text-[10px] text-muted-foreground">{badge.description}</span>
+					</div>
 				</div>
 			))}
 		</div>

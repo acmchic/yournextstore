@@ -44,6 +44,8 @@ const nextConfig: NextConfig = {
 		],
 	},
 	images: {
+		qualities: [75, 90],
+		localPatterns: [{ pathname: "/img/**" }, { pathname: "/api/catalog-mockup/**" }],
 		remotePatterns: [{ protocol: "https", hostname: "**" }],
 	},
 	async headers() {

@@ -18,6 +18,8 @@ def render_mockup(
     settings: Settings,
 ) -> bytes:
     base = _decode_color(job.base_source, settings)
+    if job.garment_color:
+        base = _tint_catalog_base(base, job.garment_color)
     artwork = _decode_alpha(job.artwork_source, settings)
 
     base_height, base_width = base.shape[:2]
@@ -97,6 +99,47 @@ def _decode_color(source: str, settings: Settings) -> np.ndarray:
     if image is None:
         raise ValueError(f"Could not decode image: {source}")
     return cast(np.ndarray, image)
+
+
+def _tint_catalog_base(base: np.ndarray, color_hex: str) -> np.ndarray:
+    """Recolor the largest non-white object while retaining the source texture."""
+    normalized = color_hex.strip().lstrip("#")
+    if len(normalized) != 6 or any(value not in "0123456789abcdefABCDEF" for value in normalized):
+        raise ValueError(f"Invalid garment color: {color_hex}")
+
+    cv2 = _cv2()
+    gray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)
+    distance_from_white = 255 - base.min(axis=2)
+    foreground = ((gray < 248) | (distance_from_white > 10)).astype(np.uint8) * 255
+    foreground = cv2.morphologyEx(
+        foreground,
+        cv2.MORPH_CLOSE,
+        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)),
+    )
+    component_count, labels, stats, _ = cv2.connectedComponentsWithStats(foreground)
+    if component_count <= 1:
+        return base.copy()
+    largest_label = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+    garment_mask = (labels == largest_label).astype(np.uint8) * 255
+    garment_mask = cv2.GaussianBlur(garment_mask, (0, 0), sigmaX=0.8)
+
+    solid_pixels = gray[garment_mask > 220]
+    reference = max(20.0, float(np.median(solid_pixels))) if solid_pixels.size else 128.0
+    red, green, blue = (int(normalized[index : index + 2], 16) for index in (0, 2, 4))
+    target = np.array([blue, green, red], dtype=np.float32)
+    # Provider templates are usually photographed in black. Multiplying a white
+    # target by gray/reference clips most of that source to pure white and turns
+    # fabric texture into harsh black noise. Shift the source luminance around a
+    # display-safe target instead, preserving folds without blowing highlights.
+    target_luma = float(target.mean()) / 255.0
+    display_target = 8.0 + target * 0.86
+    contrast = 0.38 + 0.25 * (1.0 - target_luma)
+    luminance_delta = (gray.astype(np.float32) - reference) * contrast
+    tinted = np.clip(display_target[None, None, :] + luminance_delta[:, :, None], 0, 255)
+    alpha = garment_mask.astype(np.float32)[:, :, None] / 255.0
+    return np.clip(tinted * alpha + base.astype(np.float32) * (1.0 - alpha), 0, 255).astype(
+        np.uint8
+    )
 
 
 def _decode_alpha(source: str, settings: Settings) -> np.ndarray:

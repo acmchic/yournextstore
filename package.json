@@ -6,6 +6,7 @@
 		"dev": "bun next dev",
 		"build": "bun next build",
 		"start": "bun next start",
+		"theme:preview": "bash scripts/theme-preview.sh",
 		"prepare": "husky",
 		"lint": "bun run biome check --write --unsafe"
 	},

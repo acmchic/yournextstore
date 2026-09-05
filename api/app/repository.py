@@ -6,9 +6,12 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from app.catalog import resolve_design_path
+from app.catalog_assignment import stable_variant_id
 from app.db import Database
-from app.models import ProductSummary, RenderJob
-from app.product_media import build_blank_media_url, build_media_url
+from app.models import PrintArea, ProductSummary, RenderJob
+from app.product_media import build_blank_media_url, build_catalog_mockup_url, build_media_url
+from app.settings import settings
 
 
 class CatalogRepository:
@@ -40,11 +43,9 @@ class CatalogRepository:
         params: list[Any] = []
         joins = ["join designs d on d.id=p.design_id"]
         if catalog:
-            joins.append(
-                "join product_catalogs pc_filter on pc_filter.product_id=p.id and pc_filter.active=true"
+            filters.append(
+                "exists(select 1 from catalogs ca_filter where ca_filter.slug=%s and ca_filter.active=true)"
             )
-            joins.append("join catalogs ca_filter on ca_filter.id=pc_filter.catalog_id")
-            filters.append("ca_filter.slug=%s")
             params.append(catalog)
         if collection:
             joins.append("join collection_products cp_filter on cp_filter.product_id=p.id")
@@ -75,7 +76,7 @@ class CatalogRepository:
         )
         data = []
         for row in rows:
-            detail = await self.get_product_detail(row["slug"])
+            detail = await self.get_product_detail(row["slug"], catalog_slug=catalog)
             if detail:
                 data.append(detail)
         return {
@@ -87,7 +88,9 @@ class CatalogRepository:
             },
         }
 
-    async def get_product_detail(self, slug: str) -> dict[str, Any] | None:
+    async def get_product_detail(
+        self, slug: str, catalog_slug: str | None = None
+    ) -> dict[str, Any] | None:
         product = await self._database.fetch_one(
             """
             select p.id, p.public_id, p.slug, p.title, p.description, p.status, p.brand,
@@ -100,10 +103,39 @@ class CatalogRepository:
         )
         if not product:
             return None
-        variants = await self._database.fetch_all(
-            """
+        if catalog_slug:
+            variants = await self._database.fetch_all(
+                """
+                select cv.public_id catalog_variant_public_id, cv.sku,
+                  cv.default_price_minor price_minor, null compare_at_minor, cv.currency,
+                  ca.slug catalog, ca.name catalog_name, ca.provider, cc.slug color,
+                  cc.name color_name, cc.hex color_hex, cs.code size, cs.label size_label,
+                  if(cv.stock_policy='continue', 9999, cv.stock_quantity) stock
+                from catalog_variants cv
+                join catalogs ca on ca.id=cv.catalog_id and ca.active=true
+                join catalog_colors cc on cc.id=cv.color_id and cc.active=true
+                join catalog_sizes cs on cs.id=cv.size_id and cs.active=true
+                where ca.slug=%s and cv.active=true
+                order by cc.sort_order, cs.sort_order
+                """,
+                (catalog_slug,),
+            )
+            variants = [
+                {
+                    **variant,
+                    "id": stable_variant_id(
+                        product["public_id"], variant.pop("catalog_variant_public_id")
+                    ),
+                    "sku": f"{product['slug']}-{variant['catalog']}-{variant['color']}-{variant['size']}".upper(),
+                }
+                for variant in variants
+            ]
+        else:
+            variants = await self._database.fetch_all(
+                """
             select pv.public_id id, pv.sku, pv.price_minor, pv.compare_at_minor, pv.currency,
-              ca.slug catalog, ca.name catalog_name, cc.slug color, cc.name color_name, cc.hex color_hex,
+              ca.slug catalog, ca.name catalog_name, ca.provider, cc.slug color,
+              cc.name color_name, cc.hex color_hex,
               cs.code size, cs.label size_label,
               if(cv.stock_policy='continue', 9999, cv.stock_quantity) stock
             from product_variants pv
@@ -114,13 +146,26 @@ class CatalogRepository:
             where pv.product_id=%s and pv.active=true and cv.active=true
             order by ca.sort_order, cc.sort_order, cs.sort_order
             """,
-            (product["id"],),
-        )
+                (product["id"],),
+            )
+        if catalog_slug and not variants:
+            return None
         templates = await self._database.fetch_all(
             """
             select ca.slug catalog, cc.slug color, mt.style, mt.placement
+            from catalogs ca
+            join mockup_templates mt on mt.catalog_id=ca.id and mt.active=true
+            join catalog_colors cc on cc.id=mt.color_id
+            where ca.active=true and ca.slug=%s
+            order by ca.sort_order, cc.sort_order, field(mt.style,'flat','women','men'),
+              field(mt.placement,'front','left-chest','back')
+            """,
+            (catalog_slug,),
+        ) if catalog_slug else await self._database.fetch_all(
+            """
+            select ca.slug catalog, cc.slug color, mt.style, mt.placement
             from product_catalogs pc
-            join catalogs ca on ca.id=pc.catalog_id
+            join catalogs ca on ca.id=pc.catalog_id and ca.active=true
             join mockup_templates mt on mt.catalog_id=ca.id and mt.active=true
             join catalog_colors cc on cc.id=mt.color_id
             where pc.product_id=%s and pc.active=true
@@ -149,6 +194,40 @@ class CatalogRepository:
             }
             for template in templates
         ]
+        dynamic_media_keys = {
+            (variant["catalog"], variant["color"], variant["color_name"])
+            for variant in variants
+            if variant["provider"] == "gearment"
+        }
+        media.extend(
+            {
+                "catalog": catalog,
+                "color": color,
+                "style": "flat",
+                "placement": placement,
+                "width": 1500,
+                "url": build_catalog_mockup_url(
+                    product_slug=product["slug"],
+                    catalog_slug=catalog,
+                    color_name=color_name,
+                    placement=placement,
+                ),
+                "blank_url": "",
+            }
+            for catalog, color, color_name in sorted(dynamic_media_keys)
+            for placement in ("front", "back")
+        )
+        for variant in variants:
+            if variant.pop("provider") == "gearment":
+                variant["images"] = [
+                    build_catalog_mockup_url(
+                        product_slug=product["slug"],
+                        catalog_slug=variant["catalog"],
+                        color_name=variant["color_name"],
+                        placement=placement,
+                    )
+                    for placement in ("front", "back")
+                ]
         return {
             "id": product["public_id"],
             "slug": product["slug"],
@@ -161,7 +240,11 @@ class CatalogRepository:
             "seo": {
                 "title": product["seo_title"] or product["title"],
                 "description": product["seo_description"] or product["description"],
-                "canonical": f"/product/{product['slug']}",
+                "canonical": (
+                    f"/product/{product['slug']}/{catalog_slug}"
+                    if catalog_slug
+                    else f"/product/{product['slug']}"
+                ),
             },
             "design": {
                 "slug": product["design_slug"],
@@ -172,20 +255,151 @@ class CatalogRepository:
             "media": media,
         }
 
+    async def get_catalog_render_job(
+        self,
+        *,
+        product_slug: str,
+        catalog_slug: str,
+        color: str,
+        size: str | None,
+        placement: str,
+    ) -> RenderJob | None:
+        variant = await self._database.fetch_one(
+            """
+            select p.public_id product_id, p.slug product_slug, d.public_id artwork_id,
+              d.slug artwork_slug, d.checksum artwork_checksum,
+              cv.public_id catalog_variant_public_id, ca.id catalog_id,
+              ca.artwork_guideline_json, ca.product_type,
+              cc.id color_id, cc.slug color_slug, cc.hex garment_color
+            from products p
+            join designs d on d.id=p.design_id and d.status='active'
+            join catalogs ca on ca.active=true
+            join catalog_variants cv on cv.catalog_id=ca.id and cv.active=true
+            join catalog_colors cc on cc.id=cv.color_id and cc.active=true
+            join catalog_sizes cs on cs.id=cv.size_id and cs.active=true
+            where p.slug=%s and p.status='active' and ca.slug=%s
+              and (lower(cc.slug)=lower(%s) or lower(cc.name)=lower(%s))
+              and (%s is null or lower(cs.code)=lower(%s) or lower(cs.label)=lower(%s))
+            order by cs.sort_order limit 1
+            """,
+            (product_slug, catalog_slug, color, color, size, size, size),
+        )
+        if not variant or not variant["garment_color"]:
+            return None
+        variant["variant_id"] = stable_variant_id(
+            variant["product_id"], variant["catalog_variant_public_id"]
+        )
+
+        guideline = variant["artwork_guideline_json"] or {}
+        if isinstance(guideline, str):
+            guideline = json.loads(guideline)
+        resolved_placement = "back" if placement == "back" else "front"
+        design_kit = next(
+            (
+                item
+                for item in guideline.get("design_kits", [])
+                if str(item.get("locationCode", "")).lower() == resolved_placement
+            ),
+            None,
+        )
+        if not design_kit:
+            return None
+        source_url = design_kit.get("layer1Url") or design_kit.get("locationModelUrl")
+        asset = await self._database.fetch_one(
+            """
+            select local_path, checksum, width, height from catalog_assets
+            where catalog_id=%s and source_url=%s and status='active' limit 1
+            """,
+            (variant["catalog_id"], source_url),
+        )
+        if not asset or not asset["width"] or not asset["height"]:
+            return None
+        left = float(design_kit["designAreaX"]) * int(asset["width"]) / 100
+        top = float(design_kit["designAreaY"]) * int(asset["height"]) / 100
+        width = float(design_kit["designAreaWidth"]) * int(asset["width"]) / 100
+        height = float(design_kit["designAreaHeight"]) * int(asset["height"]) / 100
+        return RenderJob(
+            product_id=variant["product_id"],
+            artwork_id=variant["artwork_id"],
+            template_id=f"{catalog_slug}-{resolved_placement}",
+            variant_id=variant["variant_id"],
+            base_source=asset["local_path"],
+            artwork_source=f"design/{resolve_design_path(variant['artwork_slug'], settings)}",
+            garment_color=variant["garment_color"],
+            print_area=PrintArea(
+                dst_quad=[
+                    (left, top),
+                    (left + width, top),
+                    (left + width, top + height),
+                    (left, top + height),
+                ],
+                displacement_strength=0,
+                shadow_opacity=0,
+                highlight_opacity=0,
+                surface_mode="none",
+            ),
+            version=f"gearment-v6-catalog:{variant['artwork_checksum']}:{asset['checksum']}:{variant['garment_color']}",
+            metadata={
+                "catalog": catalog_slug,
+                "placement": resolved_placement,
+                "template_source": "catalog-asset",
+            },
+        )
+
     async def list_catalogs(self) -> list[dict[str, Any]]:
         catalogs = await self._database.fetch_all(
-            "select public_id id, slug, name, product_type, material, brand from catalogs where active=true order by sort_order",
+            """
+            select c.id internal_id, c.public_id id, c.slug, c.name, c.product_type,
+              c.material, c.brand,
+              (select count(*) from products p where p.status='active') product_count
+            from catalogs c
+            where c.active=true
+              and exists(select 1 from catalog_variants cv where cv.catalog_id=c.id and cv.active=true)
+              and exists(select 1 from catalog_assets ca where ca.catalog_id=c.id and ca.status='active')
+            order by c.sort_order, c.name
+            """,
             (),
         )
+        if not catalogs:
+            return []
+
+        colors = await self._database.fetch_all(
+            """
+            select cc.catalog_id, cc.slug, cc.name, cc.hex
+            from catalog_colors cc join catalogs c on c.id=cc.catalog_id
+            where c.active=true and cc.active=true order by cc.sort_order, cc.id
+            """,
+            (),
+        )
+        sizes = await self._database.fetch_all(
+            """
+            select cs.catalog_id, cs.code, cs.label
+            from catalog_sizes cs join catalogs c on c.id=cs.catalog_id
+            where c.active=true and cs.active=true order by cs.sort_order, cs.id
+            """,
+            (),
+        )
+        taxonomy = await self._database.fetch_all(
+            """
+            select ct.catalog_id, ct.department, ct.type_slug, ct.type_label, ct.sort_order
+            from catalog_taxonomy ct join catalogs c on c.id=ct.catalog_id
+            where c.active=true order by ct.sort_order, ct.type_label
+            """,
+            (),
+        )
+
+        def grouped(rows: list[dict[str, Any]], catalog_id: int) -> list[dict[str, Any]]:
+            return [
+                {key: value for key, value in row.items() if key != "catalog_id"}
+                for row in rows
+                if row["catalog_id"] == catalog_id
+            ]
+
         for catalog in catalogs:
-            catalog["colors"] = await self._database.fetch_all(
-                "select slug, name, hex from catalog_colors where catalog_id=(select id from catalogs where public_id=%s) and active=true order by sort_order",
-                (catalog["id"],),
-            )
-            catalog["sizes"] = await self._database.fetch_all(
-                "select code, label from catalog_sizes where catalog_id=(select id from catalogs where public_id=%s) and active=true order by sort_order",
-                (catalog["id"],),
-            )
+            internal_id = catalog.pop("internal_id")
+            catalog["colors"] = grouped(colors, internal_id)
+            catalog["sizes"] = grouped(sizes, internal_id)
+            catalog["taxonomy"] = grouped(taxonomy, internal_id)
         return catalogs
 
     async def list_collections(self) -> list[dict[str, Any]]:
@@ -224,7 +438,7 @@ class CatalogRepository:
             """
             select ci.quantity, pv.public_id variant_id, pv.sku, pv.price_minor, pv.currency,
               p.public_id product_id, p.slug product_slug, p.title product_title,
-              d.slug design_slug, ca.slug catalog, ca.name catalog_name,
+              d.slug design_slug, ca.slug catalog, ca.name catalog_name, ca.provider,
               cc.slug color, cc.name color_name, cs.code size
             from cart_items ci
             join product_variants pv on pv.id=ci.product_variant_id and pv.active=true
@@ -242,12 +456,20 @@ class CatalogRepository:
             {
                 **item,
                 "line_total_minor": item["price_minor"] * item["quantity"],
-                "image": build_media_url(
-                    design_slug=item["design_slug"],
-                    catalog_slug=item["catalog"],
-                    color_slug=item["color"],
-                    style="flat",
-                    placement="front",
+                "image": (
+                    build_catalog_mockup_url(
+                        product_slug=item["product_slug"],
+                        catalog_slug=item["catalog"],
+                        color_name=item["color_name"],
+                    )
+                    if item.pop("provider") == "gearment"
+                    else build_media_url(
+                        design_slug=item["design_slug"],
+                        catalog_slug=item["catalog"],
+                        color_slug=item["color"],
+                        style="flat",
+                        placement="front",
+                    )
                 ),
             }
             for item in items
@@ -285,7 +507,61 @@ class CatalogRepository:
             )
             variant = await cursor.fetchone()
             if not variant:
-                raise ValueError("Variant is not available")
+                await cursor.execute(
+                    """
+                    select p.id product_id,p.public_id product_public_id,p.slug product_slug,
+                      cv.id catalog_variant_id,cv.public_id catalog_variant_public_id,
+                      cv.default_price_minor,cv.currency,ca.id catalog_id,ca.slug catalog_slug,
+                      cc.id color_id,cc.slug color_slug,cs.code size_code
+                    from products p
+                    join catalogs ca on ca.active=true
+                    join catalog_variants cv on cv.catalog_id=ca.id and cv.active=true
+                    join catalog_colors cc on cc.id=cv.color_id and cc.active=true
+                    join catalog_sizes cs on cs.id=cv.size_id and cs.active=true
+                    where p.status='active' and concat('pv_',left(sha2(
+                      concat(p.public_id,':',cv.public_id),256),32))=%s limit 1
+                    """,
+                    (variant_id,),
+                )
+                virtual = await cursor.fetchone()
+                if not virtual:
+                    raise ValueError("Variant is not available")
+                await cursor.execute(
+                    """
+                    insert into product_catalogs(product_id,catalog_id,default_color_id,active)
+                    values (%s,%s,%s,true)
+                    on duplicate key update active=true
+                    """,
+                    (virtual["product_id"], virtual["catalog_id"], virtual["color_id"]),
+                )
+                sku_hash = hashlib.sha256(variant_id.encode()).hexdigest()[:10].upper()
+                sku = (
+                    f"{virtual['product_slug']}-{virtual['catalog_slug']}-"
+                    f"{virtual['color_slug']}-{virtual['size_code']}-{sku_hash}"
+                )[:160].upper()
+                await cursor.execute(
+                    """
+                    insert into product_variants(public_id,product_id,catalog_variant_id,sku,
+                      price_minor,currency,active)
+                    values (%s,%s,%s,%s,%s,%s,true)
+                    on duplicate key update active=true
+                    """,
+                    (
+                        variant_id,
+                        virtual["product_id"],
+                        virtual["catalog_variant_id"],
+                        sku,
+                        virtual["default_price_minor"],
+                        virtual["currency"],
+                    ),
+                )
+                await cursor.execute(
+                    "select id from product_variants where product_id=%s and catalog_variant_id=%s",
+                    (virtual["product_id"], virtual["catalog_variant_id"]),
+                )
+                variant = await cursor.fetchone()
+                if not variant:
+                    raise RuntimeError("Variant could not be materialized")
             if quantity == 0:
                 await cursor.execute(
                     "delete from cart_items where cart_id=%s and product_variant_id=%s",
@@ -340,7 +616,8 @@ class CatalogRepository:
             await cursor.execute(
                 """
                 select ci.quantity, pv.public_id variant_id, pv.sku, pv.price_minor,
-                  p.title, d.slug design_slug, ca.slug catalog, ca.name catalog_name,
+                  p.slug product_slug, p.title, d.slug design_slug, ca.slug catalog,
+                  ca.name catalog_name, ca.provider,
                   cc.slug color, cc.name color_name, cs.code size
                 from cart_items ci join product_variants pv on pv.id=ci.product_variant_id and pv.active=true
                 join products p on p.id=pv.product_id and p.status='active'
@@ -373,12 +650,20 @@ class CatalogRepository:
             )
             order_id = cursor.lastrowid
             for item in items:
-                mockup_url = build_media_url(
-                    design_slug=item["design_slug"],
-                    catalog_slug=item["catalog"],
-                    color_slug=item["color"],
-                    style="flat",
-                    placement="front",
+                mockup_url = (
+                    build_catalog_mockup_url(
+                        product_slug=item["product_slug"],
+                        catalog_slug=item["catalog"],
+                        color_name=item["color_name"],
+                    )
+                    if item["provider"] == "gearment"
+                    else build_media_url(
+                        design_slug=item["design_slug"],
+                        catalog_slug=item["catalog"],
+                        color_slug=item["color"],
+                        style="flat",
+                        placement="front",
+                    )
                 )
                 await cursor.execute(
                     """

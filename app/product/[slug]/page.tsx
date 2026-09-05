@@ -15,12 +15,12 @@ import {
 	BreadcrumbItem,
 	BreadcrumbLink,
 	BreadcrumbList,
-	BreadcrumbPage,
 	BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Skeleton } from "@/components/ui/skeleton";
 import { commerce, meGetCached } from "@/lib/commerce";
 import { buildProductBreadcrumbJsonLd, buildProductJsonLd, JsonLdScript } from "@/lib/json-ld";
+import { productGetByCatalog } from "@/lib/own-commerce";
 import { cn } from "@/lib/utils";
 
 export const instant = false;
@@ -39,11 +39,21 @@ function StarRow({ rating }: { rating: number }) {
 	);
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+type ProductRouteParams = { slug: string; catalog?: string };
+
+async function getProduct(slug: string, catalog?: string) {
+	return catalog ? productGetByCatalog(slug, catalog) : commerce.productGet({ idOrSlug: slug });
+}
+
+export async function generateMetadata({
+	params,
+}: {
+	params: Promise<ProductRouteParams>;
+}): Promise<Metadata> {
 	"use cache";
 	cacheLife("minutes");
-	const { slug } = await params;
-	const product = await commerce.productGet({ idOrSlug: slug });
+	const { slug, catalog } = await params;
+	const product = await getProduct(slug, catalog);
 
 	if (!product) {
 		return { title: "Product Not Found", robots: { index: false, follow: true } };
@@ -77,12 +87,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 function ProductDetailsSkeleton() {
 	return (
 		<div
-			className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"
+			className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7"
 			role="status"
 			aria-busy="true"
 			aria-label="Loading product details"
 		>
-			<div className="mb-6 flex items-center gap-3" aria-hidden>
+			<div className="mb-5 flex items-center gap-3 border-b border-border/60 pb-4" aria-hidden>
 				<Skeleton className="h-3 w-10" />
 				<Skeleton className="h-px w-3" />
 				<Skeleton className="h-3 w-16" />
@@ -90,9 +100,9 @@ function ProductDetailsSkeleton() {
 				<Skeleton className="hidden h-3 w-24 sm:block" />
 			</div>
 
-			<div className="lg:grid lg:grid-cols-2 lg:gap-16">
+			<div className="lg:grid lg:grid-cols-[minmax(0,1.18fr)_minmax(380px,0.82fr)] lg:gap-12 xl:grid-cols-[minmax(0,1.25fr)_minmax(420px,0.75fr)] xl:gap-20">
 				<div aria-hidden>
-					<Skeleton className="aspect-square w-full border border-border" />
+					<Skeleton className="aspect-[4/5] w-full" />
 					<div className="mt-4 hidden gap-3 md:flex">
 						{Array.from({ length: 4 }, (_, index) => (
 							<Skeleton key={index} className="aspect-square w-20 border border-border" />
@@ -100,9 +110,9 @@ function ProductDetailsSkeleton() {
 					</div>
 				</div>
 
-				<div className="mt-8 space-y-8 lg:mt-0" aria-hidden>
+				<div className="mt-8 space-y-6 lg:mt-0 lg:px-4 xl:px-8" aria-hidden>
 					<div className="space-y-4">
-						<Skeleton className="h-12 w-[82%] lg:h-14" />
+						<Skeleton className="h-5 w-[72%]" />
 						<div className="space-y-2">
 							<Skeleton className="h-4 w-full max-w-lg" />
 							<Skeleton className="h-4 w-3/4 max-w-md" />
@@ -152,7 +162,7 @@ function ProductDetailsSkeleton() {
 	);
 }
 
-export default async function ProductPage(props: { params: Promise<{ slug: string }> }) {
+export default async function ProductPage(props: { params: Promise<ProductRouteParams> }) {
 	return (
 		<Suspense fallback={<ProductDetailsSkeleton />}>
 			<ProductDetails params={props.params} />
@@ -160,14 +170,14 @@ export default async function ProductPage(props: { params: Promise<{ slug: strin
 	);
 }
 
-const ProductDetails = async ({ params }: { params: Promise<{ slug: string }> }) => {
+const ProductDetails = async ({ params }: { params: Promise<ProductRouteParams> }) => {
 	"use cache";
 	cacheLife("minutes");
-	const { slug } = await params;
+	const { slug, catalog } = await params;
 	const me = await meGetCached().catch(() => null);
 	const reviewsEnabled = me?.store.settings?.enabledTools?.reviews ?? false;
 	const [product, reviews] = await Promise.all([
-		commerce.productGet({ idOrSlug: slug }),
+		getProduct(slug, catalog),
 		reviewsEnabled ? commerce.productReviewsBrowse({ idOrSlug: slug }, { limit: 20 }) : Promise.resolve(null),
 	]);
 
@@ -185,10 +195,10 @@ const ProductDetails = async ({ params }: { params: Promise<{ slug: string }> })
 	const productJsonLd = await buildProductJsonLd(product, reviews);
 
 	return (
-		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+		<div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
 			<JsonLdScript data={productJsonLd} />
 			<JsonLdScript data={buildProductBreadcrumbJsonLd(product)} />
-			<Breadcrumb className="mb-6">
+			<Breadcrumb className="mb-5 border-b border-border/60 pb-4 text-[11px] uppercase tracking-[0.08em]">
 				<BreadcrumbList>
 					<BreadcrumbItem>
 						<BreadcrumbLink asChild>
@@ -211,21 +221,17 @@ const ProductDetails = async ({ params }: { params: Promise<{ slug: string }> })
 							</BreadcrumbItem>
 						</>
 					)}
-					<BreadcrumbSeparator />
-					<BreadcrumbItem>
-						<BreadcrumbPage>{product.name}</BreadcrumbPage>
-					</BreadcrumbItem>
 				</BreadcrumbList>
 			</Breadcrumb>
-			<div className="lg:grid lg:grid-cols-2 lg:gap-16">
+			<div className="lg:grid lg:grid-cols-[minmax(0,1.18fr)_minmax(380px,0.82fr)] lg:gap-12 xl:grid-cols-[minmax(0,1.25fr)_minmax(420px,0.75fr)] xl:gap-20">
 				{/* Left: Image Gallery (sticky on desktop) */}
 				<MediaGallery images={allImages} productName={product.name} variants={product.variants} />
 
 				{/* Right: Product Details */}
-				<div className="mt-8 lg:mt-0 space-y-8">
+				<div className="mt-8 lg:sticky lg:top-24 lg:mt-0 lg:self-start lg:px-4 xl:px-8">
 					{/* Title & reviews summary */}
-					<div className="space-y-3">
-						<h1 className="text-4xl font-medium tracking-tight text-foreground lg:text-5xl text-balance">
+					<div className="mb-7 space-y-3 border-b border-border/60 pb-6">
+						<h1 className="text-balance text-sm font-semibold uppercase leading-snug tracking-[0.025em] text-foreground">
 							{product.name}
 						</h1>
 						{reviewSummary && reviewSummary.reviewCount > 0 && (

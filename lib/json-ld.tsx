@@ -42,6 +42,7 @@ export async function buildProductJsonLd(
 	const highPrice = getDecimalPrice(String(Math.max(...prices)));
 	const baseUrl = getBaseUrl();
 	const currency = await getCurrency();
+	const productPath = `/product/${product.slug}${product.category?.slug ? `/${product.category.slug}` : ""}`;
 	const variants = product.variants.map((variant) => {
 		const options = Object.fromEntries(
 			variant.combinations.map((combination) => [
@@ -59,7 +60,7 @@ export async function buildProductJsonLd(
 			size: options.Size,
 			offers: {
 				"@type": "Offer",
-				url: `${baseUrl}/product/${product.slug}${query ? `?${query}` : ""}`,
+				url: `${baseUrl}${productPath}${query ? `?${query}` : ""}`,
 				priceCurrency: currency,
 				price: getDecimalPrice(variant.price),
 				itemCondition: "https://schema.org/NewCondition",
@@ -87,7 +88,7 @@ export async function buildProductJsonLd(
 			product.variants.length === 1
 				? {
 						"@type": "Offer",
-						url: `${baseUrl}/product/${product.slug}`,
+						url: `${baseUrl}${productPath}`,
 						priceCurrency: currency,
 						price: lowPrice,
 						availability:

@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { About } from "@/components/sections/about";
+import { CatalogShowcase } from "@/components/sections/catalog-showcase";
 import { Hero } from "@/components/sections/hero";
 import { Newsletter } from "@/components/sections/newsletter";
-import { ProductGrid } from "@/components/sections/product-grid";
 
 function ProductGridSkeleton() {
 	return (
@@ -36,7 +36,7 @@ export default function Home() {
 		<>
 			<Hero />
 			<Suspense fallback={<ProductGridSkeleton />}>
-				<ProductGrid title="Featured Products" limit={6} />
+				<CatalogShowcase />
 			</Suspense>
 			<About />
 			<Newsletter />

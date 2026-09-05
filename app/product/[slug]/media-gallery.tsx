@@ -46,14 +46,25 @@ const styleOrder = { flat: 0, women: 1, men: 2 } as const;
 function describeGalleryImage(image: string | undefined, color: string): GalleryImage | null {
 	if (!image) return null;
 	const normalized = image.toLowerCase();
-	if (!normalized.includes(`-${color.toLowerCase()}-`)) return null;
-	const placement = normalized.endsWith(placementSuffix.chest)
-		? "chest"
-		: normalized.endsWith(placementSuffix.back)
+	const dynamicUrl = normalized.includes("/api/catalog-mockup/");
+	const dynamicParams = dynamicUrl ? new URL(image, "http://local").searchParams : null;
+	const matchesColor = dynamicParams
+		? dynamicParams.get("Color")?.toLowerCase() === color.toLowerCase()
+		: normalized.includes(`-${color.toLowerCase()}-`);
+	if (!matchesColor) return null;
+	const dynamicPlacement = dynamicParams?.get("Placement")?.toLowerCase();
+	const placement =
+		dynamicPlacement === "back"
 			? "back"
-			: normalized.endsWith(placementSuffix.front)
+			: dynamicPlacement === "front"
 				? "front"
-				: null;
+				: normalized.endsWith(placementSuffix.chest)
+					? "chest"
+					: normalized.endsWith(placementSuffix.back)
+						? "back"
+						: normalized.endsWith(placementSuffix.front)
+							? "front"
+							: null;
 	if (!placement) return null;
 	return {
 		url: image,
@@ -152,7 +163,7 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 	if (displayImages.length === 0) {
 		return (
 			<div className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
-				<div className="flex aspect-square items-center justify-center border border-border bg-secondary">
+				<div className="flex aspect-[4/5] items-center justify-center bg-[#f4f4f4]">
 					<p className="text-muted-foreground">No images available</p>
 				</div>
 			</div>
@@ -163,21 +174,22 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 		<div
 			tabIndex={0}
 			onKeyDown={handleKeyDown}
-			className="flex flex-col gap-4 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 lg:sticky lg:top-24 lg:self-start"
+			className="flex flex-col gap-3 outline-none focus-visible:ring-1 focus-visible:ring-ring lg:self-start"
 		>
 			{/* Mobile: native horizontal swipe with CSS scroll snapping. */}
 			<div className="-mx-4 flex snap-x snap-mandatory overflow-x-auto px-4 [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
 				{displayImages.map((image, index) => (
 					<div
 						key={image}
-						className="relative aspect-square w-full shrink-0 snap-center overflow-hidden border border-border bg-secondary"
+						className="relative aspect-[4/5] w-full shrink-0 snap-center overflow-hidden bg-[#f4f4f4]"
 					>
 						<YNSMedia
 							src={image}
 							alt={`${productName} - View ${index + 1}`}
 							fill
+							quality={image.includes("/api/catalog-mockup/") ? 90 : undefined}
 							sizes="100vw"
-							className="object-cover"
+							className="object-contain"
 							priority={index === 0}
 						/>
 					</div>
@@ -185,10 +197,10 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 			</div>
 
 			{/* Desktop main image */}
-			<div className="group relative hidden aspect-square overflow-hidden border border-border bg-secondary md:block">
+			<div className="group relative hidden aspect-[4/5] overflow-hidden bg-[#f4f4f4] md:block">
 				{isVideoUrl(displayImages[selectedIndex] ?? "") ? (
 					<video
-						className="absolute inset-0 w-full h-full object-cover"
+						className="absolute inset-0 h-full w-full object-contain"
 						src={displayImages[selectedIndex]}
 						muted
 						loop
@@ -201,9 +213,10 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 						src={displayImages[selectedIndex]}
 						alt={`${productName} - View ${selectedIndex + 1}`}
 						fill
+						quality={displayImages[selectedIndex]?.includes("/api/catalog-mockup/") ? 90 : undefined}
 						sizes="(max-width: 1024px) 100vw, 50vw"
 						className={cn(
-							"object-cover transition-transform duration-500",
+							"object-contain transition-transform duration-500 ease-out",
 							isZoomed && "scale-150 cursor-zoom-out",
 						)}
 						onClick={() => setIsZoomed(!isZoomed)}
@@ -213,11 +226,11 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 
 				{/* Navigation Arrows */}
 				{displayImages.length > 1 && (
-					<div className="absolute inset-x-4 top-1/2 flex -translate-y-1/2 justify-between opacity-0 transition-opacity group-hover:opacity-100">
+					<div className="absolute inset-x-4 top-1/2 flex -translate-y-1/2 justify-between opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
 						<Button
 							variant="secondary"
 							size="icon"
-							className="h-10 w-10 bg-background/90 shadow-lg backdrop-blur-sm hover:bg-background"
+							className="h-10 w-10 border border-foreground/20 bg-background/95 shadow-none hover:bg-background"
 							onClick={(e) => {
 								e.stopPropagation();
 								handlePrevious();
@@ -229,7 +242,7 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 						<Button
 							variant="secondary"
 							size="icon"
-							className="h-10 w-10 bg-background/90 shadow-lg backdrop-blur-sm hover:bg-background"
+							className="h-10 w-10 border border-foreground/20 bg-background/95 shadow-none hover:bg-background"
 							onClick={(e) => {
 								e.stopPropagation();
 								handleNext();
@@ -244,7 +257,7 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 				{/* Zoom Indicator (hidden for videos) */}
 				{!isVideoUrl(displayImages[selectedIndex] ?? "") && (
 					<div className="absolute bottom-4 right-4 opacity-0 transition-opacity group-hover:opacity-100">
-						<div className="flex items-center gap-2 bg-background/90 px-3 py-1.5 text-xs font-medium backdrop-blur-sm">
+						<div className="flex items-center gap-2 bg-background/90 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.08em] backdrop-blur-sm">
 							<ZoomIn className="h-3.5 w-3.5" />
 							Click to zoom
 						</div>
@@ -253,7 +266,7 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 
 				{/* Image Counter */}
 				{displayImages.length > 1 && (
-					<div className="absolute bottom-4 left-4 bg-background/90 px-3 py-1.5 text-xs font-medium backdrop-blur-sm">
+					<div className="absolute bottom-4 left-4 text-[10px] font-medium tracking-[0.08em]">
 						{selectedIndex + 1} / {displayImages.length}
 					</div>
 				)}
@@ -261,22 +274,22 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 
 			{/* Thumbnails */}
 			{displayImages.length > 1 && (
-				<div className="-m-2 hidden gap-3 overflow-x-auto p-2 md:flex">
+				<div className="hidden gap-2 overflow-x-auto pb-1 md:flex [scrollbar-width:thin]">
 					{displayImages.map((image, index) => (
 						<button
 							key={`${image}-${index}`}
 							type="button"
 							onClick={() => setSelectedIndex(index)}
 							className={cn(
-								"relative aspect-square w-20 flex-shrink-0 overflow-hidden border border-border transition-all duration-200",
+								"relative aspect-square w-20 flex-shrink-0 overflow-hidden border transition-opacity duration-200",
 								selectedIndex === index
-									? "ring-2 ring-foreground ring-offset-2 ring-offset-background"
-									: "opacity-60 hover:opacity-100",
+									? "border-foreground opacity-100"
+									: "border-transparent opacity-55 hover:opacity-100",
 							)}
 						>
 							{isVideoUrl(image) ? (
 								<video
-									className="absolute inset-0 w-full h-full object-cover"
+									className="absolute inset-0 h-full w-full object-contain"
 									src={image}
 									muted
 									playsInline
@@ -287,7 +300,7 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 									alt={`${productName} thumbnail ${index + 1}`}
 									fill
 									sizes="80px"
-									className="object-cover"
+									className="object-contain"
 								/>
 							)}
 						</button>

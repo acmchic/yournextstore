@@ -52,6 +52,15 @@ class Settings:
     url_signing_secret: str = os.getenv("MOCKUP_URL_SECRET") or mysql_password
     allow_unsigned_urls: bool = _bool_env("MOCKUP_ALLOW_UNSIGNED_URLS", False)
     signing_admin_key: str = os.getenv("MOCKUP_SIGNING_ADMIN_KEY", "")
+    gearment_client_key: str = _env("GEARMENT_CLIENT_KEY", "GEARMENT_API_KEY", "") or os.getenv(
+        "X-Gearment-Client-Key", ""
+    )
+    gearment_client_secret: str = _env(
+        "GEARMENT_CLIENT_SECRET", "GEARMENT_API_SECRET", ""
+    ) or os.getenv("X-Gearment-Client-Secret", "")
+    gearment_api_base_url: str = os.getenv(
+        "GEARMENT_API_BASE_URL", "https://apiv2.gearment.com/integration-handler"
+    ).rstrip("/")
 
 
 settings = Settings()

@@ -88,8 +88,32 @@ docker-compose exec -T db sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYS
 GET /health
 GET /img/{design-slug}/{catalog}-{front|left-chest|back}.webp
 GET /v1/products/{slug}
+GET /v1/products/{slug}?catalog={catalog-slug}
+GET /v1/products/{slug}/catalogs/{catalog-slug}/mockup?Color=Black&Size=S&Placement=front
 GET /v1/mockups/render?product_id=...&artwork_id=...&template_id=...&variant_id=...
 GET /m/{slug-publicid}?t=...
+```
+
+## Rebuild the Gearment catalog
+
+Put the Gearment client key and secret in `api/.env`, review the allowlist in
+`api/catalog-import.json`, then run from the repository root:
+
+```bash
+bash scripts/import-gearment-catalog.sh
+```
+
+The command is safe to rerun. It applies missing schema migrations, upserts the
+selected API catalogs and variants, enriches them from the exact public product and
+category URLs in the manifest, and re-downloads catalog assets into
+`api/public/mockup/{catalog-slug}/`. It can rebuild catalog data after catalog tables
+are emptied, provided referenced product/cart/order rows have also been handled
+consistently with their foreign keys.
+
+To preview without database or file changes inside the API environment:
+
+```bash
+python -m app.cli sync-gearment-catalog --manifest catalog-import.json
 ```
 
 File-based preview URLs map a stable, descriptive design slug through
@@ -119,6 +143,29 @@ file-path/query URLs redirect permanently to the canonical URL. File paths are
 restricted to `public/design`, and rendered responses use the deterministic cache.
 
 The render endpoint returns `image/webp` by default. Add `format=png` for transparent/debug output or `refresh=true` to force a cache miss.
+
+Catalog-specific pages do not require a product-to-catalog assignment. Every
+active product can use every active catalog. The command below remains available
+only for pre-materializing variants ahead of time; normally it is unnecessary
+because the selected variant is created lazily when the customer adds it to cart:
+
+```bash
+cd api
+python -m app.cli assign-product-catalog \
+  --product hamburger-helper-glove \
+  --catalog classic-t-shirt
+```
+
+The catalog-specific storefront URL is:
+
+```text
+/product/hamburger-helper-glove/classic-t-shirt?Size=S&Color=Black
+```
+
+Gearment catalog images are rendered on demand. The API resolves the selected
+color's hex value from `catalog_colors`, recolors the local front/back garment
+asset while retaining its texture, then composites the product design into the
+percentage-based print area stored in `artwork_guideline_json`.
 
 Short image URLs:
 

@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
-from app.rendering.pipeline import _apply_displacement, _fit_artwork, _quad_size
+from app.rendering.pipeline import (
+    _apply_displacement,
+    _fit_artwork,
+    _quad_size,
+    _tint_catalog_base,
+)
 
 
 def _opaque_artwork(width: int, height: int) -> np.ndarray:
@@ -50,3 +56,34 @@ def test_flat_displacement_map_does_not_move_artwork() -> None:
     displaced = _apply_displacement(artwork, displacement, 12)
 
     np.testing.assert_array_equal(displaced, artwork)
+
+
+def test_tint_catalog_base_keeps_background_and_preserves_texture() -> None:
+    base = np.full((80, 80, 3), 255, dtype=np.uint8)
+    base[20:60, 18:62] = 110
+    base[35:60, 18:62] = 150
+
+    tinted = _tint_catalog_base(base, "#25282A")
+
+    np.testing.assert_array_equal(tinted[0, 0], [255, 255, 255])
+    assert tinted[25, 30].mean() < tinted[45, 30].mean()
+    assert tinted[45, 30, 2] > 0
+
+
+def test_tint_catalog_base_does_not_blow_out_a_dark_template_for_white() -> None:
+    base = np.full((100, 100, 3), 255, dtype=np.uint8)
+    base[10:90, 10:90] = 45
+    base[30:70, 20:80] = 80
+    base[45:55, 20:80] = 115
+
+    tinted = _tint_catalog_base(base, "#FFFFFF")
+
+    garment = tinted[10:90, 10:90]
+    blown_out = np.all(garment == 255, axis=2).mean()
+    assert blown_out < 0.1
+    assert garment.std() > 8
+
+
+def test_tint_catalog_base_rejects_invalid_hex() -> None:
+    with pytest.raises(ValueError, match="Invalid garment color"):
+        _tint_catalog_base(np.zeros((2, 2, 3), dtype=np.uint8), "black")

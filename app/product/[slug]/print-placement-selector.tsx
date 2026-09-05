@@ -18,8 +18,8 @@ export function PrintPlacementSelector() {
 
 	return (
 		<fieldset className="m-0 border-0 p-0">
-			<legend className="mb-3 text-sm font-medium">Print area</legend>
-			<div className="flex flex-wrap gap-3">
+			<legend className="mb-3 text-xs uppercase tracking-[0.06em]">Print area</legend>
+			<div className="flex flex-wrap gap-2">
 				{placements.map((placement) => (
 					<button
 						key={placement.value}
@@ -30,7 +30,7 @@ export function PrintPlacementSelector() {
 							router.push(`${pathname}?${params.toString()}`, { scroll: false });
 						}}
 						className={cn(
-							"border-2 px-4 py-3 text-sm font-medium transition-colors",
+							"min-h-11 border px-4 py-2.5 text-sm transition-colors",
 							selected === placement.value
 								? "border-foreground bg-foreground text-background"
 								: "border-border bg-background hover:border-muted-foreground",

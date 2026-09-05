@@ -148,7 +148,7 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 	}
 
 	return (
-		<div className="space-y-8">
+		<div className="space-y-6">
 			{groupsWithChoices.map((group) => {
 				const selectedOptionId = selectedOptions[group.label];
 				const selectedOption = selectedOptionId
@@ -156,16 +156,16 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 					: undefined;
 
 				return (
-					<fieldset key={group.label} className="border-0 p-0 m-0">
+					<fieldset key={group.label} className="m-0 border-0 p-0">
 						{group.type === "color" ? (
 							<>
 								<div className="mb-3 flex items-center justify-between">
-									<legend className="text-sm font-medium">{group.label}</legend>
+									<legend className="text-xs uppercase tracking-[0.06em]">{group.label}</legend>
 									{selectedOption && (
-										<span className="text-sm text-muted-foreground">{selectedOption.value}</span>
+										<span className="text-xs text-muted-foreground">{selectedOption.value}</span>
 									)}
 								</div>
-								<div className="flex gap-3">
+								<div className="flex flex-wrap gap-3.5">
 									{group.options.map((option) => {
 										const isSelected = selectedOptions[group.label] === option.id;
 										const isLightColor =
@@ -179,10 +179,10 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 												type="button"
 												onClick={() => handleOptionSelect(group.label, option.id)}
 												className={cn(
-													"relative h-12 w-12 rounded-full transition-all duration-200",
+													"relative h-10 w-10 rounded-full transition-all duration-200",
 													isSelected
-														? "ring-2 ring-foreground ring-offset-2 ring-offset-background"
-														: "hover:ring-2 hover:ring-muted-foreground hover:ring-offset-2 hover:ring-offset-background",
+														? "ring-1 ring-foreground ring-offset-2 ring-offset-background"
+														: "hover:ring-1 hover:ring-muted-foreground hover:ring-offset-2 hover:ring-offset-background",
 												)}
 												style={{ backgroundColor: option.colorValue ?? "#fff" }}
 												aria-label={option.value}
@@ -199,9 +199,9 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 						) : (
 							<>
 								<div className="mb-3 flex items-center justify-between">
-									<legend className="text-sm font-medium">{group.label}</legend>
+									<legend className="text-xs uppercase tracking-[0.06em]">{group.label}</legend>
 								</div>
-								<div className="flex flex-wrap gap-3">
+								<div className="flex flex-wrap gap-2">
 									{group.options.map((option) => {
 										const isSelected = selectedOptions[group.label] === option.id;
 
@@ -211,7 +211,7 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 												type="button"
 												onClick={() => handleOptionSelect(group.label, option.id)}
 												className={cn(
-													"flex flex-col items-center rounded-lg border-2 px-6 py-3 transition-all duration-200",
+													"flex min-h-11 min-w-14 items-center justify-center border px-5 py-2.5 transition-colors duration-200",
 													isSelected
 														? "border-foreground bg-foreground text-background"
 														: "border-border bg-background hover:border-muted-foreground",

@@ -1,0 +1,728 @@
+{
+	"products": [
+		{
+			"product_id": "G5000",
+			"enabled": true,
+			"slug": "classic-t-shirt",
+			"source_page_url": "https://gearment.com/catalog/product/classic-t-shirt",
+			"product_type": "t-shirt",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/men-t-shirts",
+					"sort_order": 10
+				},
+				{
+					"department": "women",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/women-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "N3600",
+			"enabled": true,
+			"slug": "premium-guys-tee",
+			"source_page_url": "https://gearment.com/catalog/product/premium-guys-tee",
+			"product_type": "t-shirt",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/men-t-shirts",
+					"sort_order": 10
+				},
+				{
+					"department": "women",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/women-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "G64V00",
+			"enabled": true,
+			"slug": "v-neck-unisex",
+			"source_page_url": "https://gearment.com/catalog/product/v-neck-unisex",
+			"product_type": "t-shirt",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/men-t-shirts",
+					"sort_order": 10
+				},
+				{
+					"department": "women",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/women-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "B3001",
+			"enabled": true,
+			"slug": "jersey-t-shirt",
+			"source_page_url": "https://gearment.com/catalog/product/jersey-t-shirt",
+			"product_type": "t-shirt",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/men-t-shirts",
+					"sort_order": 10
+				},
+				{
+					"department": "women",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/women-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "AL980",
+			"enabled": true,
+			"slug": "lightweight-t-shirt-980",
+			"source_page_url": "https://gearment.com/catalog/product/lightweight-t-shirt-980",
+			"product_type": "t-shirt",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/men-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "CG1717",
+			"enabled": true,
+			"slug": "comfort-colors-1717",
+			"source_page_url": "https://gearment.com/catalog/product/dyed-heavyweight-t-shirt-1717",
+			"product_type": "t-shirt",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/men-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "HA5250",
+			"enabled": true,
+			"slug": "authentic-short-5250",
+			"source_page_url": "https://gearment.com/catalog/product/authentic-short-5250",
+			"product_type": "t-shirt",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/men-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "G18500",
+			"enabled": true,
+			"slug": "hoodie",
+			"source_page_url": "https://gearment.com/catalog/product/hoodie",
+			"product_type": "hoodie",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "hoodies",
+					"type_label": "Hoodies",
+					"source_url": "https://gearment.com/catalog/category/men-hoodies",
+					"sort_order": 20
+				},
+				{
+					"department": "women",
+					"type_slug": "hoodies",
+					"type_label": "Hoodies",
+					"source_url": "https://gearment.com/catalog/category/women-hoodies",
+					"sort_order": 20
+				}
+			]
+		},
+		{
+			"product_id": "BU3719",
+			"enabled": true,
+			"slug": "sponge-fleece-hoodie-3719",
+			"source_page_url": "https://gearment.com/catalog/product/sponge-fleece-hoodie-3719",
+			"product_type": "hoodie",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "hoodies",
+					"type_label": "Hoodies",
+					"source_url": "https://gearment.com/catalog/category/men-hoodies",
+					"sort_order": 20
+				},
+				{
+					"department": "women",
+					"type_slug": "hoodies",
+					"type_label": "Hoodies",
+					"source_url": "https://gearment.com/catalog/category/women-hoodies",
+					"sort_order": 20
+				}
+			]
+		},
+		{
+			"product_id": "BU3501",
+			"enabled": true,
+			"slug": "jersey-long-sleeve-tee-3501",
+			"source_page_url": "https://gearment.com/catalog/product/jersey-long-sleeve-tee-3501",
+			"product_type": "long-sleeve",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "long-sleeves",
+					"type_label": "Long Sleeves",
+					"source_url": "https://gearment.com/catalog/category/men-long-sleeves",
+					"sort_order": 30
+				},
+				{
+					"department": "women",
+					"type_slug": "long-sleeves",
+					"type_label": "Long Sleeves",
+					"source_url": "https://gearment.com/catalog/category/women-long-sleeves",
+					"sort_order": 30
+				}
+			]
+		},
+		{
+			"product_id": "G2400",
+			"enabled": true,
+			"slug": "long-sleeve-tee",
+			"source_page_url": "https://gearment.com/catalog/product/long-sleeve-tee",
+			"product_type": "long-sleeve",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "long-sleeves",
+					"type_label": "Long Sleeves",
+					"source_url": "https://gearment.com/catalog/category/men-long-sleeves",
+					"sort_order": 30
+				},
+				{
+					"department": "women",
+					"type_slug": "long-sleeves",
+					"type_label": "Long Sleeves",
+					"source_url": "https://gearment.com/catalog/category/women-long-sleeves",
+					"sort_order": 30
+				}
+			]
+		},
+		{
+			"product_id": "BD3945",
+			"enabled": true,
+			"slug": "drop-shoulder-sweatshirt-3945",
+			"source_page_url": "https://gearment.com/catalog/product/drop-shoulder-sweatshirt-3945",
+			"product_type": "sweatshirt",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "sweatshirts",
+					"type_label": "Sweatshirts",
+					"source_url": "https://gearment.com/catalog/category/men-sweatshirts",
+					"sort_order": 40
+				},
+				{
+					"department": "women",
+					"type_slug": "sweatshirts",
+					"type_label": "Sweatshirts",
+					"source_url": "https://gearment.com/catalog/category/women-sweatshirts",
+					"sort_order": 40
+				}
+			]
+		},
+		{
+			"product_id": "G18000",
+			"enabled": true,
+			"slug": "sweatshirt",
+			"source_page_url": "https://gearment.com/catalog/product/sweatshirt",
+			"product_type": "sweatshirt",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "sweatshirts",
+					"type_label": "Sweatshirts",
+					"source_url": "https://gearment.com/catalog/category/men-sweatshirts",
+					"sort_order": 40
+				},
+				{
+					"department": "women",
+					"type_slug": "sweatshirts",
+					"type_label": "Sweatshirts",
+					"source_url": "https://gearment.com/catalog/category/women-sweatshirts",
+					"sort_order": 40
+				}
+			]
+		},
+		{
+			"product_id": "BU3480",
+			"enabled": true,
+			"slug": "unisex-jersey-tank-3480",
+			"source_page_url": "https://gearment.com/catalog/product/unisex-jersey-tank-3480",
+			"product_type": "tank",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "tanks",
+					"type_label": "Tanks",
+					"source_url": "https://gearment.com/catalog/category/men-tanks",
+					"sort_order": 50
+				},
+				{
+					"department": "women",
+					"type_slug": "tanks",
+					"type_label": "Tanks",
+					"source_url": "https://gearment.com/catalog/category/women-tanks",
+					"sort_order": 50
+				}
+			]
+		},
+		{
+			"product_id": "G5200",
+			"enabled": true,
+			"slug": "unisex-tank",
+			"source_page_url": "https://gearment.com/catalog/product/unisex-tank",
+			"product_type": "tank",
+			"taxonomy": [
+				{
+					"department": "men",
+					"type_slug": "tanks",
+					"type_label": "Tanks",
+					"source_url": "https://gearment.com/catalog/category/men-tanks",
+					"sort_order": 50
+				},
+				{
+					"department": "women",
+					"type_slug": "tanks",
+					"type_label": "Tanks",
+					"source_url": "https://gearment.com/catalog/category/women-tanks",
+					"sort_order": 50
+				}
+			]
+		},
+		{
+			"product_id": "G5000L",
+			"enabled": true,
+			"slug": "ladies-t-shirt",
+			"source_page_url": "https://gearment.com/catalog/product/ladies-t-shirt",
+			"product_type": "t-shirt",
+			"taxonomy": [
+				{
+					"department": "women",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/women-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "N3900",
+			"enabled": true,
+			"slug": "premium-ladies-tee",
+			"source_page_url": "https://gearment.com/catalog/product/premium-ladies-tee",
+			"product_type": "t-shirt",
+			"taxonomy": [
+				{
+					"department": "women",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/women-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "G2000L",
+			"enabled": true,
+			"slug": "ultra-ladies-t-shirt",
+			"source_page_url": "https://gearment.com/catalog/product/ultra-ladies-t-shirt",
+			"product_type": "t-shirt",
+			"taxonomy": [
+				{
+					"department": "women",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/women-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "5V00L",
+			"enabled": true,
+			"slug": "women-v-neck-t-shirt",
+			"source_page_url": "https://gearment.com/catalog/product/women-v-neck-t-shirt",
+			"product_type": "t-shirt",
+			"taxonomy": [
+				{
+					"department": "women",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/women-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "BW6004",
+			"enabled": true,
+			"slug": "women39;s-slim-fit-tee-6004",
+			"source_page_url": "https://gearment.com/catalog/product/women39;s-slim-fit-tee-6004",
+			"product_type": "t-shirt",
+			"taxonomy": [
+				{
+					"department": "women",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/women-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "B8800",
+			"enabled": true,
+			"slug": "flowy-tank",
+			"source_page_url": "https://gearment.com/catalog/product/flowy-tank",
+			"product_type": "tank",
+			"taxonomy": [
+				{
+					"department": "women",
+					"type_slug": "tanks",
+					"type_label": "Tanks",
+					"source_url": "https://gearment.com/catalog/category/women-tanks",
+					"sort_order": 50
+				}
+			]
+		},
+		{
+			"product_id": "RI4400",
+			"enabled": true,
+			"slug": "infant-rib-bodysuit-4400",
+			"source_page_url": "https://gearment.com/catalog/product/infant-rib-bodysuit-4400",
+			"product_type": "kids-t-shirt",
+			"taxonomy": [
+				{
+					"department": "kids",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/kids-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "RT3321",
+			"enabled": true,
+			"slug": "toddler-fine-jersey-tee-3321",
+			"source_page_url": "https://gearment.com/catalog/product/toddler-fine-jersey-tee-3321",
+			"product_type": "kids-t-shirt",
+			"taxonomy": [
+				{
+					"department": "kids",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/kids-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "G5000B",
+			"enabled": true,
+			"slug": "youth-t-shirt",
+			"source_page_url": "https://gearment.com/catalog/product/youth-t-shirt",
+			"product_type": "kids-t-shirt",
+			"taxonomy": [
+				{
+					"department": "kids",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/kids-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "BY3001Y",
+			"enabled": true,
+			"slug": "youth-unisex-jersey-tee-3001y",
+			"source_page_url": "https://gearment.com/catalog/product/youth-unisex-jersey-tee-3001y",
+			"product_type": "kids-t-shirt",
+			"taxonomy": [
+				{
+					"department": "kids",
+					"type_slug": "t-shirts",
+					"type_label": "T-shirts",
+					"source_url": "https://gearment.com/catalog/category/kids-t-shirts",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "RT3326",
+			"enabled": true,
+			"slug": "toddler-pullover-hoodie-3326",
+			"source_page_url": "https://gearment.com/catalog/product/toddler-pullover-hoodie-3326",
+			"product_type": "kids-hoodie",
+			"taxonomy": [
+				{
+					"department": "kids",
+					"type_slug": "hoodies",
+					"type_label": "Hoodies",
+					"source_url": "https://gearment.com/catalog/category/kids-hoodies",
+					"sort_order": 20
+				}
+			]
+		},
+		{
+			"product_id": "G18500B",
+			"enabled": true,
+			"slug": "youth-hoodie",
+			"source_page_url": "https://gearment.com/catalog/product/youth-hoodie",
+			"product_type": "kids-hoodie",
+			"taxonomy": [
+				{
+					"department": "kids",
+					"type_slug": "hoodies",
+					"type_label": "Hoodies",
+					"source_url": "https://gearment.com/catalog/category/kids-hoodies",
+					"sort_order": 20
+				}
+			]
+		},
+		{
+			"product_id": "G18000B",
+			"enabled": true,
+			"slug": "youth-sweatshirt",
+			"source_page_url": "https://gearment.com/catalog/product/youth-sweatshirt",
+			"product_type": "kids-sweatshirt",
+			"taxonomy": [
+				{
+					"department": "kids",
+					"type_slug": "sweatshirts",
+					"type_label": "Sweatshirts",
+					"source_url": "https://gearment.com/catalog/category/kids-sweatshirts",
+					"sort_order": 30
+				}
+			]
+		},
+		{
+			"product_id": "TUX2020",
+			"enabled": true,
+			"slug": "12oz-ss-tumbler",
+			"source_page_url": "https://gearment.com/catalog/product/12oz-ss-tumbler",
+			"product_type": "tumbler",
+			"taxonomy": [
+				{
+					"department": "home-living",
+					"type_slug": "tumblers",
+					"type_label": "Tumblers",
+					"source_url": "https://gearment.com/catalog/category/home-living-tumblers",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "CSST20",
+			"enabled": true,
+			"slug": "20oz-curved-ss-tumbler",
+			"source_page_url": "https://gearment.com/catalog/product/20oz-curved-ss-tumbler",
+			"product_type": "tumbler",
+			"taxonomy": [
+				{
+					"department": "home-living",
+					"type_slug": "tumblers",
+					"type_label": "Tumblers",
+					"source_url": "https://gearment.com/catalog/category/home-living-tumblers",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "TUL2020",
+			"enabled": true,
+			"slug": "30oz-ss-tumbler",
+			"source_page_url": "https://gearment.com/catalog/product/30oz-ss-tumbler",
+			"product_type": "tumbler",
+			"taxonomy": [
+				{
+					"department": "home-living",
+					"type_slug": "tumblers",
+					"type_label": "Tumblers",
+					"source_url": "https://gearment.com/catalog/category/home-living-tumblers",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "GP260",
+			"enabled": true,
+			"slug": "poster",
+			"source_page_url": "https://gearment.com/catalog/product/poster",
+			"product_type": "poster",
+			"taxonomy": [
+				{
+					"department": "home-living",
+					"type_slug": "posters",
+					"type_label": "Posters",
+					"source_url": "https://gearment.com/catalog/category/home-living-posters",
+					"sort_order": 20
+				}
+			]
+		},
+		{
+			"product_id": "SDM",
+			"enabled": true,
+			"slug": "sublimation-doormat",
+			"source_page_url": "https://gearment.com/catalog/product/sublimation-doormat",
+			"product_type": "doormat",
+			"taxonomy": [
+				{
+					"department": "home-living",
+					"type_slug": "doormats",
+					"type_label": "Doormats",
+					"source_url": "https://gearment.com/catalog/category/home-living-doormats",
+					"sort_order": 30
+				}
+			]
+		},
+		{
+			"product_id": "CM110",
+			"enabled": true,
+			"slug": "ceramic-mug-110",
+			"source_page_url": "https://gearment.com/catalog/product/ceramic-mug-110",
+			"product_type": "mug",
+			"taxonomy": [
+				{
+					"department": "home-living",
+					"type_slug": "mugs",
+					"type_label": "Mugs",
+					"source_url": "https://gearment.com/catalog/category/home-living-mugs",
+					"sort_order": 40
+				}
+			]
+		},
+		{
+			"product_id": "MCS075",
+			"enabled": true,
+			"slug": "matte-canvas-stretched-075",
+			"source_page_url": "https://gearment.com/catalog/product/matte-canvas-stretched-075",
+			"product_type": "canvas",
+			"taxonomy": [
+				{
+					"department": "home-living",
+					"type_slug": "canvas",
+					"type_label": "Canvas",
+					"source_url": "https://gearment.com/catalog/category/home-living-canvas",
+					"sort_order": 70
+				}
+			]
+		},
+		{
+			"product_id": "ORA2020",
+			"enabled": true,
+			"slug": "aluminum-ornament",
+			"source_page_url": "https://gearment.com/catalog/product/aluminum-ornament",
+			"product_type": "ornament",
+			"taxonomy": [
+				{
+					"department": "accessories",
+					"type_slug": "ornaments",
+					"type_label": "Ornaments",
+					"source_url": "https://gearment.com/catalog/category/accessories-ornaments",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "CAO2023",
+			"enabled": true,
+			"slug": "circle-acrylic-ornament",
+			"source_page_url": "https://gearment.com/catalog/product/circle-acrylic-ornament",
+			"product_type": "ornament",
+			"taxonomy": [
+				{
+					"department": "accessories",
+					"type_slug": "ornaments",
+					"type_label": "Ornaments",
+					"source_url": "https://gearment.com/catalog/category/accessories-ornaments",
+					"sort_order": 10
+				}
+			]
+		},
+		{
+			"product_id": "HF226",
+			"enabled": true,
+			"slug": "hand-flag",
+			"source_page_url": "https://gearment.com/catalog/product/hand-flag",
+			"product_type": "flag",
+			"taxonomy": [
+				{
+					"department": "accessories",
+					"type_slug": "flags",
+					"type_label": "Flags",
+					"source_url": "https://gearment.com/catalog/category/accessories-flags",
+					"sort_order": 20
+				}
+			]
+		},
+		{
+			"product_id": "SGF2021",
+			"enabled": true,
+			"slug": "sublimation-garden-flag",
+			"source_page_url": "https://gearment.com/catalog/product/sublimation-garden-flag",
+			"product_type": "flag",
+			"taxonomy": [
+				{
+					"department": "accessories",
+					"type_slug": "flags",
+					"type_label": "Flags",
+					"source_url": "https://gearment.com/catalog/category/accessories-flags",
+					"sort_order": 20
+				}
+			]
+		},
+		{
+			"product_id": "SHF2022",
+			"enabled": true,
+			"slug": "sublimation-house-flag",
+			"source_page_url": "https://gearment.com/catalog/product/sublimation-house-flag",
+			"product_type": "flag",
+			"taxonomy": [
+				{
+					"department": "accessories",
+					"type_slug": "flags",
+					"type_label": "Flags",
+					"source_url": "https://gearment.com/catalog/category/accessories-flags",
+					"sort_order": 20
+				}
+			]
+		}
+	]
+}

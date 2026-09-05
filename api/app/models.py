@@ -36,6 +36,7 @@ class RenderJob(BaseModel):
     displacement_source: str | None = None
     shadow_source: str | None = None
     highlight_source: str | None = None
+    garment_color: str | None = None
     print_area: PrintArea
     version: str = "1"
     metadata: dict[str, Any] = Field(default_factory=dict)
