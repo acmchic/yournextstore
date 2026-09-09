@@ -30,10 +30,10 @@ export function PrintPlacementSelector() {
 							router.push(`${pathname}?${params.toString()}`, { scroll: false });
 						}}
 						className={cn(
-							"min-h-11 border px-4 py-2.5 text-sm transition-colors",
+							"min-h-10 cursor-pointer rounded border px-4 py-2 text-sm transition-shadow duration-150",
 							selected === placement.value
 								? "border-foreground bg-foreground text-background"
-								: "border-border bg-background hover:border-muted-foreground",
+								: "border-foreground bg-white hover:shadow-[0_0_0_2px_#aaaaac]",
 						)}
 						aria-pressed={selected === placement.value}
 					>

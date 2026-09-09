@@ -31,5 +31,5 @@
 		"**/*.mts",
 		"next.config.mjs"
 	],
-	"exclude": ["node_modules"]
+	"exclude": ["node_modules", "admin", "api"]
 }

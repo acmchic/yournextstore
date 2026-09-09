@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
+import { catalogNavigation } from "@/lib/catalog-navigation";
 import { commerce, getCanonicalUrl, meGetCached } from "@/lib/commerce";
+import { catalogBrowse, storefrontCollections } from "@/lib/own-commerce";
 
 const PAGE_SIZE = 100;
 const MAX_PAGES = 50;
@@ -19,8 +21,8 @@ async function getAllProducts() {
 }
 
 async function getAllCollections() {
-	const result = await commerce.collectionBrowse({ active: true, limit: 200 });
-	return result.data.map((c) => ({ slug: c.slug, lastModified: c.createdAt }));
+	const result = await storefrontCollections();
+	return result.data.filter((c) => c.indexable).map((c) => ({ slug: c.slug, lastModified: c.updated_at }));
 }
 
 async function getAllLegalPages() {
@@ -107,5 +109,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 			]
 		: [];
 
-	return [...staticRoutes, ...productRoutes, ...collectionRoutes, ...legalRoutes, ...blogRoutes];
+	const catalogs = await catalogBrowse();
+	const catalogRoutes: MetadataRoute.Sitemap = catalogs.data
+		.filter((c) => c.product_count > 0)
+		.map((c) => ({ url: `${baseUrl}/category/${c.slug}`, changeFrequency: "weekly" }));
+	const departmentRoutes: MetadataRoute.Sitemap = catalogNavigation(catalogs.data).map((group) => ({
+		url: `${baseUrl}${group.href}`,
+		changeFrequency: "weekly",
+	}));
+	return [
+		...staticRoutes,
+		...departmentRoutes,
+		...catalogRoutes,
+		...productRoutes,
+		...collectionRoutes,
+		...legalRoutes,
+		...blogRoutes,
+	];
 }

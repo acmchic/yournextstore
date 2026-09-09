@@ -1,6 +1,6 @@
 import "@/app/globals.css";
 
-import { Heart, ShoppingBag } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import type { Metadata } from "next";
 import { cacheLife } from "next/cache";
 import { Inter, Space_Grotesk } from "next/font/google";
@@ -11,18 +11,19 @@ import { CartProvider } from "@/app/cart/cart-context";
 import { CartSidebar } from "@/app/cart/cart-sidebar";
 import { CartButton } from "@/app/cart-button";
 import { Footer } from "@/app/footer";
-import { Navbar, type NavLink } from "@/app/navbar";
+import { Navbar, type NavGroup, type NavLink } from "@/app/navbar";
 import { SearchInput } from "@/app/search-input";
 import { AuthButton } from "@/components/auth-button";
 import { CookieConsent } from "@/components/cookie-consent";
 import { ErrorOverlayRemover, NavigationReporter } from "@/components/devtools";
 import { NewsletterDialog } from "@/components/newsletter-dialog";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
 import { AUTH_ENABLED } from "@/lib/auth-config";
+import { catalogNavigation } from "@/lib/catalog-navigation";
 import { commerce, getCanonicalUrl, getStoreFaviconUrl, meGetCached } from "@/lib/commerce";
 import { getCartCookieJson } from "@/lib/cookies";
 import { StoreJsonLd } from "@/lib/json-ld";
+import { catalogBrowse } from "@/lib/own-commerce";
 import { storefront } from "@/lib/storefront-config";
 
 const inter = Inter({
@@ -84,11 +85,8 @@ async function getStoreMetadata(): Promise<Metadata> {
 			},
 		},
 		icons: {
-			icon: [
-				{ url: faviconUrl, sizes: "any", type: "image/svg+xml" },
-				{ url: faviconUrl, sizes: "192x192", type: "image/png" },
-			],
-			apple: [{ url: faviconUrl, sizes: "180x180" }],
+			icon: [{ url: faviconUrl, sizes: "any", type: "image/svg+xml" }],
+			apple: [{ url: "/brand/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
 			shortcut: faviconUrl,
 		},
 		manifest: "/manifest.webmanifest",
@@ -125,63 +123,63 @@ async function getInitialCart() {
 	}
 }
 
-async function getNavLinks(): Promise<NavLink[]> {
+async function getNavLinks(): Promise<{ links: NavLink[]; groups: NavGroup[] }> {
 	"use cache";
-	cacheLife("hours");
-	const [collections, me] = await Promise.all([
+	cacheLife("minutes");
+	const [collections, me, catalogs] = await Promise.all([
 		commerce.collectionBrowse({ limit: 5 }),
 		meGetCached().catch(() => null),
+		catalogBrowse().catch(() => ({ data: [] })),
 	]);
 	const blogEnabled = me?.store.settings?.enabledTools?.blog ?? false;
-	return [
-		{ href: "/", label: "Home" },
-		{ href: "/products", label: "Products" },
-		...collections.data.map((collection) => ({
-			href: `/collection/${collection.slug}`,
-			label: collection.name,
-		})),
-		...(blogEnabled ? [{ href: "/blog", label: "Blog" }] : []),
-	];
+	const groups = catalogNavigation(catalogs.data).filter((group) => group.slug !== "home-living");
+	return {
+		links: [
+			{ href: "/products", label: "View all" },
+			...collections.data.map((collection) => ({
+				href: `/collection/${collection.slug}`,
+				label: collection.name,
+			})),
+			...(blogEnabled ? [{ href: "/blog", label: "Blog" }] : []),
+		],
+		groups,
+	};
 }
 
 async function CartProviderWrapper({ children }: { children: React.ReactNode }) {
-	const [{ cart, cartId }, links] = await Promise.all([getInitialCart(), getNavLinks()]);
-
-	const isStaging = process.env.YNS_API_KEY?.startsWith("sk-s-");
-	const baseUrl = process.env.YNS_API_KEY ? (isStaging ? "https://yns.cx" : "https://yns.store") : "";
+	const [{ cart, cartId }, navigation] = await Promise.all([getInitialCart(), getNavLinks()]);
 
 	return (
 		<CartProvider initialCart={cart} initialCartId={cartId}>
-			<div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8 paper-bg transition-colors duration-300">
-				<main className="w-full max-w-[1400px] border border-border relative overflow-hidden shadow-2xl bg-card backdrop-blur-sm">
+			<div className="min-h-screen flex flex-col bg-card">
+				<div className="w-full relative bg-card">
 					{/* Brutalist Grid Header */}
-					<header className="grid grid-cols-12 grid-border-b h-16 md:h-20 items-center">
+					<header className="relative z-30 grid grid-cols-12 grid-border-b h-16 md:h-20 items-center bg-[#fafafa] text-[#171717]">
 						{/* Logo */}
-						<div className="col-span-4 md:col-span-3 h-full flex items-center px-6 grid-border-r">
+						<div className="col-span-4 md:col-span-3 h-full flex items-center px-3 md:px-6 grid-border-r">
 							<Link href="/">
-								<h1 className="font-display font-bold text-lg tracking-tighter uppercase">
+								<span className="font-display font-bold text-sm sm:text-lg tracking-tighter uppercase">
 									{storefront.brandName}
-								</h1>
+								</span>
 							</Link>
 						</div>
 
 						{/* Navigation - Hidden on mobile */}
-						<nav className="hidden md:col-span-6 md:flex h-full items-center justify-center space-x-12 grid-border-r font-medium text-sm tracking-wide">
-							<Navbar links={links} />
+						<nav
+							aria-label="Main navigation"
+							className="col-span-4 md:col-span-6 flex h-full items-center justify-center gap-4 xl:gap-6 grid-border-r font-medium text-xs tracking-wide"
+						>
+							<Navbar links={navigation.links} groups={navigation.groups} />
 						</nav>
 
 						{/* Empty space on mobile */}
-						<div className="col-span-4 md:hidden h-full grid-border-r" />
 
 						{/* Icons */}
-						<div className="col-span-4 md:col-span-3 h-full flex items-center justify-end px-6 space-x-6">
+						<div className="col-span-4 md:col-span-3 h-full flex items-center justify-end px-3 md:px-6 space-x-4 md:space-x-6">
 							<Suspense>
 								<SearchInput />
 							</Suspense>
 							{AUTH_ENABLED && <AuthButton />}
-							<button type="button" aria-label="Favorites" className="hover:text-primary transition-colors">
-								<Heart className="w-5 h-5" />
-							</button>
 							<Suspense fallback={<CartButtonFallback />}>
 								<CartButton />
 							</Suspense>
@@ -189,14 +187,13 @@ async function CartProviderWrapper({ children }: { children: React.ReactNode }) 
 					</header>
 
 					{/* Page Content */}
-					<div className="flex-1">{children}</div>
+					<main className="flex-1">{children}</main>
 
 					{/* Footer */}
 					<Footer />
-				</main>
+				</div>
 			</div>
-			<CartSidebar baseUrl={baseUrl} />
-			<ThemeToggle />
+			<CartSidebar />
 		</CartProvider>
 	);
 }

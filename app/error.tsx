@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertCircleIcon } from "lucide-react";
-import { YnsLink } from "@/components/yns-link";
+import { StoreLink } from "@/components/store-link";
 
 export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
 	return (
@@ -23,12 +23,12 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
 				>
 					Try Again
 				</button>
-				<YnsLink
+				<StoreLink
 					href="/"
 					className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary"
 				>
 					Continue Shopping
-				</YnsLink>
+				</StoreLink>
 			</div>
 		</div>
 	);

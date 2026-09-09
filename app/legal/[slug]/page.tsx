@@ -5,7 +5,7 @@ import { commerce } from "@/lib/commerce";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
 	"use cache";
-	cacheLife("hours");
+	cacheLife({ stale: 0, revalidate: 30, expire: 60 });
 	const { slug } = await params;
 	const page = await commerce.legalPageGet(slug);
 
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function LegalPage(props: { params: Promise<{ slug: string }> }) {
 	"use cache";
-	cacheLife("hours");
+	cacheLife({ stale: 0, revalidate: 30, expire: 60 });
 
 	const { slug } = await props.params;
 	const page = await commerce.legalPageGet(slug);

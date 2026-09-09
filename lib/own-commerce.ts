@@ -15,6 +15,13 @@ import { storefront } from "@/lib/storefront-config";
 const API_URL = process.env.STORE_API_URL || "http://localhost:8000";
 const now = () => new Date().toISOString();
 
+function resolveMediaUrl(url: string): string {
+	if (url.startsWith("/") && /^\/[^/]+\/[^/]+_color-[^/]+\.webp(?:\?.*)?$/.test(url)) {
+		return `${API_URL}${url}`;
+	}
+	return url;
+}
+
 type CommerceClient = ReturnType<typeof Commerce>;
 type OwnCommerceClient = Pick<
 	CommerceClient,
@@ -30,15 +37,37 @@ type OwnCommerceClient = Pick<
 	| "categoryGet"
 	| "postBrowse"
 	| "postGet"
-	| "legalPageBrowse"
-	| "legalPageGet"
 	| "search"
 	| "contactMessageCreate"
 	| "subscriberCreate"
 	| "productReviewsBrowse"
 	| "productReviewCreate"
 	| "orderGet"
->;
+> & {
+	legalPageBrowse: () => Promise<{
+		data: LegalPage[];
+		meta: { count: number; offset: number; limit: number };
+	}>;
+	legalPageGet: (slug: string) => Promise<LegalPage | null>;
+};
+
+type LegalPage = { label: string; href: string; contentHtml: string; updatedAt: string };
+type ApiLegalPage = { slug: string; title: string; content: string; updated_at: string };
+
+function mapLegalPage(page: ApiLegalPage): LegalPage {
+	const escaped = page.content
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#39;");
+	return {
+		label: page.title,
+		href: `/${page.slug}`,
+		updatedAt: page.updated_at,
+		contentHtml: `<div style="white-space:pre-wrap">${escaped}</div>`,
+	};
+}
 
 type ApiVariant = {
 	id: string;
@@ -78,6 +107,9 @@ type ApiProduct = {
 	design: { slug: string; alt_text: string; checksum: string };
 	variants: ApiVariant[];
 	media: ApiMedia[];
+	default_catalog?: string | null;
+	default_color?: string | null;
+	default_color_name?: string | null;
 };
 
 type ApiBrowse = { data: ApiProduct[]; meta: { count: number; limit: number; offset: number } };
@@ -88,6 +120,9 @@ export type ApiCatalog = {
 	product_type: string;
 	material: string | null;
 	brand: string | null;
+	description?: string | null;
+	material_details?: { items?: string[] } | null;
+	size_chart?: { unit?: string; note?: string; rows?: string[][] } | null;
 	product_count: number;
 	taxonomy: Array<{
 		department: "men" | "women" | "kids" | "home-living" | "accessories";
@@ -148,7 +183,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function resolveStoreConfig(store: ApiStore | null) {
 	return {
-		name: store?.name || storefront.brandName,
+		name: storefront.brandName,
 		currency: (store?.currency || "USD").toLowerCase(),
 		locale: store?.locale || "en-US",
 	};
@@ -171,15 +206,36 @@ const categoryShape = (catalog: ApiCatalog) => ({
 });
 
 function mapProduct(product: ApiProduct): NonNullable<APIProductGetByIdResult> {
-	const images = product.media.flatMap((item) => [item.url, item.blank_url].filter(Boolean));
-	const catalogName = product.variants[0]?.catalog_name ?? "Products";
-	const catalogSlug = product.variants[0]?.catalog ?? "products";
+	const defaultCatalog = product.default_catalog ?? product.variants[0]?.catalog ?? null;
+	const defaultColorSlug =
+		product.default_color ??
+		product.variants.find((variant) => variant.catalog === defaultCatalog)?.color ??
+		null;
+	const defaultColorName =
+		product.default_color_name ??
+		product.variants.find(
+			(variant) => variant.catalog === defaultCatalog && variant.color === defaultColorSlug,
+		)?.color_name ??
+		product.variants[0]?.color_name ??
+		null;
+	const selectedVariant = product.variants.find((variant) => variant.catalog === defaultCatalog);
+	const preferredMedia = product.media.filter(
+		(media) =>
+			(!defaultCatalog || media.catalog === defaultCatalog) &&
+			(!defaultColorSlug || media.color === defaultColorSlug),
+	);
+	const displayMedia = preferredMedia.length > 0 ? preferredMedia : product.media;
+	const images = displayMedia.flatMap((item) =>
+		[item.url, item.blank_url].filter(Boolean).map(resolveMediaUrl),
+	);
+	const catalogName = selectedVariant?.catalog_name ?? product.variants[0]?.catalog_name ?? "Products";
+	const catalogSlug = defaultCatalog ?? product.variants[0]?.catalog ?? "products";
 	const variants = product.variants.map((variant) => {
 		const variantImages =
-			variant.images ??
+			variant.images?.map(resolveMediaUrl) ??
 			product.media
 				.filter((media) => media.catalog === variant.catalog && media.color === variant.color)
-				.flatMap((media) => [media.url, media.blank_url].filter(Boolean));
+				.flatMap((media) => [media.url, media.blank_url].filter(Boolean).map(resolveMediaUrl));
 		return {
 			id: variant.id,
 			createdAt: product.created_at,
@@ -248,6 +304,8 @@ function mapProduct(product: ApiProduct): NonNullable<APIProductGetByIdResult> {
 		summary: product.description,
 		content: null,
 		images,
+		defaultCatalog,
+		defaultColor: defaultColorName,
 		badge: null,
 		bundleDiscountPercentage: null,
 		bundlePriceMode: "fixed",
@@ -293,6 +351,31 @@ export async function catalogBrowse() {
 	return apiFetch<{ data: ApiCatalog[] }>("/v1/catalogs");
 }
 
+export async function shopBrowse({
+	department,
+	type,
+	collection,
+	limit = 24,
+	offset = 0,
+}: {
+	department?: string;
+	type?: string;
+	collection?: string;
+	limit?: number;
+	offset?: number;
+}) {
+	const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+	if (department) query.set("department", department);
+	if (type) query.set("product_type", type);
+	if (collection) query.set("collection", collection);
+	const result = await apiFetch<ApiBrowse>(`/v1/shop?${query}`);
+	return { data: result.data.map(mapProduct), meta: result.meta };
+}
+
+export async function storefrontCollections() {
+	return apiFetch<{ data: (ApiCollection & { featured: boolean; indexable: boolean })[] }>("/v1/collections");
+}
+
 function mapCart(cart: ApiCart | null): APICartGetResult {
 	if (!cart) return null;
 	return {
@@ -336,12 +419,12 @@ export const ownCommerce: OwnCommerceClient = {
 					storeName: store.name,
 					storeDescription: storefront.description,
 					logo: "/logo.svg",
-					ogimage: "/screenshot.png",
+					ogimage: "/brand/og.png",
 					defaultLanguage: store.locale,
 					enabledTools: { blog: false, contactForm: true, reviews: false, newsletter: false },
 				},
 			},
-			publicUrl: process.env.NEXT_PUBLIC_URL || "http://localhost:3000",
+			publicUrl: process.env.NEXT_PUBLIC_URL || storefront.url,
 		} as APIMeGetResult;
 	},
 	async productBrowse(params) {
@@ -494,10 +577,14 @@ export const ownCommerce: OwnCommerceClient = {
 		return null;
 	},
 	async legalPageBrowse() {
-		return { data: [], meta: { count: 0, offset: 0, limit: 20 } };
+		const { data } = await apiFetch<{ data: ApiLegalPage[] }>("/v1/legal-pages");
+		return { data: data.map(mapLegalPage), meta: { count: data.length, offset: 0, limit: data.length } };
 	},
-	async legalPageGet() {
-		return null;
+	async legalPageGet(slug) {
+		const { data } = await apiFetch<{ data: ApiLegalPage[] }>("/v1/legal-pages");
+		const page = data.find((page) => page.slug === String(slug).replace(/^\//, ""));
+		if (!page) return null;
+		return mapLegalPage(page);
 	},
 	async contactMessageCreate() {
 		throw new Error("Contact API is not enabled");

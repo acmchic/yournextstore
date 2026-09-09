@@ -10,13 +10,57 @@ from app.catalog import resolve_design_path
 from app.catalog_assignment import stable_variant_id
 from app.db import Database
 from app.models import PrintArea, ProductSummary, RenderJob
-from app.product_media import build_blank_media_url, build_catalog_mockup_url, build_media_url
+from app.product_media import (
+    build_blank_media_url,
+    build_catalog_blank_url,
+    build_catalog_mockup_url,
+    build_media_url,
+)
 from app.settings import settings
+
+
+def _decode_json(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return None
+
+
+def _guideline_percent(value: Any, default: float) -> float:
+    """Accept provider guidelines expressed as either 0..1 ratios or percentages."""
+    if value is None:
+        return default
+    parsed = float(value)
+    return parsed * 100 if 0 < parsed <= 1 else parsed
 
 
 class CatalogRepository:
     def __init__(self, database: Database) -> None:
         self._database = database
+
+    async def list_legal_pages(self) -> list[dict[str, Any]]:
+        return await self._database.fetch_all(
+            "select slug, title, content, updated_at from legal_pages where published=true order by title",
+            (),
+        )
+
+    async def get_blank_catalog_asset(
+        self, catalog_slug: str, color_slug: str, placement: str
+    ) -> dict[str, Any] | None:
+        return await self._database.fetch_one(
+            """select asset.local_path, asset.width, asset.height,
+                      coalesce(color.hex, selected_color.hex) garment_color
+               from catalog_assets asset join catalogs catalog on catalog.id=asset.catalog_id
+               left join catalog_colors color on color.id=asset.color_id
+               left join catalog_colors selected_color on selected_color.catalog_id=catalog.id
+                 and selected_color.slug=%s and selected_color.active=true
+               where catalog.slug=%s and catalog.active=true and asset.status='active'
+                 and asset.placement=%s and (color.slug=%s or color.slug is null)
+               order by (color.slug is null), asset.id limit 1""",
+            (color_slug, catalog_slug, placement, color_slug),
+        )
 
     async def get_product_by_slug(self, slug: str) -> ProductSummary | None:
         row = await self._database.fetch_one(
@@ -44,7 +88,17 @@ class CatalogRepository:
         joins = ["join designs d on d.id=p.design_id"]
         if catalog:
             filters.append(
-                "exists(select 1 from catalogs ca_filter where ca_filter.slug=%s and ca_filter.active=true)"
+                """(
+                  exists(
+                    select 1 from product_catalogs pc_filter
+                    join catalogs ca_filter on ca_filter.id=pc_filter.catalog_id and ca_filter.active=true
+                    where pc_filter.product_id=p.id and pc_filter.active=true and ca_filter.slug=%s
+                  )
+                  or not exists(
+                    select 1 from product_catalogs pc_any
+                    where pc_any.product_id=p.id and pc_any.active=true
+                  )
+                )"""
             )
             params.append(catalog)
         if collection:
@@ -88,13 +142,98 @@ class CatalogRepository:
             },
         }
 
+    async def browse_shop(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        department: str | None = None,
+        product_type: str | None = None,
+        collection: str | None = None,
+    ) -> dict[str, Any]:
+        catalogs = await self.list_catalogs()
+        rule = None
+        if collection:
+            rule = await self._database.fetch_one(
+                "select id, selection_rule from collections where slug=%s and status='active'",
+                (collection,),
+            )
+            if not rule:
+                return {"data": [], "meta": {"count": 0, "limit": limit, "offset": offset}}
+        eligible = [
+            c
+            for c in catalogs
+            if any(
+                (not department or t["department"] == department)
+                and (not product_type or t["type_slug"] == product_type)
+                and (not rule or rule["selection_rule"] != "tees" or t["type_slug"] == "t-shirts")
+                and (
+                    not rule
+                    or rule["selection_rule"] == "manual"
+                    or t["department"] in ("men", "women", "kids")
+                )
+                for t in c["taxonomy"]
+            )
+        ]
+        if not eligible:
+            return {"data": [], "meta": {"count": 0, "limit": limit, "offset": offset}}
+        placeholders = ",".join(["%s"] * len(eligible))
+        params = tuple(c["slug"] for c in eligible)
+        where = (
+            "from products p "
+            "cross join catalogs c "
+            f"where p.status='active' and c.slug in ({placeholders}) "
+            "and ("
+            "exists("
+            "select 1 from product_catalogs pc_selected "
+            "where pc_selected.product_id=p.id "
+            "and pc_selected.catalog_id=c.id "
+            "and pc_selected.active=true"
+            ") "
+            "or not exists("
+            "select 1 from product_catalogs pc_any "
+            "where pc_any.product_id=p.id and pc_any.active=true"
+            ")"
+            ")"
+        )
+        if rule and rule["selection_rule"] == "manual":
+            where += " and exists(select 1 from collection_products cp where cp.product_id=p.id and cp.collection_id=%s)"
+            params += (rule["id"],)
+        # Automatic collections show each design once on a representative eligible body.
+        if rule and rule["selection_rule"] != "manual":
+            where += " and c.slug=%s"
+            representative = next(
+                (
+                    c
+                    for c in eligible
+                    if rule["selection_rule"] == "newest"
+                    and any(t["type_slug"] == "hoodies" for t in c["taxonomy"])
+                ),
+                eligible[0],
+            )
+            params += (representative["slug"],)
+        count = await self._database.fetch_one(f"select count(*) count {where}", params)
+        rows = await self._database.fetch_all(
+            f"select p.slug, c.slug catalog {where} order by p.published_at desc, p.id desc, c.sort_order, c.id limit %s offset %s",
+            (*params, limit, offset),
+        )
+        data = []
+        for row in rows:
+            product = await self.get_product_detail(row["slug"], catalog_slug=row["catalog"])
+            if product:
+                data.append(product)
+        return {
+            "data": data,
+            "meta": {"count": int(count["count"]), "limit": limit, "offset": offset},
+        }
+
     async def get_product_detail(
         self, slug: str, catalog_slug: str | None = None
     ) -> dict[str, Any] | None:
         product = await self._database.fetch_one(
             """
             select p.id, p.public_id, p.slug, p.title, p.description, p.status, p.brand,
-              p.product_condition, p.seo_title, p.seo_description, p.created_at, p.updated_at,
+              'new' product_condition, p.seo_title, p.seo_description, p.created_at, p.updated_at,
               d.slug design_slug, d.alt_text, d.checksum design_checksum
             from products p join designs d on d.id=p.design_id
             where p.slug=%s and p.status='active' limit 1
@@ -103,6 +242,19 @@ class CatalogRepository:
         )
         if not product:
             return None
+        assignment_sql = """
+            select ca.slug catalog, cc.slug default_color, cc.name default_color_name
+            from product_catalogs pc
+            join catalogs ca on ca.id=pc.catalog_id and ca.active=true
+            left join catalog_colors cc on cc.id=pc.default_color_id and cc.active=true
+            where pc.product_id=%s and pc.active=true
+        """
+        assignment_params: tuple[Any, ...] = (product["id"],)
+        if catalog_slug:
+            assignment_sql += " and (ca.slug=%s or ca.source_page_slug=%s)"
+            assignment_params += (catalog_slug, catalog_slug)
+        assignment_sql += " order by ca.sort_order, ca.id limit 1"
+        assignment = await self._database.fetch_one(assignment_sql, assignment_params)
         if catalog_slug:
             variants = await self._database.fetch_all(
                 """
@@ -115,10 +267,10 @@ class CatalogRepository:
                 join catalogs ca on ca.id=cv.catalog_id and ca.active=true
                 join catalog_colors cc on cc.id=cv.color_id and cc.active=true
                 join catalog_sizes cs on cs.id=cv.size_id and cs.active=true
-                where ca.slug=%s and cv.active=true
+                where (ca.slug=%s or ca.source_page_slug=%s) and cv.active=true
                 order by cc.sort_order, cs.sort_order
                 """,
-                (catalog_slug,),
+                (catalog_slug, catalog_slug),
             )
             variants = [
                 {
@@ -150,19 +302,38 @@ class CatalogRepository:
             )
         if catalog_slug and not variants:
             return None
-        templates = await self._database.fetch_all(
-            """
+        fallback_variant = variants[0] if variants else None
+        default_catalog = (
+            assignment["catalog"]
+            if assignment
+            else (fallback_variant["catalog"] if fallback_variant else catalog_slug)
+        )
+        default_color = (
+            assignment["default_color"]
+            if assignment and assignment["default_color"]
+            else (fallback_variant["color"] if fallback_variant else None)
+        )
+        default_color_name = (
+            assignment["default_color_name"]
+            if assignment and assignment["default_color_name"]
+            else (fallback_variant["color_name"] if fallback_variant else None)
+        )
+        templates = (
+            await self._database.fetch_all(
+                """
             select ca.slug catalog, cc.slug color, mt.style, mt.placement
             from catalogs ca
             join mockup_templates mt on mt.catalog_id=ca.id and mt.active=true
             join catalog_colors cc on cc.id=mt.color_id
-            where ca.active=true and ca.slug=%s
+            where ca.active=true and (ca.slug=%s or ca.source_page_slug=%s)
             order by ca.sort_order, cc.sort_order, field(mt.style,'flat','women','men'),
               field(mt.placement,'front','left-chest','back')
             """,
-            (catalog_slug,),
-        ) if catalog_slug else await self._database.fetch_all(
-            """
+                (catalog_slug, catalog_slug),
+            )
+            if catalog_slug
+            else await self._database.fetch_all(
+                """
             select ca.slug catalog, cc.slug color, mt.style, mt.placement
             from product_catalogs pc
             join catalogs ca on ca.id=pc.catalog_id and ca.active=true
@@ -172,7 +343,8 @@ class CatalogRepository:
             order by ca.sort_order, cc.sort_order, field(mt.style,'flat','women','men'),
               field(mt.placement,'front','left-chest','back')
             """,
-            (product["id"],),
+                (product["id"],),
+            )
         )
         media = [
             {
@@ -199,6 +371,21 @@ class CatalogRepository:
             for variant in variants
             if variant["provider"] == "gearment"
         }
+        catalog_ids = {catalog for catalog, _color, _name in dynamic_media_keys}
+        back_catalogs = (
+            {
+                row["catalog"]
+                for row in await self._database.fetch_all(
+                    f"""select c.slug catalog
+                from catalogs c join catalog_assets asset on asset.catalog_id=c.id
+                where c.slug in ({",".join(["%s"] * len(catalog_ids))}) and asset.placement in ('back','unknown') and asset.status='active'
+                """,
+                    tuple(catalog_ids),
+                )
+            }
+            if catalog_ids
+            else set()
+        )
         media.extend(
             {
                 "catalog": catalog,
@@ -207,26 +394,54 @@ class CatalogRepository:
                 "placement": placement,
                 "width": 1500,
                 "url": build_catalog_mockup_url(
-                    product_slug=product["slug"],
+                    product_ref=product["slug"],
                     catalog_slug=catalog,
-                    color_name=color_name,
+                    color_slug=color,
+                ),
+                "blank_url": build_catalog_blank_url(
+                    product_ref=product["slug"],
+                    catalog_slug=catalog,
+                    color_slug=color,
+                    placement=placement,
+                ),
+            }
+            for catalog, color, _color_name in sorted(dynamic_media_keys)
+            for placement in (
+                ("front", "chest", "back") if catalog in back_catalogs else ("front", "chest")
+            )
+        )
+        media.extend(
+            {
+                "catalog": catalog,
+                "color": color,
+                "style": "flat",
+                "placement": placement,
+                "width": 1500,
+                "url": build_catalog_blank_url(
+                    product_ref=product["slug"],
+                    catalog_slug=catalog,
+                    color_slug=color,
                     placement=placement,
                 ),
                 "blank_url": "",
             }
-            for catalog, color, color_name in sorted(dynamic_media_keys)
-            for placement in ("front", "back")
+            for catalog, color, _color_name in sorted(dynamic_media_keys)
+            for placement in (
+                ("front", "chest", "back") if catalog in back_catalogs else ("front", "chest")
+            )
         )
         for variant in variants:
             if variant.pop("provider") == "gearment":
                 variant["images"] = [
                     build_catalog_mockup_url(
-                        product_slug=product["slug"],
+                        product_ref=product["slug"],
                         catalog_slug=variant["catalog"],
-                        color_name=variant["color_name"],
-                        placement=placement,
+                        color_slug=variant["color"],
+                        placement=_placement,
                     )
-                    for placement in ("front", "back")
+                    for _placement in (
+                        ("front", "back") if variant["catalog"] in back_catalogs else ("front",)
+                    )
                 ]
         return {
             "id": product["public_id"],
@@ -251,6 +466,9 @@ class CatalogRepository:
                 "alt_text": product["alt_text"] or product["title"],
                 "checksum": product["design_checksum"],
             },
+            "default_catalog": default_catalog,
+            "default_color": default_color,
+            "default_color_name": default_color_name,
             "variants": variants,
             "media": media,
         }
@@ -277,12 +495,12 @@ class CatalogRepository:
             join catalog_variants cv on cv.catalog_id=ca.id and cv.active=true
             join catalog_colors cc on cc.id=cv.color_id and cc.active=true
             join catalog_sizes cs on cs.id=cv.size_id and cs.active=true
-            where p.slug=%s and p.status='active' and ca.slug=%s
+            where p.slug=%s and p.status='active' and (ca.slug=%s or ca.source_page_slug=%s)
               and (lower(cc.slug)=lower(%s) or lower(cc.name)=lower(%s))
               and (%s is null or lower(cs.code)=lower(%s) or lower(cs.label)=lower(%s))
             order by cs.sort_order limit 1
             """,
-            (product_slug, catalog_slug, color, color, size, size, size),
+            (product_slug, catalog_slug, catalog_slug, color, color, size, size, size),
         )
         if not variant or not variant["garment_color"]:
             return None
@@ -293,7 +511,10 @@ class CatalogRepository:
         guideline = variant["artwork_guideline_json"] or {}
         if isinstance(guideline, str):
             guideline = json.loads(guideline)
-        resolved_placement = "back" if placement == "back" else "front"
+        resolved_placement = (
+            "back" if placement == "back" else ("chest" if placement == "chest" else "front")
+        )
+        asset_placement = "back" if resolved_placement == "back" else "front"
         design_kit = next(
             (
                 item
@@ -303,21 +524,103 @@ class CatalogRepository:
             None,
         )
         if not design_kit:
-            return None
-        source_url = design_kit.get("layer1Url") or design_kit.get("locationModelUrl")
+            default_area = (
+                {
+                    "designAreaX": 30,
+                    "designAreaY": 16,
+                    "designAreaWidth": 40,
+                    "designAreaHeight": 28,
+                }
+                if str(variant.get("product_type") or "").lower()
+                in {"hoodie", "hoodies", "sweatshirt"}
+                else {
+                    "designAreaX": 30,
+                    "designAreaY": 25,
+                    "designAreaWidth": 40,
+                    "designAreaHeight": 40,
+                }
+            )
+        else:
+            default_area = {
+                "designAreaX": 30,
+                "designAreaY": 25,
+                "designAreaWidth": 40,
+                "designAreaHeight": 40,
+            }
+        if not design_kit:
+            design_kit = {
+                **default_area,
+            }
+        metadata = await self._database.fetch_one(
+            "select print_area_json, asset_id, status from catalog_mockup_metadata where catalog_id=%s and placement=%s limit 1",
+            (variant["catalog_id"], asset_placement),
+        )
         asset = await self._database.fetch_one(
             """
             select local_path, checksum, width, height from catalog_assets
-            where catalog_id=%s and source_url=%s and status='active' limit 1
+            where id=%s and catalog_id=%s and status='active' limit 1
             """,
-            (variant["catalog_id"], source_url),
+            (metadata["asset_id"], variant["catalog_id"])
+            if metadata and metadata.get("asset_id")
+            else (0, variant["catalog_id"]),
         )
+        if not asset:
+            asset = await self._database.fetch_one(
+                """
+                select local_path, checksum, width, height from catalog_assets
+                where catalog_id=%s and placement in (%s, 'unknown', 'gallery') and status='active'
+                order by case when placement=%s then 0 when placement='unknown' then 1 else 2 end, id limit 1
+                """,
+                (variant["catalog_id"], asset_placement, asset_placement),
+            )
+        if not asset and asset_placement == "back":
+            asset = await self._database.fetch_one(
+                """
+                select local_path, checksum, width, height from catalog_assets
+                where catalog_id=%s and placement in ('gallery','unknown') and status='active'
+                order by case when local_path like '%gallery-3%' then 0 else 1 end, id limit 1
+                """,
+                (variant["catalog_id"],),
+            )
         if not asset or not asset["width"] or not asset["height"]:
             return None
-        left = float(design_kit["designAreaX"]) * int(asset["width"]) / 100
-        top = float(design_kit["designAreaY"]) * int(asset["height"]) / 100
-        width = float(design_kit["designAreaWidth"]) * int(asset["width"]) / 100
-        height = float(design_kit["designAreaHeight"]) * int(asset["height"]) / 100
+        if resolved_placement == "chest":
+            design_kit = {
+                "designAreaX": 18,
+                "designAreaY": 25,
+                "designAreaWidth": 18,
+                "designAreaHeight": 18,
+            }
+        elif metadata and metadata["status"] == "ready":
+            analyzed_area = metadata["print_area_json"]
+            if isinstance(analyzed_area, str):
+                analyzed_area = json.loads(analyzed_area)
+            design_kit = {
+                "designAreaX": float(analyzed_area.get("x", 0.30)) * 100,
+                "designAreaY": float(analyzed_area.get("y", 0.25)) * 100,
+                "designAreaWidth": float(analyzed_area.get("width", 0.40)) * 100,
+                "designAreaHeight": float(analyzed_area.get("height", 0.40)) * 100,
+            }
+        left = _guideline_percent(design_kit.get("designAreaX"), 30) * int(asset["width"]) / 100
+        top = _guideline_percent(design_kit.get("designAreaY"), 25) * int(asset["height"]) / 100
+        width = (
+            _guideline_percent(design_kit.get("designAreaWidth"), 40) * int(asset["width"]) / 100
+        )
+        height = (
+            _guideline_percent(design_kit.get("designAreaHeight"), 40) * int(asset["height"]) / 100
+        )
+        if (
+            width < asset["width"] * 0.05
+            or height < asset["height"] * 0.05
+            or left < 0
+            or top < 0
+            or left + width > asset["width"]
+            or top + height > asset["height"]
+        ):
+            left = asset["width"] * 0.30
+            top = asset["height"] * 0.25
+            width = asset["width"] * 0.40
+            height = asset["height"] * 0.40
         return RenderJob(
             product_id=variant["product_id"],
             artwork_id=variant["artwork_id"],
@@ -338,7 +641,9 @@ class CatalogRepository:
                 highlight_opacity=0,
                 surface_mode="none",
             ),
-            version=f"gearment-v6-catalog:{variant['artwork_checksum']}:{asset['checksum']}:{variant['garment_color']}",
+            # Bump this when catalog artwork resolution/fallback logic changes;
+            # old blank renders must never survive in the immutable image cache.
+            version=f"gearment-v8-catalog:{variant['artwork_checksum']}:{asset['checksum']}:{variant['garment_color']}",
             metadata={
                 "catalog": catalog_slug,
                 "placement": resolved_placement,
@@ -350,8 +655,21 @@ class CatalogRepository:
         catalogs = await self._database.fetch_all(
             """
             select c.id internal_id, c.public_id id, c.slug, c.name, c.product_type,
-              c.material, c.brand,
-              (select count(*) from products p where p.status='active') product_count
+              c.material, c.brand, c.description_override, c.provider_material_json,
+              c.provider_size_chart_json, c.size_chart_override_json,
+              (select count(*) from products p
+               where p.status='active' and (
+                 exists(
+                   select 1 from product_catalogs pc_selected
+                   where pc_selected.product_id=p.id
+                     and pc_selected.catalog_id=c.id
+                     and pc_selected.active=true
+                 )
+                 or not exists(
+                   select 1 from product_catalogs pc_any
+                   where pc_any.product_id=p.id and pc_any.active=true
+                 )
+               )) product_count
             from catalogs c
             where c.active=true
               and exists(select 1 from catalog_variants cv where cv.catalog_id=c.id and cv.active=true)
@@ -396,6 +714,15 @@ class CatalogRepository:
             ]
 
         for catalog in catalogs:
+            material_details = _decode_json(catalog.pop("provider_material_json"))
+            chart = catalog.pop("size_chart_override_json") or catalog.pop(
+                "provider_size_chart_json"
+            )
+            catalog["size_chart"] = _decode_json(chart)
+            catalog["description"] = catalog.pop("description_override")
+            catalog["material_details"] = (
+                material_details if isinstance(material_details, dict) else None
+            )
             internal_id = catalog.pop("internal_id")
             catalog["colors"] = grouped(colors, internal_id)
             catalog["sizes"] = grouped(sizes, internal_id)
@@ -405,8 +732,11 @@ class CatalogRepository:
     async def list_collections(self) -> list[dict[str, Any]]:
         return await self._database.fetch_all(
             """
-            select public_id id, slug, title, description, image_url, indexable, created_at, updated_at
-            from collections where status='active' order by title
+            select public_id id, slug, title, description, image_url, indexable, created_at, updated_at, featured, selection_rule
+            from collections where status='active' and (
+              (selection_rule!='manual' and exists(select 1 from products where status='active'))
+              or exists(select 1 from collection_products cp join products p on p.id=cp.product_id where cp.collection_id=collections.id and p.status='active')
+            ) order by sort_order, title
             """,
             (),
         )
@@ -422,7 +752,7 @@ class CatalogRepository:
         )
         if not collection:
             return None
-        products = await self.browse_products(limit=100, offset=0, collection=slug)
+        products = await self.browse_shop(limit=24, offset=0, collection=slug)
         collection["products"] = products["data"]
         collection.pop("internal_id", None)
         return collection
@@ -458,9 +788,9 @@ class CatalogRepository:
                 "line_total_minor": item["price_minor"] * item["quantity"],
                 "image": (
                     build_catalog_mockup_url(
-                        product_slug=item["product_slug"],
+                        product_ref=item["product_slug"],
                         catalog_slug=item["catalog"],
-                        color_name=item["color_name"],
+                        color_slug=item["color"],
                     )
                     if item.pop("provider") == "gearment"
                     else build_media_url(
@@ -652,9 +982,9 @@ class CatalogRepository:
             for item in items:
                 mockup_url = (
                     build_catalog_mockup_url(
-                        product_slug=item["product_slug"],
+                        product_ref=item["product_slug"],
                         catalog_slug=item["catalog"],
-                        color_name=item["color_name"],
+                        color_slug=item["color"],
                     )
                     if item["provider"] == "gearment"
                     else build_media_url(

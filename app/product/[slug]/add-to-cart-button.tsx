@@ -6,13 +6,11 @@ import { toast } from "sonner";
 import { addToCart } from "@/app/cart/actions";
 import { useCart } from "@/app/cart/cart-context";
 import { PrintPlacementSelector } from "@/app/product/[slug]/print-placement-selector";
-import { QuantitySelector } from "@/app/product/[slug]/quantity-selector";
 import { TrustBadges } from "@/app/product/[slug]/trust-badges";
 import { VariantSelector } from "@/app/product/[slug]/variant-selector";
 import { useVolumePricing, VolumePricingDisplay, type VolumeTier } from "@/app/product/[slug]/volume-pricing";
 import { CURRENCY, LOCALE } from "@/lib/constants";
 import { formatMoney } from "@/lib/money";
-import { cn } from "@/lib/utils";
 
 type Variant = {
 	id: string;
@@ -191,7 +189,7 @@ export function AddToCartButton({
 	};
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-8 sm:space-y-7">
 			{summary && <p className="max-w-[62ch] text-sm leading-relaxed text-muted-foreground">{summary}</p>}
 
 			{/* Price & sale */}
@@ -211,50 +209,19 @@ export function AddToCartButton({
 				{omnibusPrice && (
 					<p className="text-xs text-muted-foreground">Lowest price in the last 30 days: {omnibusPrice}</p>
 				)}
-
-				{/* SKU & stock availability */}
-				{(selectedVariant?.sku || stockStatus) && (
-					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] uppercase tracking-[0.06em]">
-						{stockStatus && (
-							<span
-								className={cn(
-									"inline-flex items-center gap-1.5",
-									stockStatus.tone === "out" && "text-destructive",
-									stockStatus.tone === "low" && "text-amber-600 dark:text-amber-500",
-									stockStatus.tone === "in" && "text-green-600 dark:text-green-500",
-								)}
-							>
-								<span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
-								{stockStatus.label}
-							</span>
-						)}
-						{selectedVariant?.sku && (
-							<span className="normal-case tracking-normal text-muted-foreground">
-								SKU: <span className="text-foreground">{selectedVariant.sku}</span>
-							</span>
-						)}
-					</div>
-				)}
 			</div>
 
 			{variants.length > 1 && <VariantSelector variants={variants} selectedVariantId={selectedVariant?.id} />}
 
 			<PrintPlacementSelector />
 
-			<QuantitySelector
-				quantity={effectiveQuantity}
-				onQuantityChange={setQuantity}
-				max={Math.max(1, Math.min(99, maxQuantity))}
-				disabled={isOutOfStock}
-			/>
-
 			<VolumePricingDisplay tiers={resolvedTiers} quantity={effectiveQuantity} volumePrice={volumePrice} />
 
-			<form onSubmit={handleSubmit}>
+			<form className="mt-6 block sm:mt-4" onSubmit={handleSubmit}>
 				<button
 					type="submit"
 					disabled={!selectedVariant || isOutOfStock}
-					className="h-12 w-full bg-foreground px-8 py-3 text-sm font-medium uppercase tracking-[0.06em] text-background transition-colors hover:bg-foreground/85 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+					className="h-12 w-full cursor-pointer rounded bg-foreground px-8 py-3 text-sm font-medium uppercase tracking-[0.06em] text-background transition-[box-shadow,opacity,transform] duration-150 ease-out hover:shadow-[0_0_0_2px_#aaaaac] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{buttonText}
 				</button>

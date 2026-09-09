@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cacheLife } from "next/cache";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { StoreLink } from "@/components/store-link";
 import { TiptapRenderer } from "@/components/tiptap-renderer";
 import {
 	Breadcrumb,
@@ -11,11 +12,10 @@ import {
 	BreadcrumbPage,
 	BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { YnsLink } from "@/components/yns-link";
 import { commerce, getCanonicalUrl, meGetCached } from "@/lib/commerce";
 import { LOCALE } from "@/lib/constants";
 import { JsonLdScript } from "@/lib/json-ld";
-import { YNSMedia } from "@/lib/yns-media";
+import { StoreMedia } from "@/lib/store-media";
 
 async function isBlogEnabled(): Promise<boolean> {
 	try {
@@ -144,7 +144,7 @@ export default async function BlogPostPage(props: { params: Promise<{ slug: stri
 			{/* Cover image */}
 			{post.image && (
 				<div className="relative aspect-[3/2] bg-secondary rounded-2xl overflow-hidden mb-10">
-					<YNSMedia
+					<StoreMedia
 						src={post.image}
 						alt={post.title}
 						fill
@@ -162,13 +162,13 @@ export default async function BlogPostPage(props: { params: Promise<{ slug: stri
 
 			{/* Footer nav */}
 			<div className="mt-16 border-t border-border pt-8">
-				<YnsLink
+				<StoreLink
 					prefetch="eager"
 					href="/blog"
 					className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
 				>
 					← Back to blog
-				</YnsLink>
+				</StoreLink>
 			</div>
 		</article>
 	);

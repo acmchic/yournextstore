@@ -31,7 +31,7 @@ class GearmentClient:
             url,
             headers={
                 "Accept": "application/json",
-                "User-Agent": "YourNextStore-CatalogSync/1.0",
+                "User-Agent": "TeeBravo-CatalogSync/1.0",
                 "X-Gearment-Client-Key": self.client_key,
                 "X-Gearment-Client-Secret": self.client_secret,
             },

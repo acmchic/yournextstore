@@ -47,7 +47,7 @@ class Settings:
     default_width: int = _int_env("MOCKUP_DEFAULT_WIDTH", 1200)
     max_width: int = _int_env("MOCKUP_MAX_WIDTH", 2400)
     default_format: str = os.getenv("MOCKUP_DEFAULT_FORMAT", "webp")
-    webp_quality: int = _int_env("MOCKUP_WEBP_QUALITY", 88)
+    webp_quality: int = _int_env("MOCKUP_WEBP_QUALITY", 94)
     jpeg_quality: int = _int_env("MOCKUP_JPEG_QUALITY", 90)
     url_signing_secret: str = os.getenv("MOCKUP_URL_SECRET") or mysql_password
     allow_unsigned_urls: bool = _bool_env("MOCKUP_ALLOW_UNSIGNED_URLS", False)
@@ -61,6 +61,7 @@ class Settings:
     gearment_api_base_url: str = os.getenv(
         "GEARMENT_API_BASE_URL", "https://apiv2.gearment.com/integration-handler"
     ).rstrip("/")
+    gearment_import_limit: int = _int_env("GEARMENT_IMPORT_LIMIT", 40)
 
 
 settings = Settings()

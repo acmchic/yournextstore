@@ -3,9 +3,12 @@ import type { NextConfig } from "next";
 const isProd = process.env.NODE_ENV === "production";
 
 const nextConfig: NextConfig = {
+	turbopack: { root: process.cwd() },
 	output: "standalone",
 	/* config options here */
-	allowedDevOrigins: ["*.vercel.run", "*.yns.store", "*.yns.cx"],
+	allowedDevOrigins: ["*.vercel.run"],
+	poweredByHeader: false,
+	productionBrowserSourceMaps: false,
 	devIndicators: false,
 	reactCompiler: true,
 	cacheComponents: true,
@@ -44,9 +47,16 @@ const nextConfig: NextConfig = {
 		],
 	},
 	images: {
+		dangerouslyAllowLocalIP: !isProd,
 		qualities: [75, 90],
 		localPatterns: [{ pathname: "/img/**" }, { pathname: "/api/catalog-mockup/**" }],
-		remotePatterns: [{ protocol: "https", hostname: "**" }],
+		// The local storefront API may be configured as either localhost or
+		// 127.0.0.1; both are valid image origins during development.
+		remotePatterns: [
+			{ protocol: "https", hostname: "**" },
+			{ protocol: "http", hostname: "localhost", port: "8000" },
+			{ protocol: "http", hostname: "127.0.0.1", port: "8000" },
+		],
 	},
 	async headers() {
 		if (isProd) return [];

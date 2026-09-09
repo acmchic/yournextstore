@@ -17,22 +17,30 @@ def render_mockup(
     image_format: ImageFormat,
     settings: Settings,
 ) -> bytes:
-    base = _decode_color(job.base_source, settings)
-    if job.garment_color:
-        base = _tint_catalog_base(base, job.garment_color)
+    base = _decode_color(job.base_source, settings, garment_color=job.garment_color)
     artwork = _decode_alpha(job.artwork_source, settings)
 
+    # Composite at delivery resolution: resizing the finished mockup discards
+    # artwork detail at the (often much smaller) template resolution first.
+    source_width = base.shape[1]
+    base = _resize_to_width(base, width)
+    scale = base.shape[1] / source_width
+    dst_quad = [(x * scale, y * scale) for x, y in job.print_area.dst_quad]
     base_height, base_width = base.shape[:2]
-    prepared_artwork = _fit_artwork(artwork, job.print_area.dst_quad, job.print_area.artwork_fit)
-    warped = _warp_artwork(prepared_artwork, job.print_area.dst_quad, base_width, base_height)
+    prepared_artwork = _fit_artwork(artwork, dst_quad, job.print_area.artwork_fit)
+    warped = _warp_artwork(prepared_artwork, dst_quad, base_width, base_height)
 
     auto_maps = _derive_surface_maps(base) if job.print_area.surface_mode == "auto" else None
 
     if job.displacement_source:
         displacement = _decode_gray(job.displacement_source, settings, (base_width, base_height))
-        warped = _apply_displacement(warped, displacement, job.print_area.displacement_strength)
+        warped = _apply_displacement(
+            warped, displacement, job.print_area.displacement_strength * scale
+        )
     elif auto_maps:
-        warped = _apply_displacement(warped, auto_maps[0], job.print_area.displacement_strength)
+        warped = _apply_displacement(
+            warped, auto_maps[0], job.print_area.displacement_strength * scale
+        )
 
     if job.mask_source:
         mask = _decode_gray(job.mask_source, settings, (base_width, base_height))
@@ -80,9 +88,9 @@ def render_mockup(
 
 
 def render_blank_mockup(
-    base_source: str, *, width: int, image_format: ImageFormat, settings: Settings
+    base_source: str, *, width: int, image_format: ImageFormat, settings: Settings, garment_color: str | None = None
 ) -> bytes:
-    base = _decode_color(base_source, settings)
+    base = _decode_color(base_source, settings, garment_color=garment_color)
     return _encode(_resize_to_width(base, width), image_format, settings)
 
 
@@ -92,20 +100,41 @@ def _cv2():
     return cv2
 
 
-def _decode_color(source: str, settings: Settings) -> np.ndarray:
+def _decode_color(
+    source: str, settings: Settings, *, garment_color: str | None = None
+) -> np.ndarray:
     cv2 = _cv2()
     data = load_asset_bytes(source, settings)
-    image = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    image = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_UNCHANGED)
     if image is None:
         raise ValueError(f"Could not decode image: {source}")
+    if image.ndim == 2:
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    if image.shape[2] == 4:
+        if np.any(image[:, :, 3] < 255):
+            # Provider layers contain translucent highlights/shadows over the
+            # garment color, plus an opaque background. Dropping alpha turns
+            # faint highlights into solid gray patches. Do not tint this layer.
+            background = np.empty(image.shape[:2] + (3,), dtype=np.uint8)
+            background[:] = _garment_bgr(garment_color or "#FFFFFF")
+            return _alpha_composite(background, image)
+        image = image[:, :, :3]
+    if garment_color:
+        image = _tint_catalog_base(image, garment_color)
     return cast(np.ndarray, image)
+
+
+def _garment_bgr(color_hex: str) -> tuple[int, int, int]:
+    normalized = color_hex.strip().lstrip("#")
+    if len(normalized) != 6 or any(value not in "0123456789abcdefABCDEF" for value in normalized):
+        raise ValueError(f"Invalid garment color: {color_hex}")
+    red, green, blue = (int(normalized[index : index + 2], 16) for index in (0, 2, 4))
+    return blue, green, red
 
 
 def _tint_catalog_base(base: np.ndarray, color_hex: str) -> np.ndarray:
     """Recolor the largest non-white object while retaining the source texture."""
-    normalized = color_hex.strip().lstrip("#")
-    if len(normalized) != 6 or any(value not in "0123456789abcdefABCDEF" for value in normalized):
-        raise ValueError(f"Invalid garment color: {color_hex}")
+    blue, green, red = _garment_bgr(color_hex)
 
     cv2 = _cv2()
     gray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)
@@ -125,7 +154,6 @@ def _tint_catalog_base(base: np.ndarray, color_hex: str) -> np.ndarray:
 
     solid_pixels = gray[garment_mask > 220]
     reference = max(20.0, float(np.median(solid_pixels))) if solid_pixels.size else 128.0
-    red, green, blue = (int(normalized[index : index + 2], 16) for index in (0, 2, 4))
     target = np.array([blue, green, red], dtype=np.float32)
     # Provider templates are usually photographed in black. Multiplying a white
     # target by gray/reference clips most of that source to pure white and turns
@@ -276,8 +304,9 @@ def _resize_to_width(image: np.ndarray, width: int) -> np.ndarray:
     height, current_width = image.shape[:2]
     if current_width == width:
         return image
-    next_height = int(height * (width / current_width))
-    return cast(np.ndarray, cv2.resize(image, (width, next_height), interpolation=cv2.INTER_AREA))
+    next_height = max(1, round(height * (width / current_width)))
+    interpolation = cv2.INTER_AREA if width < current_width else cv2.INTER_LANCZOS4
+    return cast(np.ndarray, cv2.resize(image, (width, next_height), interpolation=interpolation))
 
 
 def _encode(image: np.ndarray, image_format: ImageFormat, settings: Settings) -> bytes:

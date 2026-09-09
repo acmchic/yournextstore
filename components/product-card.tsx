@@ -5,10 +5,10 @@ import type {
 } from "commerce-kit";
 import { CURRENCY, LOCALE } from "@/lib/constants";
 import { formatMoney } from "@/lib/money";
+import { StoreMedia } from "@/lib/store-media";
 import { isVideoUrl } from "@/lib/utils";
-import { YNSMedia } from "@/lib/yns-media";
 import { QuickAddButton } from "./quick-add-button";
-import { YnsLink } from "./yns-link";
+import { StoreLink } from "./store-link";
 
 type BrowseProduct = APIProductsBrowseResult["data"][number];
 type CollectionProduct = APICollectionGetByIdResult["productCollections"][number]["product"];
@@ -48,10 +48,18 @@ export function ProductCard({
 
 	const singleVariant = variants?.length === 1 && variants[0]?.stock !== 0 ? variants[0] : null;
 	const categorySlug = "category" in product ? product.category?.slug : null;
-	const productHref = categorySlug ? `/product/${product.slug}/${categorySlug}` : `/product/${product.slug}`;
+	const selectedCatalog =
+		"defaultCatalog" in product && typeof product.defaultCatalog === "string"
+			? product.defaultCatalog
+			: categorySlug;
+	const selectedColor =
+		"defaultColor" in product && typeof product.defaultColor === "string" ? product.defaultColor : null;
+	const productHref = selectedCatalog
+		? `/product/${product.slug}/${selectedCatalog}${selectedColor ? `?Color=${encodeURIComponent(selectedColor)}` : ""}`
+		: `/product/${product.slug}`;
 
 	return (
-		<YnsLink prefetch={"eager"} href={productHref} className="group">
+		<StoreLink prefetch={"eager"} href={productHref} className="group">
 			<div className="relative mb-4 aspect-square overflow-hidden border border-border bg-secondary">
 				{singleVariant && (
 					<QuickAddButton
@@ -77,13 +85,13 @@ export function ProductCard({
 							playsInline
 						/>
 					) : (
-						<YNSMedia
+						<StoreMedia
 							src={primaryImage}
 							alt={product.name}
 							fill
 							quality={primaryImage.includes("/api/catalog-mockup/") ? 90 : undefined}
 							sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-							className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.025] motion-reduce:transition-none"
+							className="bg-white object-contain transition-transform duration-500 ease-out group-hover:scale-[1.01] motion-reduce:transition-none"
 							priority={priority}
 						/>
 					))}
@@ -92,6 +100,6 @@ export function ProductCard({
 				<h3 className="text-base font-medium text-foreground">{product.name}</h3>
 				<p className="whitespace-nowrap font-mono text-sm font-semibold text-foreground">{priceDisplay}</p>
 			</div>
-		</YnsLink>
+		</StoreLink>
 	);
 }

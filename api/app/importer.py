@@ -71,9 +71,6 @@ async def import_design(
     database: Database,
     design_root: Path,
     design_path: Path,
-    catalog_slug: str,
-    color_slugs: list[str],
-    size_codes: list[str],
     publish: bool,
     dry_run: bool,
 ) -> ImportResult:
@@ -93,9 +90,9 @@ async def import_design(
     title = str(metadata.get("title") or slug.replace("-", " ").title())
     description = str(
         metadata.get("description")
-        or f"Original {title} design printed on a made-to-order {catalog_slug}."
+        or f"Original {title} design prepared for made-to-order products."
     )
-    alt_text = str(metadata.get("alt_text") or f"{title} {catalog_slug} design")
+    alt_text = str(metadata.get("alt_text") or f"{title} product design")
     license_status = str(metadata.get("license_status") or "owned")
     checksum = hashlib.sha256(source.read_bytes()).hexdigest()
     with Image.open(source) as image:
@@ -110,13 +107,6 @@ async def import_design(
         return ImportResult(slug=slug, status="dry-run", product_id=None)
 
     async with database.transaction() as cursor:
-        await cursor.execute(
-            "select id, public_id from catalogs where slug=%s and active=true", (catalog_slug,)
-        )
-        catalog = await cursor.fetchone()
-        if not catalog:
-            raise ValueError(f"Active catalog not found: {catalog_slug}")
-
         await cursor.execute(
             "select id, public_id, checksum from designs where slug=%s for update", (slug,)
         )
@@ -205,64 +195,13 @@ async def import_design(
                     title,
                     description,
                     status,
-                    str(metadata.get("brand") or "Own Brand"),
+                    str(metadata.get("brand") or "TeeBravo"),
                     title,
                     description[:500],
                     status,
                 ),
             )
             product_id = cursor.lastrowid
-
-        placeholders_colors = ",".join(["%s"] * len(color_slugs))
-        placeholders_sizes = ",".join(["%s"] * len(size_codes))
-        await cursor.execute(
-            """
-            insert into product_catalogs(product_id, catalog_id, default_color_id, active)
-            select %s, ca.id, min(cc.id), true from catalogs ca
-            join catalog_colors cc on cc.catalog_id=ca.id
-            where ca.id=%s group by ca.id
-            on duplicate key update active=true, default_color_id=values(default_color_id)
-            """,
-            (product_id, catalog["id"]),
-        )
-        await cursor.execute(
-            f"""
-            select cv.id, cv.public_id, cv.sku, cv.default_price_minor, cv.currency,
-                   cc.slug color_slug, cs.code size_code
-            from catalog_variants cv
-            join catalog_colors cc on cc.id=cv.color_id
-            join catalog_sizes cs on cs.id=cv.size_id
-            where cv.catalog_id=%s and cv.active=true
-              and cc.slug in ({placeholders_colors}) and cs.code in ({placeholders_sizes})
-            """,
-            (catalog["id"], *color_slugs, *size_codes),
-        )
-        variants = await cursor.fetchall()
-        expected = len(color_slugs) * len(size_codes)
-        if len(variants) != expected:
-            warnings.append(f"Expected {expected} variants but found {len(variants)}")
-        for variant in variants:
-            variant_public_id = (
-                f"{product_public_id}_{variant['color_slug']}_{variant['size_code'].lower()}"
-            )
-            sku = f"{slug}-{catalog_slug}-{variant['color_slug']}-{variant['size_code']}".upper()
-            await cursor.execute(
-                """
-                insert into product_variants(public_id, product_id, catalog_variant_id, sku,
-                  price_minor, currency, active)
-                values (%s,%s,%s,%s,%s,%s,true)
-                on duplicate key update sku=values(sku), price_minor=values(price_minor),
-                  currency=values(currency), active=true
-                """,
-                (
-                    variant_public_id,
-                    product_id,
-                    variant["id"],
-                    sku,
-                    int(metadata.get("price_minor") or variant["default_price_minor"]),
-                    variant["currency"],
-                ),
-            )
 
         for collection_slug in metadata.get("collections", []):
             await cursor.execute(

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<rect width="1200" height="630" fill="#f4f1e9"/>
+<rect x="32" y="32" width="1136" height="566" fill="none" stroke="#171815" stroke-width="2"/>
+<text x="74" y="108" font-family="Arial, sans-serif" font-size="18" letter-spacing="5" fill="#171815">PREMIUM GRAPHIC CLOTHING</text>
+<path d="M74 151H1126" stroke="#171815"/>
+<text x="68" y="341" font-family="Arial, sans-serif" font-weight="700" font-size="160" letter-spacing="-9" fill="#171815">TeeBravo</text>
+<text x="78" y="416" font-family="Arial, sans-serif" font-size="30" fill="#494a43">Expressive graphics. Everyday clothing.</text>
+<path d="M74 501H1126" stroke="#171815"/>
+<text x="78" y="552" font-family="Arial, sans-serif" font-size="20" letter-spacing="2" fill="#171815">TEEBRAVO.COM</text>
+<text x="1124" y="552" text-anchor="end" font-family="Arial, sans-serif" font-size="18" fill="#171815">TEES / HOODIES / SWEATSHIRTS</text>
+</svg>

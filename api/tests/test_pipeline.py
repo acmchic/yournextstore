@@ -1,14 +1,45 @@
 from __future__ import annotations
 
+import cv2
 import numpy as np
 import pytest
 
 from app.rendering.pipeline import (
     _apply_displacement,
+    _decode_color,
     _fit_artwork,
     _quad_size,
     _tint_catalog_base,
 )
+from app.settings import Settings
+
+
+@pytest.mark.parametrize(
+    "color,bgr", [("#000000", (0, 0, 0)), ("#FF0000", (0, 0, 255)), ("#FFFFFF", (255, 255, 255))]
+)
+def test_translucent_template_preserves_alpha_and_background(tmp_path, color, bgr):
+    template = np.array(
+        [[[255, 255, 255, 255], [200, 200, 200, 12], [123, 87, 54, 0], [0, 0, 0, 128]]],
+        dtype=np.uint8,
+    )
+    cv2.imwrite(str(tmp_path / "layer.png"), template)
+    result = _decode_color("layer.png", Settings(asset_root=tmp_path), garment_color=color)
+    alpha = template[:, :, 3:4].astype(np.float32) / 255
+    expected = (template[:, :, :3] * alpha + np.array(bgr) * (1 - alpha)).astype(np.uint8)
+    np.testing.assert_allclose(result, expected, atol=1)
+    np.testing.assert_array_equal(result[0, 0], [255, 255, 255])
+    np.testing.assert_array_equal(result[0, 2], bgr)
+    if color == "#000000":
+        assert result[0, 1].max() <= 10
+
+
+def test_opaque_rgba_uses_existing_photo_tint(tmp_path):
+    image = np.full((40, 40, 3), 255, np.uint8)
+    image[5:35, 5:35] = 80
+    rgba = np.dstack([image, np.full((40, 40), 255, np.uint8)])
+    cv2.imwrite(str(tmp_path / "opaque.png"), rgba)
+    actual = _decode_color("opaque.png", Settings(asset_root=tmp_path), garment_color="#25282A")
+    np.testing.assert_array_equal(actual, _tint_catalog_base(image, "#25282A"))
 
 
 def _opaque_artwork(width: int, height: int) -> np.ndarray:

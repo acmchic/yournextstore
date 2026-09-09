@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { getStoreFaviconUrl, meGetCached } from "@/lib/commerce";
+import { meGetCached } from "@/lib/commerce";
 import { storefront } from "@/lib/storefront-config";
 
 export async function GET() {
 	const me = await meGetCached();
 	const storeName = me.store.name || storefront.brandName;
-	const faviconUrl = getStoreFaviconUrl(me.store.settings) ?? "/logo.svg";
 
 	const manifest = {
 		name: storeName,
@@ -16,12 +15,12 @@ export async function GET() {
 		theme_color: "#000000",
 		icons: [
 			{
-				src: faviconUrl,
+				src: "/brand/icon-192.png",
 				sizes: "192x192",
 				type: "image/png",
 			},
 			{
-				src: faviconUrl,
+				src: "/brand/icon-512.png",
 				sizes: "512x512",
 				type: "image/png",
 			},

@@ -1,6 +1,6 @@
 import { cacheLife } from "next/cache";
-import { YnsLink } from "@/components/yns-link";
-import { meGetCached } from "@/lib/commerce";
+import { StoreLink } from "@/components/store-link";
+import { commerce, meGetCached } from "@/lib/commerce";
 import { storefront } from "@/lib/storefront-config";
 
 async function FooterBlogLink() {
@@ -14,13 +14,13 @@ async function FooterBlogLink() {
 
 	return (
 		<li>
-			<YnsLink
+			<StoreLink
 				prefetch={"eager"}
 				href="/blog"
 				className="text-xs text-muted-foreground hover:text-foreground transition-colors"
 			>
 				Blog
-			</YnsLink>
+			</StoreLink>
 		</li>
 	);
 }
@@ -36,15 +36,26 @@ async function FooterContactLink() {
 
 	return (
 		<li>
-			<YnsLink
+			<StoreLink
 				prefetch={"eager"}
 				href="/contact"
 				className="text-xs text-muted-foreground hover:text-foreground transition-colors"
 			>
 				Contact Us
-			</YnsLink>
+			</StoreLink>
 		</li>
 	);
+}
+
+async function PolicyLinks() {
+	const { data } = await commerce.legalPageBrowse();
+	return data.map((page) => (
+		<li key={page.href}>
+			<StoreLink href={`/legal${page.href}`} className="text-xs text-muted-foreground hover:text-foreground">
+				{page.label}
+			</StoreLink>
+		</li>
+	));
 }
 
 export function Footer() {
@@ -56,33 +67,39 @@ export function Footer() {
 			</div>
 
 			{/* Middle column with support links */}
-			<div className="col-span-12 md:col-span-4 grid-border-r p-8 md:p-12 hidden md:flex md:items-center">
+			<div className="col-span-12 md:col-span-4 grid-border-r p-8 md:p-12 flex items-center">
 				<ul className="space-y-2">
 					<li>
-						<YnsLink
+						<StoreLink
 							prefetch={"eager"}
 							href="/about"
 							className="text-xs text-muted-foreground hover:text-foreground transition-colors"
 						>
 							About Us
-						</YnsLink>
+						</StoreLink>
 					</li>
 					<FooterContactLink />
 					<li>
-						<YnsLink
+						<StoreLink
 							prefetch={"eager"}
 							href="/faq"
 							className="text-xs text-muted-foreground hover:text-foreground transition-colors"
 						>
 							FAQ
-						</YnsLink>
+						</StoreLink>
 					</li>
 					<FooterBlogLink />
 				</ul>
 			</div>
 
 			{/* Right empty column */}
-			<div className="col-span-12 md:col-span-4 hidden md:block" />
+			<div className="col-span-12 md:col-span-4 p-8 md:p-12">
+				<h2 className="mb-5 text-xs font-semibold uppercase tracking-wide">Store information</h2>
+				<ul className="space-y-3">
+					<PolicyLinks />
+				</ul>
+				<p className="mt-6 text-xs text-muted-foreground">United States · USD</p>
+			</div>
 		</section>
 	);
 }

@@ -58,9 +58,6 @@ export async function generateMetadata({
 }
 
 async function ProductList({ filters }: { filters: ProductFilterParams }) {
-	"use cache";
-	cacheLife("minutes");
-
 	const currentPage = Math.max(1, Number(filters.page) || 1);
 	const offset = (currentPage - 1) * PRODUCTS_PER_PAGE;
 	const sortOption = sortOptions.find((s) => s.value === filters.sort) ?? sortOptions[0];

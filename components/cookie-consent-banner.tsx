@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 // Must match CONSENT_COOKIE in ./cookie-consent.tsx
-const CONSENT_COOKIE = "yns-cookie-consent";
+const CONSENT_COOKIE = "teebravo-cookie-consent";
 
 const recordChoice = (choice: "accepted" | "declined") => {
 	document.cookie = `${CONSENT_COOKIE}=${choice}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;

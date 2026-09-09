@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from app.models import ImageFormat, RenderJob
+from app.settings import settings
 
 
 class FileCache:
@@ -14,6 +15,9 @@ class FileCache:
 
     def key_for(self, job: RenderJob, *, width: int, image_format: ImageFormat) -> str:
         payload = {
+            "renderer": "alpha-template-v2",
+            "job": job.model_dump(mode="json"),
+            "quality": settings.webp_quality if image_format == "webp" else settings.jpeg_quality,
             "product_id": job.product_id,
             "variant_id": job.variant_id,
             "artwork_id": job.artwork_id,

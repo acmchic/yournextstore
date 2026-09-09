@@ -1,8 +1,8 @@
 "use client";
 
 import { type ReadonlyURLSearchParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { StoreLink } from "@/components/store-link";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { YnsLink } from "@/components/yns-link";
 import { cn } from "@/lib/utils";
 
 type SortOption = { value: string; label: string };
@@ -37,7 +37,7 @@ export function SortLinks({ options }: { options: readonly SortOption[] }) {
 			{options.map((option) => {
 				const isActive = option.value === current;
 				return (
-					<YnsLink
+					<StoreLink
 						key={option.value}
 						prefetch="eager"
 						href={buildSortHref(searchParams, pathname, option.value, defaultValue)}
@@ -47,7 +47,7 @@ export function SortLinks({ options }: { options: readonly SortOption[] }) {
 						)}
 					>
 						{option.label}
-					</YnsLink>
+					</StoreLink>
 				);
 			})}
 		</>

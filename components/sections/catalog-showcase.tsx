@@ -53,6 +53,7 @@ function groupCatalogs(catalogs: ApiCatalog[]): CatalogGroup[] {
 }
 
 function selectDiverseCatalogs(groups: CatalogGroup[], limit: number) {
+	if (groups.length === 0 || limit < 1) return [];
 	const queues = groups.map((group) => group.types.flatMap((type) => type.catalogs));
 	const longestQueue = Math.max(...queues.map((queue) => queue.length));
 	const candidates = Array.from({ length: longestQueue * queues.length }, (_, index) =>
@@ -124,13 +125,40 @@ export async function CatalogShowcase() {
 	const products = results.flatMap((result) => result.data);
 
 	if (products.length === 0) return null;
+	const clothingGroups = groups.filter((group) => group.department !== "home-living");
 
 	return (
-		<section className="border-b border-border px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-			<div className="mb-8 border-b border-border pb-4 sm:mb-10">
-				<h2 className="text-xl font-bold tracking-tight sm:text-2xl">Shop the catalog</h2>
-				<p className="mt-2 max-w-xl text-sm text-muted-foreground">
-					Explore active products across apparel, kids, home goods, and accessories.
+		<section className="border-b border-border px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+			<div className="mb-16 grid grid-cols-2 border border-border md:grid-cols-4">
+				{clothingGroups.map((group, index) => (
+					<Link
+						key={group.department}
+						href={`/shop/${group.department}`}
+						className="group border-border p-5 transition-colors hover:bg-foreground hover:text-background md:p-7"
+					>
+						<p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground group-hover:text-background/60">
+							0{index + 1}
+						</p>
+						<h2 className="mt-12 font-display text-2xl font-black uppercase tracking-[-0.05em] md:text-3xl">
+							{group.label}
+						</h2>
+						<p className="mt-3 text-xs text-muted-foreground group-hover:text-background/70">
+							{group.types.length} categories
+						</p>
+					</Link>
+				))}
+			</div>
+			<div className="mb-10 flex flex-col justify-between gap-6 border-b border-border pb-5 sm:mb-12 md:flex-row md:items-end">
+				<div>
+					<p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+						01 / The current edit
+					</p>
+					<h2 className="mt-3 font-display text-4xl font-black uppercase leading-none tracking-[-0.055em] sm:text-5xl">
+						Pieces, not noise.
+					</h2>
+				</div>
+				<p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+					A rotating selection of graphic-led apparel and objects. Choose a body, then make it yours.
 				</p>
 			</div>
 
@@ -145,7 +173,7 @@ export async function CatalogShowcase() {
 							return catalog ? (
 								<Link
 									key={group.department}
-									href={`/category/${catalog.slug}`}
+									href={`/shop/${group.department}`}
 									className="shrink-0 border border-border px-4 py-2 text-sm font-semibold active:translate-y-px"
 								>
 									{group.label}
@@ -153,7 +181,7 @@ export async function CatalogShowcase() {
 							) : null;
 						})}
 					</div>
-					<div className="grid grid-cols-1 gap-x-4 gap-y-10 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-6">
+					<div className="grid grid-cols-1 gap-x-4 gap-y-12 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-6">
 						{products.map((product, index) => (
 							<ProductCard
 								key={`${product.id}-${product.category?.slug ?? index}`}
@@ -162,9 +190,15 @@ export async function CatalogShowcase() {
 							/>
 						))}
 					</div>
-					<div className="mt-10 border-t border-border pt-5">
-						<Link href="/products" className="text-sm font-bold underline-offset-4 hover:underline">
-							View all products
+					<div className="mt-12 flex items-center justify-between border-t border-border pt-5">
+						<span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+							New bodies added continuously
+						</span>
+						<Link
+							href="/products"
+							className="text-xs font-bold uppercase tracking-[0.14em] underline-offset-4 hover:underline"
+						>
+							View all pieces
 						</Link>
 					</div>
 				</div>

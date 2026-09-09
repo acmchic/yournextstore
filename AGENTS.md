@@ -1,6 +1,14 @@
 # AGENTS.md
 
-Your Next Store — e-commerce app built with Next.js App Router + Commerce Kit SDK.
+## Brand and public domain
+
+The public brand is **TeeBravo**, a premium graphic clothing store for US customers. The chosen production domain is **https://teebravo.com**. Keep `lib/storefront-config.ts`, public metadata, API store identity, and product brand data consistent. Do not restore starter branding, referral badges, third-party preview toolbars, or hosted checkout proxies.
+
+## Read first: actual project context
+
+**Before working on this repository, read [docs/project-context.md](docs/project-context.md).** It describes the current architecture and domain model; keep it updated when those change.
+
+This repository has three parts: the root Next.js storefront (customized from YourNextStore), `api/` (FastAPI commerce data and product mockup rendering), and `admin/` (Laravel + Inertia product/catalog/order management). The store sells design-printed apparel to US customers. One design can be sold on multiple catalogs. `lib/commerce.ts` uses the custom `ownCommerce` adapter, not the hosted YourNextStore backend. The SDK examples below describe compatible interfaces, not the current backend implementation.
 
 ## Commands
 
@@ -45,9 +53,8 @@ structured data, feeds, product images, or ad copy, read and follow
 - Product page, feed, cart, checkout, and JSON-LD must agree on title,
   description, image, price, currency, availability, condition, brand,
   SKU/MPN/GTIN status, and variant attributes.
-- Do not hardcode the go-live domain yet. Product links, canonical URLs,
-  sitemap URLs, JSON-LD URLs, and future feed URLs must come from configuration
-  once the domain is chosen.
+- The go-live domain is `https://teebravo.com`. Product links, canonical URLs,
+  sitemap URLs, JSON-LD URLs, and future feed URLs must use shared configuration.
 - Keep contact, shipping, returns/refunds, privacy, terms, FAQ, and business
   identity routes visible and accurate. Even "no returns" must be stated
   explicitly.

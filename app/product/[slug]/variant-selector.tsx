@@ -1,7 +1,8 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type VariantValue = {
@@ -40,6 +41,55 @@ type VariantSelectorProps = {
 	variants: Variant[];
 	selectedVariantId: string | undefined;
 };
+
+function SizeSelect({
+	group,
+	selectedOption,
+	onSelect,
+}: {
+	group: VariantGroup;
+	selectedOption?: VariantOption;
+	onSelect: (id: string) => void;
+}) {
+	const [open, setOpen] = useState(false);
+	const selected = selectedOption?.value ?? "Select size";
+	return (
+		<div className="relative">
+			<button
+				type="button"
+				aria-haspopup="listbox"
+				aria-expanded={open}
+				onClick={() => setOpen((value) => !value)}
+				className="relative flex h-10 w-full cursor-pointer items-center justify-between rounded border border-foreground bg-white px-3 text-left text-sm font-normal leading-4 transition-shadow duration-150 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#aaaaac]"
+			>
+				<span>{selected}</span>
+				<ChevronDown className={`size-5 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+			</button>
+			{open && (
+				<div
+					role="listbox"
+					className="absolute inset-x-0 top-[calc(100%-5px)] z-30 overflow-y-auto rounded-b border border-foreground border-t-0 bg-white pb-2 shadow-none"
+				>
+					{group.options.map((option) => (
+						<button
+							key={option.id}
+							type="button"
+							role="option"
+							aria-selected={selectedOption?.id === option.id}
+							onClick={() => {
+								onSelect(option.id);
+								setOpen(false);
+							}}
+							className="flex min-h-10 w-full cursor-pointer items-center px-3 text-left text-sm transition-colors hover:bg-foreground hover:text-background first:mt-1"
+						>
+							{option.value}
+						</button>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
 
 function processVariants(variants: Variant[]) {
 	const allCombinations = variants.flatMap((variant) =>
@@ -141,14 +191,16 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 		if (changed) router.replace(`${pathname}?${params.toString()}`, { scroll: false });
 	}, [variants, searchParams, pathname]);
 
-	const groupsWithChoices = variantGroups.filter((group) => group.options.length > 1);
+	const groupsWithChoices = variantGroups
+		.filter((group) => group.options.length > 1)
+		.sort((a, b) => (a.type === "color" ? -1 : b.type === "color" ? 1 : 0));
 
 	if (groupsWithChoices.length === 0) {
 		return null;
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-12 sm:space-y-9">
 			{groupsWithChoices.map((group) => {
 				const selectedOptionId = selectedOptions[group.label];
 				const selectedOption = selectedOptionId
@@ -156,10 +208,10 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 					: undefined;
 
 				return (
-					<fieldset key={group.label} className="m-0 border-0 p-0">
+					<fieldset key={group.label} className="border-0 p-0">
 						{group.type === "color" ? (
 							<>
-								<div className="mb-3 flex items-center justify-between">
+								<div className="mb-4 flex items-center justify-between">
 									<legend className="text-xs uppercase tracking-[0.06em]">{group.label}</legend>
 									{selectedOption && (
 										<span className="text-xs text-muted-foreground">{selectedOption.value}</span>
@@ -179,7 +231,7 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 												type="button"
 												onClick={() => handleOptionSelect(group.label, option.id)}
 												className={cn(
-													"relative h-10 w-10 rounded-full transition-all duration-200",
+													"relative h-10 w-10 cursor-pointer rounded-full transition-all duration-200",
 													isSelected
 														? "ring-1 ring-foreground ring-offset-2 ring-offset-background"
 														: "hover:ring-1 hover:ring-muted-foreground hover:ring-offset-2 hover:ring-offset-background",
@@ -198,30 +250,23 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 							</>
 						) : (
 							<>
-								<div className="mb-3 flex items-center justify-between">
+								<div className="mb-4 flex items-center justify-between">
 									<legend className="text-xs uppercase tracking-[0.06em]">{group.label}</legend>
+									{group.label.toLowerCase() === "size" && (
+										<button
+											type="button"
+											onClick={() => window.dispatchEvent(new CustomEvent("teebravo:size-guide"))}
+											className="cursor-pointer text-xs underline underline-offset-4 transition-opacity hover:opacity-60"
+										>
+											Size guide
+										</button>
+									)}
 								</div>
-								<div className="flex flex-wrap gap-2">
-									{group.options.map((option) => {
-										const isSelected = selectedOptions[group.label] === option.id;
-
-										return (
-											<button
-												key={option.id}
-												type="button"
-												onClick={() => handleOptionSelect(group.label, option.id)}
-												className={cn(
-													"flex min-h-11 min-w-14 items-center justify-center border px-5 py-2.5 transition-colors duration-200",
-													isSelected
-														? "border-foreground bg-foreground text-background"
-														: "border-border bg-background hover:border-muted-foreground",
-												)}
-											>
-												<span className="text-sm font-medium">{option.value}</span>
-											</button>
-										);
-									})}
-								</div>
+								<SizeSelect
+									group={group}
+									selectedOption={selectedOption}
+									onSelect={(id) => handleOptionSelect(group.label, id)}
+								/>
 							</>
 						)}
 					</fieldset>

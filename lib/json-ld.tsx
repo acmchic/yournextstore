@@ -5,6 +5,7 @@ import type {
 } from "commerce-kit";
 import { getCanonicalUrl, meGetCached } from "@/lib/commerce";
 import { CURRENCY } from "@/lib/constants";
+import { merchantVariants } from "@/lib/merchant";
 import { storefront } from "@/lib/storefront-config";
 
 async function getCurrency(): Promise<string> {
@@ -43,14 +44,14 @@ export async function buildProductJsonLd(
 	const baseUrl = getBaseUrl();
 	const currency = await getCurrency();
 	const productPath = `/product/${product.slug}${product.category?.slug ? `/${product.category.slug}` : ""}`;
-	const variants = product.variants.map((variant) => {
+	const normalized = merchantVariants(product, baseUrl, currency);
+	const variants = product.variants.map((variant, index) => {
 		const options = Object.fromEntries(
 			variant.combinations.map((combination) => [
 				combination.variantValue.variantType.label,
 				combination.variantValue.value,
 			]),
 		);
-		const query = new URLSearchParams(options).toString();
 		return {
 			"@type": "Product",
 			name: product.name,
@@ -60,12 +61,12 @@ export async function buildProductJsonLd(
 			size: options.Size,
 			offers: {
 				"@type": "Offer",
-				url: `${baseUrl}${productPath}${query ? `?${query}` : ""}`,
-				priceCurrency: currency,
-				price: getDecimalPrice(variant.price),
+				url: normalized[index].link,
+				priceCurrency: normalized[index].currency,
+				price: normalized[index].price,
 				itemCondition: "https://schema.org/NewCondition",
 				availability:
-					variant.stock === null || variant.stock > 0
+					normalized[index].availability === "in_stock"
 						? "https://schema.org/InStock"
 						: "https://schema.org/OutOfStock",
 			},
@@ -79,11 +80,12 @@ export async function buildProductJsonLd(
 		description: product.summary,
 		image: product.images,
 		sku: product.variants[0]?.sku ?? product.id,
-		productGroupID: product.variants.length > 1 ? product.id : undefined,
+		productGroupID:
+			product.variants.length > 1 ? `${product.id}:${product.category?.slug ?? "default"}` : undefined,
 		variesBy:
 			product.variants.length > 1 ? ["https://schema.org/color", "https://schema.org/size"] : undefined,
 		hasVariant: product.variants.length > 1 ? variants : undefined,
-		brand: product.category ? { "@type": "Brand", name: product.category.name } : undefined,
+		brand: { "@type": "Brand", name: storefront.brandName },
 		offers:
 			product.variants.length === 1
 				? {
@@ -102,7 +104,9 @@ export async function buildProductJsonLd(
 						highPrice,
 						priceCurrency: currency,
 						offerCount: product.variants.length,
-						availability: "https://schema.org/InStock",
+						availability: product.variants.some((variant) => variant.stock === null || variant.stock > 0)
+							? "https://schema.org/InStock"
+							: "https://schema.org/OutOfStock",
 					},
 	};
 

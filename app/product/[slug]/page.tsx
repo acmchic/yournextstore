@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { AddToCartButton } from "@/app/product/[slug]/add-to-cart-button";
+import { CatalogDetails } from "@/app/product/[slug]/catalog-details";
 import { MediaGallery } from "@/app/product/[slug]/media-gallery";
 import { ProductFeatures } from "@/app/product/[slug]/product-features";
 import { ProductReviews } from "@/app/product/[slug]/product-reviews";
@@ -20,7 +21,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { commerce, meGetCached } from "@/lib/commerce";
 import { buildProductBreadcrumbJsonLd, buildProductJsonLd, JsonLdScript } from "@/lib/json-ld";
-import { productGetByCatalog } from "@/lib/own-commerce";
+import { catalogBrowse, productGetByCatalog } from "@/lib/own-commerce";
 import { cn } from "@/lib/utils";
 
 export const instant = false;
@@ -176,9 +177,11 @@ const ProductDetails = async ({ params }: { params: Promise<ProductRouteParams> 
 	const { slug, catalog } = await params;
 	const me = await meGetCached().catch(() => null);
 	const reviewsEnabled = me?.store.settings?.enabledTools?.reviews ?? false;
-	const [product, reviews] = await Promise.all([
+	const [product, reviews, catalogs, legalPages] = await Promise.all([
 		getProduct(slug, catalog),
 		reviewsEnabled ? commerce.productReviewsBrowse({ idOrSlug: slug }, { limit: 20 }) : Promise.resolve(null),
+		catalogBrowse(),
+		commerce.legalPageBrowse(),
 	]);
 
 	if (!product) {
@@ -186,6 +189,14 @@ const ProductDetails = async ({ params }: { params: Promise<ProductRouteParams> 
 	}
 
 	const reviewSummary = reviews?.summary ?? null;
+	const catalogDetails =
+		catalogs.data.find((item) => item.slug === catalog) ??
+		catalogs.data.find((item) => item.product_type === product.category?.slug);
+	const isApparel =
+		catalogDetails?.taxonomy.some(({ department }) => ["men", "women", "kids"].includes(department)) ?? false;
+	const policies = legalPages.data
+		.filter((page) => /shipping|return|refund/i.test(page.href + page.label))
+		.map((page) => ({ label: page.label, href: page.href }));
 
 	const allImages = [
 		...product.images,
@@ -259,6 +270,20 @@ const ProductDetails = async ({ params }: { params: Promise<ProductRouteParams> 
 						}}
 						summary={product.summary}
 						volumePricingTiers={product.volumePricingTiers}
+					/>
+					<CatalogDetails
+						details={{
+							catalogName: catalogDetails?.name ?? product.category?.name ?? "TeeBravo",
+							description: catalogDetails?.description ?? product.summary,
+							material: catalogDetails?.material,
+							materialDetails: catalogDetails?.material_details,
+							brand: catalogDetails?.brand,
+							productType: catalogDetails?.product_type,
+							chart: catalogDetails?.size_chart,
+							sizes: catalogDetails?.sizes.map((size) => size.label),
+							isApparel,
+							policies,
+						}}
 					/>
 				</div>
 			</div>

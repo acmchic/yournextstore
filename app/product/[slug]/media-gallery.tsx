@@ -4,8 +4,8 @@ import { ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { StoreMedia } from "@/lib/store-media";
 import { cn, isVideoUrl } from "@/lib/utils";
-import { YNSMedia } from "@/lib/yns-media";
 
 type Variant = {
 	id: string;
@@ -43,32 +43,50 @@ type GalleryImage = {
 
 const styleOrder = { flat: 0, women: 1, men: 2 } as const;
 
+function colorSlug(value: string): string {
+	return value
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "");
+}
+
 function describeGalleryImage(image: string | undefined, color: string): GalleryImage | null {
 	if (!image) return null;
 	const normalized = image.toLowerCase();
-	const dynamicUrl = normalized.includes("/api/catalog-mockup/");
-	const dynamicParams = dynamicUrl ? new URL(image, "http://local").searchParams : null;
-	const matchesColor = dynamicParams
-		? dynamicParams.get("Color")?.toLowerCase() === color.toLowerCase()
-		: normalized.includes(`-${color.toLowerCase()}-`);
+	const legacyMockupUrl = normalized.includes("/api/catalog-mockup/");
+	const simpleMockupUrl = /\/[^/]+\/[^/]+_color-[^/?]+\.webp(?:\?|$)/.test(normalized);
+	const dynamicParams = /\?/.test(image) ? new URL(image, "http://local").searchParams : null;
+	const selectedColorSlug = colorSlug(color);
+	const colorPattern = new RegExp(`_color-${selectedColorSlug}(?:\\.webp|[-_])`, "i");
+	const dynamicColor = dynamicParams?.get("Color");
+	const matchesColor = dynamicColor
+		? colorSlug(dynamicColor) === selectedColorSlug
+		: colorPattern.test(normalized) || normalized.includes(`-${selectedColorSlug}-`);
 	if (!matchesColor) return null;
-	const dynamicPlacement = dynamicParams?.get("Placement")?.toLowerCase();
+	const dynamicPlacement = (
+		dynamicParams?.get("Placement") ?? dynamicParams?.get("placement")
+	)?.toLowerCase();
 	const placement =
 		dynamicPlacement === "back"
 			? "back"
 			: dynamicPlacement === "front"
 				? "front"
-				: normalized.endsWith(placementSuffix.chest)
+				: dynamicPlacement === "chest" || dynamicPlacement === "left-chest"
 					? "chest"
-					: normalized.endsWith(placementSuffix.back)
-						? "back"
-						: normalized.endsWith(placementSuffix.front)
-							? "front"
-							: null;
+					: simpleMockupUrl
+						? "front"
+						: normalized.endsWith(placementSuffix.chest)
+							? "chest"
+							: normalized.endsWith(placementSuffix.back)
+								? "back"
+								: normalized.endsWith(placementSuffix.front)
+									? "front"
+									: null;
 	if (!placement) return null;
 	return {
 		url: image,
-		blank: normalized.includes("/img/blank/"),
+		blank: normalized.includes("/img/blank/") || dynamicParams?.get("blank") === "1",
 		placement,
 		style: normalized.includes("-women-") ? "women" : normalized.includes("-men-") ? "men" : "flat",
 	};
@@ -183,12 +201,12 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 						key={image}
 						className="relative aspect-[4/5] w-full shrink-0 snap-center overflow-hidden bg-[#f4f4f4]"
 					>
-						<YNSMedia
+						<StoreMedia
 							src={image}
 							alt={`${productName} - View ${index + 1}`}
 							fill
-							quality={image.includes("/api/catalog-mockup/") ? 90 : undefined}
-							sizes="100vw"
+							quality={image.includes("/api/catalog-mockup/") || image.includes("_color-") ? 90 : undefined}
+							sizes="(max-width: 768px) 100vw, 60vw"
 							className="object-contain"
 							priority={index === 0}
 						/>
@@ -197,7 +215,7 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 			</div>
 
 			{/* Desktop main image */}
-			<div className="group relative hidden aspect-[4/5] overflow-hidden bg-[#f4f4f4] md:block">
+			<div className="group relative hidden h-[min(78vh,900px)] min-h-[520px] overflow-hidden bg-[#f4f4f4]">
 				{isVideoUrl(displayImages[selectedIndex] ?? "") ? (
 					<video
 						className="absolute inset-0 h-full w-full object-contain"
@@ -209,11 +227,16 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 						controls
 					/>
 				) : (
-					<YNSMedia
+					<StoreMedia
 						src={displayImages[selectedIndex]}
 						alt={`${productName} - View ${selectedIndex + 1}`}
 						fill
-						quality={displayImages[selectedIndex]?.includes("/api/catalog-mockup/") ? 90 : undefined}
+						quality={
+							displayImages[selectedIndex]?.includes("/api/catalog-mockup/") ||
+							displayImages[selectedIndex]?.includes("_color-")
+								? 90
+								: undefined
+						}
 						sizes="(max-width: 1024px) 100vw, 50vw"
 						className={cn(
 							"object-contain transition-transform duration-500 ease-out",
@@ -272,6 +295,25 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 				)}
 			</div>
 
+			<div className="hidden flex-col gap-4 md:flex">
+				{displayImages.map((image, index) => (
+					<div
+						key={`desktop-${image}-${index}`}
+						className="relative aspect-[4/5] w-full overflow-hidden bg-white"
+					>
+						<StoreMedia
+							src={image}
+							alt={`${productName} - View ${index + 1}`}
+							fill
+							quality={image.includes("_color-") ? 90 : undefined}
+							sizes="(max-width: 1024px) 100vw, 60vw"
+							className="object-contain"
+							priority={index === 0}
+						/>
+					</div>
+				))}
+			</div>
+
 			{/* Thumbnails */}
 			{displayImages.length > 1 && (
 				<div className="hidden gap-2 overflow-x-auto pb-1 md:flex [scrollbar-width:thin]">
@@ -295,7 +337,7 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 									playsInline
 								/>
 							) : (
-								<YNSMedia
+								<StoreMedia
 									src={image}
 									alt={`${productName} thumbnail ${index + 1}`}
 									fill

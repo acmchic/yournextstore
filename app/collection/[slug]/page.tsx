@@ -1,161 +1,84 @@
-import type { APICollectionGetByIdResult } from "commerce-kit";
 import type { Metadata } from "next";
-import { cacheLife } from "next/cache";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
-import { ProductGrid } from "@/components/sections/product-grid";
-import {
-	Breadcrumb,
-	BreadcrumbItem,
-	BreadcrumbLink,
-	BreadcrumbList,
-	BreadcrumbPage,
-	BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { commerce } from "@/lib/commerce";
-import { buildCollectionBreadcrumbJsonLd, buildCollectionJsonLd, JsonLdScript } from "@/lib/json-ld";
-import { YNSMedia } from "@/lib/yns-media";
+import { ProductCard } from "@/components/product-card";
+import { getCanonicalUrl } from "@/lib/commerce";
+import { JsonLdScript } from "@/lib/json-ld";
+import { shopBrowse, storefrontCollections } from "@/lib/own-commerce";
 
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ page?: string }> };
 export const instant = false;
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-	"use cache";
-	cacheLife("minutes");
-	const { slug } = await params;
-	const collection = await commerce.collectionGet({ idOrSlug: slug });
-
-	if (!collection) {
-		return { title: "Collection Not Found", robots: { index: false, follow: true } };
-	}
-
-	const description =
-		typeof collection.description === "string"
-			? collection.description
-			: `Shop the ${collection.name} collection.`;
-	const canonical = `/collection/${collection.slug}`;
-
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
+	const [{ slug }, query, collections] = await Promise.all([params, searchParams, storefrontCollections()]);
+	const collection = collections.data.find((item) => item.slug === slug);
+	if (!collection) return { title: "Collection not found", robots: { index: false, follow: true } };
 	return {
-		title: collection.name,
-		description,
-		alternates: { canonical },
-		openGraph: {
-			type: "website",
-			title: collection.name,
-			description,
-			url: canonical,
-			images: collection.image ? [{ url: collection.image, alt: collection.name }] : undefined,
-		},
-		twitter: {
-			card: collection.image ? "summary_large_image" : "summary",
-			title: collection.name,
-			description,
-			images: collection.image ? [collection.image] : undefined,
-		},
+		title: collection.title,
+		description: collection.description ?? undefined,
+		alternates: { canonical: `/collection/${slug}` },
+		robots: { index: Boolean(collection.indexable) && !query.page, follow: true },
 	};
 }
 
-function CollectionHeader({ collection }: { collection: APICollectionGetByIdResult }) {
+export default async function CollectionPage({ params, searchParams }: Props) {
+	const [{ slug }, query, collections] = await Promise.all([params, searchParams, storefrontCollections()]);
+	const collection = collections.data.find((item) => item.slug === slug);
+	if (!collection) notFound();
+	const page = Number(query.page ?? 1);
+	if (!Number.isSafeInteger(page) || page < 1) notFound();
+	const products = await shopBrowse({ collection: slug, limit: 24, offset: (page - 1) * 24 });
+	if (!products.data.length) notFound();
+	const base = getCanonicalUrl();
 	return (
-		<section className="relative overflow-hidden bg-secondary/30">
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-				<div className="py-12 sm:py-16 lg:py-20">
-					<div className="max-w-2xl">
-						<h1 className="text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight text-foreground">
-							{collection.name}
-						</h1>
-						{collection.description && (
-							<p className="mt-4 text-lg text-muted-foreground leading-relaxed">
-								{typeof collection.description === "string"
-									? collection.description
-									: "Explore our curated collection"}
-							</p>
-						)}
-					</div>
+		<div>
+			<JsonLdScript
+				data={{
+					"@context": "https://schema.org",
+					"@type": "CollectionPage",
+					name: collection.title,
+					description: collection.description,
+					url: `${base}/collection/${slug}`,
+				}}
+			/>
+			<JsonLdScript
+				data={{
+					"@context": "https://schema.org",
+					"@type": "BreadcrumbList",
+					itemListElement: [
+						{ "@type": "ListItem", position: 1, name: "Home", item: base },
+						{ "@type": "ListItem", position: 2, name: collection.title, item: `${base}/collection/${slug}` },
+					],
+				}}
+			/>
+			<header className="border-b border-border px-6 py-16 text-center md:py-24">
+				<p className="text-xs uppercase tracking-widest">The TeeBravo edit</p>
+				<h1 className="mt-4 text-3xl font-semibold uppercase tracking-tight md:text-5xl">
+					{collection.title}
+				</h1>
+				<p className="mx-auto mt-5 max-w-md text-sm text-muted-foreground">{collection.description}</p>
+			</header>
+			<section className="px-4 py-10 md:px-8">
+				<p className="mb-6 text-xs uppercase">{products.meta.count} pieces</p>
+				<div className="grid grid-cols-2 gap-x-3 gap-y-10 md:grid-cols-4 md:gap-x-6">
+					{products.data.map((product, index) => (
+						<ProductCard
+							key={`${product.id}:${product.category?.slug}`}
+							product={product}
+							priority={index < 2}
+						/>
+					))}
 				</div>
-			</div>
-			{collection.image && (
-				<div className="absolute top-0 right-0 w-1/2 h-full hidden lg:block">
-					<YNSMedia
-						src={collection.image}
-						alt={collection.name}
-						fill
-						sizes="50vw"
-						className="object-cover opacity-30"
-						priority
-					/>
-					<div className="absolute inset-0 bg-linear-to-r from-secondary/30 to-transparent" />
-				</div>
-			)}
-		</section>
-	);
-}
-
-function ProductGridSkeleton() {
-	return (
-		<section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-				{Array.from({ length: 6 }).map((_, i) => (
-					<div key={`skeleton-${i}`}>
-						<div className="aspect-square bg-secondary mb-4 animate-pulse" />
-						<div className="space-y-2">
-							<div className="h-5 w-3/4 bg-secondary rounded animate-pulse" />
-							<div className="h-5 w-1/4 bg-secondary rounded animate-pulse" />
-						</div>
-					</div>
-				))}
-			</div>
-		</section>
-	);
-}
-
-async function CollectionProducts({ collection }: { collection: APICollectionGetByIdResult }) {
-	const ids = collection.productCollections.map((pc) => pc.product.id);
-	const products = (await Promise.all(ids.map((id) => commerce.productGet({ idOrSlug: id })))).filter(
-		(product) => product !== null,
-	);
-
-	return (
-		<ProductGrid
-			title={`${collection.name} Collection`}
-			description={`${products.length} products`}
-			products={products}
-			showViewAll={false}
-		/>
-	);
-}
-
-export default async function CollectionPage(props: { params: Promise<{ slug: string }> }) {
-	const { slug } = await props.params;
-	const collection = await commerce.collectionGet({ idOrSlug: slug });
-
-	if (!collection) {
-		notFound();
-	}
-
-	return (
-		<>
-			<JsonLdScript data={buildCollectionJsonLd(collection)} />
-			<JsonLdScript data={buildCollectionBreadcrumbJsonLd(collection)} />
-			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-				<Breadcrumb>
-					<BreadcrumbList>
-						<BreadcrumbItem>
-							<BreadcrumbLink asChild>
-								<Link href="/">Home</Link>
-							</BreadcrumbLink>
-						</BreadcrumbItem>
-						<BreadcrumbSeparator />
-						<BreadcrumbItem>
-							<BreadcrumbPage>{collection.name}</BreadcrumbPage>
-						</BreadcrumbItem>
-					</BreadcrumbList>
-				</Breadcrumb>
-			</div>
-			<CollectionHeader collection={collection} />
-			<Suspense fallback={<ProductGridSkeleton />}>
-				<CollectionProducts collection={collection} />
-			</Suspense>
-		</>
+				{products.meta.count > 24 && (
+					<nav aria-label="Pagination" className="mt-12 flex justify-between border-t py-6 text-sm">
+						{page > 1 ? <Link href={`?page=${page - 1}`}>Previous</Link> : <span />}
+						<span>
+							Page {page} of {Math.ceil(products.meta.count / 24)}
+						</span>
+						{page * 24 < products.meta.count ? <Link href={`?page=${page + 1}`}>Next</Link> : <span />}
+					</nav>
+				)}
+			</section>
+		</div>
 	);
 }

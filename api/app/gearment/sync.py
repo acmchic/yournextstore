@@ -15,6 +15,15 @@ from PIL import Image, UnidentifiedImageError
 
 from app.db import Database
 
+DEFAULT_IMPORT_COLOR_CODES = (
+    "black",
+    "white",
+    "navy",
+    "red",
+    "royal",
+    "sport-grey",
+)
+
 
 @dataclass(frozen=True)
 class SyncResult:
@@ -30,6 +39,32 @@ class SyncResult:
 
 def slugify(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+
+
+def catalog_display_name(value: str) -> str:
+    """Remove provider style/variant numbers from the human-facing name."""
+    parts = [part.strip() for part in value.split(" - ") if part.strip()]
+    if len(parts) >= 3 and re.search(r"\d", parts[-1]):
+        value = " - ".join(parts[1:-1])
+    elif len(parts) == 2 and re.fullmatch(r"[A-Za-z]*\d[A-Za-z\d-]*", parts[-1]):
+        value = parts[0]
+    cleaned = re.sub(r"(?:[\s_-]+\d{3,}[A-Za-z]*)+$", "", value.strip()).strip(" -_")
+    return re.sub(r"\s+", " ", cleaned) or value.strip()
+
+
+def catalog_asset_category(taxonomy: list[dict[str, Any]]) -> str:
+    departments = {str(row.get("department", "")).lower() for row in taxonomy}
+    if {"men", "women"}.issubset(departments):
+        return "unisex"
+    if "women" in departments:
+        return "women"
+    if "kids" in departments:
+        return "kids"
+    if "accessories" in departments:
+        return "accessories"
+    if "home-living" in departments:
+        return "home-living"
+    return "other"
 
 
 def money_to_minor(value: Any) -> tuple[int | None, str | None]:
@@ -85,6 +120,22 @@ def normalize_variant(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _color_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+
+
+def filter_import_colors(
+    variants: list[dict[str, Any]],
+    allowed_codes: tuple[str, ...] = DEFAULT_IMPORT_COLOR_CODES,
+) -> list[dict[str, Any]]:
+    allowed = {_color_key(code) for code in allowed_codes}
+    return [
+        row
+        for row in variants
+        if _color_key(row["color_code"]) in allowed or _color_key(row["color"]) in allowed
+    ]
+
+
 def _hex(value: str) -> str | None:
     normalized = value.strip().lstrip("#")
     return f"#{normalized.upper()}" if re.fullmatch(r"[0-9a-fA-F]{6}", normalized) else None
@@ -109,15 +160,68 @@ def _asset_extension(content_type: str, url: str) -> str:
     raise ValueError(f"Unsupported catalog image type: {content_type}")
 
 
+def asset_placement(
+    image_row: dict[str, Any], index: int, design_kits: list[dict[str, Any]]
+) -> str:
+    tag = str(image_row.get("tag") or image_row.get("type") or "").lower()
+    url = str(image_row.get("url") or "").lower()
+    if "avatar" in tag or "model" in tag or index == 0:
+        return "avatar"
+    for placement in ("front", "back"):
+        if placement in tag or placement in url:
+            return placement
+        kit = next(
+            (
+                item
+                for item in design_kits
+                if str(item.get("locationCode", "")).lower() == placement
+            ),
+            {},
+        )
+        if (
+            str(kit.get("layer1Url") or "").lower() == url
+            or str(kit.get("locationModelUrl") or "").lower() == url
+        ):
+            return placement
+    return "front" if index == 1 else "gallery"
+
+
+def _local_asset(url: str, target_stem: Path) -> dict[str, Any] | None:
+    for extension in (".png", ".jpg", ".webp"):
+        target = target_stem.with_suffix(extension)
+        if not target.is_file():
+            continue
+        with Image.open(target) as image:
+            width, height = image.size
+            detected = Image.MIME.get(image.format or "", "application/octet-stream")
+        return {
+            "source_url": url,
+            "local_path": target.as_posix(),
+            "checksum": hashlib.sha256(target.read_bytes()).hexdigest(),
+            "mime_type": detected,
+            "width": width,
+            "height": height,
+            "byte_size": target.stat().st_size,
+        }
+    return None
+
+
 def download_asset(url: str, target_stem: Path, refresh: bool) -> dict[str, Any]:
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme != "https":
         raise ValueError("Catalog assets must use HTTPS")
+    if not refresh:
+        local = _local_asset(url, target_stem)
+        if local:
+            return local
+        raise FileNotFoundError(
+            f"Catalog asset is missing locally: {target_stem}; use --refresh-assets to download it"
+        )
     request = urllib.request.Request(
         url,
         headers={
             "Accept": "image/webp,image/png,image/jpeg",
-            "User-Agent": "YourNextStore-CatalogSync/1.0",
+            "User-Agent": "TeeBravo-CatalogSync/1.0",
         },
     )
     with urllib.request.urlopen(request, timeout=45) as response:
@@ -175,14 +279,24 @@ async def sync_catalog(
         raise ValueError(
             f"API product {provider_id} does not match website {website['product_id']}"
         )
-    name = str(api_record.get("product_name") or api_record.get("productName") or website["name"])
+    name = catalog_display_name(
+        str(api_record.get("product_name") or api_record.get("productName") or website["name"])
+    )
     slug = str(manifest_entry.get("slug") or slugify(website["page_slug"] or name))
     raw_variants = api_record.get("variants") or website["raw"].get("variants") or []
     variants = [normalize_variant(row) for row in raw_variants if isinstance(row, dict)]
+    for row in variants:
+        row["color_code"] = row["color_code"].strip().upper()
+        row["size_code"] = row["size_code"].strip().upper()
+        row["color"] = re.sub(r"\s+", " ", row["color"].strip())
+        row["size"] = row["size"].strip()
     variants = [row for row in variants if row["id"] and row["color_code"] and row["size_code"]]
+    variants = filter_import_colors(variants)
     colors = {row["color_code"]: row for row in variants}
     sizes = {row["size_code"]: row for row in variants}
     image_rows = website.get("images") or []
+    design_kits = website.get("artwork_guideline", {}).get("design_kits", [])
+    asset_category = catalog_asset_category(manifest_entry.get("taxonomy", []))
     avatar = api_record.get("product_avatar_url") or api_record.get("productAvatarUrl")
     if avatar and not any(item.get("url") == avatar for item in image_rows):
         image_rows = [{"url": avatar, "tag": "avatar"}, *image_rows]
@@ -197,21 +311,16 @@ async def sync_catalog(
             """
             insert into catalogs(provider, provider_product_id, provider_legacy_product_id,
               public_id, slug, name, product_type, material, brand, source_page_url,
-              source_page_slug, provider_description, provider_size_chart_json,
-              shipping_guideline_json, artwork_guideline_json, provider_payload_json,
-              website_payload_json, provider_synced_at, website_synced_at, active)
-            values ('gearment',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-              current_timestamp(6),current_timestamp(6),true)
+              source_page_slug, provider_description, provider_material_json,
+              provider_size_chart_json, artwork_guideline_json, active)
+            values ('gearment',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,true)
             on duplicate key update provider_legacy_product_id=values(provider_legacy_product_id),
               name=values(name), source_page_url=values(source_page_url),
               source_page_slug=values(source_page_slug),
               provider_description=values(provider_description),
+              provider_material_json=values(provider_material_json),
               provider_size_chart_json=values(provider_size_chart_json),
-              shipping_guideline_json=values(shipping_guideline_json),
-              artwork_guideline_json=values(artwork_guideline_json),
-              provider_payload_json=values(provider_payload_json),
-              website_payload_json=values(website_payload_json),
-              provider_synced_at=current_timestamp(6), website_synced_at=current_timestamp(6), active=true
+              artwork_guideline_json=values(artwork_guideline_json), active=true
             """,
             (
                 provider_id,
@@ -224,12 +333,10 @@ async def sync_catalog(
                 manifest_entry.get("brand") or website.get("brand"),
                 website["source_url"],
                 website["page_slug"],
-                website["description"],
+                None,
+                json.dumps(website.get("material_details", {"items": []}), ensure_ascii=False),
                 json.dumps(website["size_chart"], ensure_ascii=False),
-                json.dumps(website["shipping_guideline"], ensure_ascii=False),
                 json.dumps(website["artwork_guideline"], ensure_ascii=False),
-                json.dumps(api_record, ensure_ascii=False),
-                json.dumps(website["raw"], ensure_ascii=False),
             ),
         )
         await cursor.execute(
@@ -239,14 +346,15 @@ async def sync_catalog(
         catalog = await cursor.fetchone()
         catalog_id = catalog["id"]
         color_ids: dict[str, int] = {}
-        for code, row in colors.items():
+        for sort_order, (code, row) in enumerate(colors.items()):
             await cursor.execute(
                 """
-                insert into catalog_colors(catalog_id,provider_color_code,slug,name,hex,active)
-                values (%s,%s,%s,%s,%s,true)
-                on duplicate key update slug=values(slug),name=values(name),hex=values(hex),active=true
+                insert into catalog_colors(catalog_id,provider_color_code,slug,name,hex,sort_order,active)
+                values (%s,%s,%s,%s,%s,%s,true)
+                on duplicate key update slug=values(slug),name=values(name),hex=values(hex),
+                  sort_order=values(sort_order),active=true
                 """,
-                (catalog_id, code, slugify(code), row["color"], _hex(row["hex"])),
+                (catalog_id, code, slugify(code), row["color"], _hex(row["hex"]), sort_order),
             )
             await cursor.execute(
                 "select id from catalog_colors where catalog_id=%s and provider_color_code=%s",
@@ -268,9 +376,9 @@ async def sync_catalog(
                 (catalog_id, code),
             )
             size_ids[code] = (await cursor.fetchone())["id"]
-        active_variant_ids: list[str] = []
+        active_variant_ids = [row["id"] for row in variants]
+        variant_params: list[tuple[Any, ...]] = []
         for row in variants:
-            active_variant_ids.append(row["id"])
             retail = row["recommended_minor"] or row["price_minor"] or 0
             base_cost = row["net_minor"] or row["price_minor"] or 0
             in_stock = row["stock_label"] not in {
@@ -279,25 +387,7 @@ async def sync_catalog(
                 "VENDOR_CATALOG_VARIANT_STOCK_LABEL_OUT_OF_STOCK",
                 "VENDOR_CATALOG_VARIANT_STOCK_LABEL_DISCONTINUED",
             }
-            await cursor.execute(
-                """
-                insert into catalog_variants(public_id,catalog_id,provider_variant_id,
-                  provider_legacy_variant_id,provider_sku,color_id,size_id,sku,base_cost_minor,
-                  provider_price_minor,recommended_price_minor,extra_price_minor,net_price_minor,
-                  default_price_minor,currency,stock_policy,stock_quantity,provider_stock_label,
-                  provider_payload_json,provider_synced_at,active)
-                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'finite',%s,%s,%s,
-                  current_timestamp(6),true)
-                on duplicate key update provider_sku=values(provider_sku), color_id=values(color_id),
-                  size_id=values(size_id), sku=values(sku), base_cost_minor=values(base_cost_minor),
-                  provider_price_minor=values(provider_price_minor),
-                  recommended_price_minor=values(recommended_price_minor),
-                  extra_price_minor=values(extra_price_minor),net_price_minor=values(net_price_minor),
-                  currency=values(currency),stock_quantity=values(stock_quantity),
-                  provider_stock_label=values(provider_stock_label),
-                  provider_payload_json=values(provider_payload_json),
-                  provider_synced_at=current_timestamp(6),active=true
-                """,
+            variant_params.append(
                 (
                     f"gcv_{row['id']}",
                     catalog_id,
@@ -316,14 +406,49 @@ async def sync_catalog(
                     row["currency"],
                     1 if in_stock else 0,
                     row["stock_label"],
-                    json.dumps(row["raw"], ensure_ascii=False),
-                ),
+                )
+            )
+        if variant_params:
+            await cursor.executemany(
+                """
+                insert into catalog_variants(public_id,catalog_id,provider_variant_id,
+                  provider_legacy_variant_id,provider_sku,color_id,size_id,sku,base_cost_minor,
+                  provider_price_minor,recommended_price_minor,extra_price_minor,net_price_minor,
+                  default_price_minor,currency,stock_policy,stock_quantity,provider_stock_label,
+                  active)
+                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'finite',%s,%s,
+                  true)
+                on duplicate key update provider_sku=values(provider_sku), color_id=values(color_id),
+                  size_id=values(size_id), sku=values(sku), base_cost_minor=values(base_cost_minor),
+                  provider_price_minor=values(provider_price_minor),
+                  recommended_price_minor=values(recommended_price_minor),extra_price_minor=values(extra_price_minor),
+                  net_price_minor=values(net_price_minor),currency=values(currency),
+                  stock_quantity=values(stock_quantity),provider_stock_label=values(provider_stock_label),
+                  active=true
+                """,
+                variant_params,
             )
         placeholders = ",".join(["%s"] * len(active_variant_ids))
         if active_variant_ids:
             await cursor.execute(
                 f"update catalog_variants set active=false where catalog_id=%s and provider_variant_id not in ({placeholders})",
                 (catalog_id, *active_variant_ids),
+            )
+        else:
+            await cursor.execute(
+                "update catalog_variants set active=false where catalog_id=%s", (catalog_id,)
+            )
+        color_placeholders = ",".join(["%s"] * len(colors))
+        if colors:
+            await cursor.execute(
+                f"update catalog_colors set active=false where catalog_id=%s and provider_color_code not in ({color_placeholders})",
+                (catalog_id, *colors.keys()),
+            )
+        size_placeholders = ",".join(["%s"] * len(sizes))
+        if sizes:
+            await cursor.execute(
+                f"update catalog_sizes set active=false where catalog_id=%s and provider_size_code not in ({size_placeholders})",
+                (catalog_id, *sizes.keys()),
             )
         for location in (
             api_record.get("print_locations") or website["raw"].get("printLocations") or []
@@ -361,24 +486,27 @@ async def sync_catalog(
     asset_count = 0
     for index, image_row in enumerate(image_rows):
         try:
-            kind = "avatar" if image_row.get("tag") == "avatar" or index == 0 else "gallery"
+            placement = asset_placement(image_row, index, design_kits)
+            kind = "avatar" if placement == "avatar" else "gallery"
             asset = download_asset(
                 str(image_row["url"]),
-                asset_root / "mockup" / slug / f"{kind}-{index + 1}",
+                asset_root / "mockup" / asset_category / slug / f"{kind}-{index + 1}",
                 refresh_assets,
             )
             relative_path = Path(asset["local_path"]).relative_to(asset_root).as_posix()
             await database.execute(
                 """
-                insert into catalog_assets(catalog_id,kind,source_url,source_hash,local_path,checksum,mime_type,width,height,byte_size,status)
-                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'active')
+                insert into catalog_assets(catalog_id,kind,placement,source_url,source_hash,local_path,checksum,mime_type,width,height,byte_size,status)
+                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'active')
                 on duplicate key update local_path=values(local_path),checksum=values(checksum),
+                  placement=values(placement),
                   mime_type=values(mime_type),width=values(width),height=values(height),
                   byte_size=values(byte_size),status='active'
                 """,
                 (
                     catalog_id,
                     kind,
+                    placement,
                     asset["source_url"],
                     hashlib.sha256(asset["source_url"].encode()).hexdigest(),
                     relative_path,

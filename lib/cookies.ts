@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-export const CART_COOKIE = "yns_cart";
+export const CART_COOKIE = "teebravo_cart";
 export type CartCookieJson = { id: string };
 
 export async function setCartCookie(cartCookieJson: CartCookieJson) {

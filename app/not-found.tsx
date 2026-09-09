@@ -1,6 +1,6 @@
 import { ShoppingCartIcon } from "lucide-react";
 import type { Metadata } from "next";
-import { YnsLink } from "@/components/yns-link";
+import { StoreLink } from "@/components/store-link";
 
 export const metadata: Metadata = {
 	title: "Page Not Found",
@@ -21,12 +21,12 @@ export default function NotFound() {
 			<p className="mt-2 text-sm text-muted-foreground">
 				This page doesn't exist or has been moved. But our store is still open!
 			</p>
-			<YnsLink
+			<StoreLink
 				href="/"
 				className="mt-8 inline-flex items-center rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-foreground/90"
 			>
 				Continue Shopping
-			</YnsLink>
+			</StoreLink>
 		</div>
 	);
 }

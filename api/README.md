@@ -86,6 +86,7 @@ docker-compose exec -T db sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYS
 
 ```text
 GET /health
+GET /{slug}/{catalog}_color-{color}.webp
 GET /img/{design-slug}/{catalog}-{front|left-chest|back}.webp
 GET /v1/products/{slug}
 GET /v1/products/{slug}?catalog={catalog-slug}
@@ -93,6 +94,24 @@ GET /v1/products/{slug}/catalogs/{catalog-slug}/mockup?Color=Black&Size=S&Placem
 GET /v1/mockups/render?product_id=...&artwork_id=...&template_id=...&variant_id=...
 GET /m/{slug-publicid}?t=...
 ```
+
+Product images use a fixed front view, WebP, and 1500px width (capped by
+`MOCKUP_MAX_WIDTH`), without size or format query parameters. Colors accept the
+catalog color slug, for example:
+
+```text
+http://localhost:8000/acacac2/classic-t-shirt_color-black.webp
+http://localhost:8000/acacac2/classic-t-shirt_color-red.webp
+```
+
+The existing `/v1/products/.../mockup` endpoint remains available for back views
+and legacy callers. Both endpoints share the disk render cache. Concurrent misses
+are coalesced per worker and cache files are published atomically. Mutable product
+URLs expire after one hour instead of being marked immutable for a year.
+Artwork is composited at delivery resolution; WebP quality defaults to 94.
+Existing `MOCKUP_WEBP_QUALITY` environment overrides still apply. Small garment
+photos or artwork cannot gain real detail from upscaling; use high-resolution
+source assets for the sharpest results.
 
 ## Rebuild the Gearment catalog
 
@@ -103,14 +122,29 @@ Put the Gearment client key and secret in `api/.env`, review the allowlist in
 bash scripts/import-gearment-catalog.sh
 ```
 
-The command is safe to rerun. It applies missing schema migrations, upserts the
-selected API catalogs and variants, enriches them from the exact public product and
-category URLs in the manifest, and re-downloads catalog assets into
-`api/public/mockup/{catalog-slug}/`. It can rebuild catalog data after catalog tables
-are emptied, provided referenced product/cart/order rows have also been handled
-consistently with their foreign keys.
+The command applies missing schema migrations, resets the selected Gearment catalog
+rows by default, then imports the selected API catalogs and variants. Use
+`--no-truncate` when an incremental import is required. It enriches catalogs from the
+exact public product and category URLs in the manifest, keeps existing local mockups,
+and imports only the default US color set: Black, White, Navy, Red, Royal and Sport
+Grey. Missing local assets are reported as warnings and are not downloaded; pass
+`--refresh-assets` explicitly when provider images must be downloaded or refreshed.
+Catalog API and website payloads are cached in `api/catalog-import.cache.json` so
+later runs do not need to call Gearment again; pass `--refresh-cache` to refresh that
+file.
 
-To preview without database or file changes inside the API environment:
+To remove all imported Gearment catalogs without making any provider request:
+
+```bash
+python -m app.cli truncate-gearment-catalogs
+```
+
+Use `--provider-id N3600` to truncate only one catalog. Truncation keeps local
+mockups so the next import can reuse them; pass `--remove-assets` only when those
+files should also be deleted. Rendered cache files are cleared because they contain
+the old catalog database references.
+
+To preview without database or catalog asset/cache-file changes inside the API environment:
 
 ```bash
 python -m app.cli sync-gearment-catalog --manifest catalog-import.json
@@ -144,17 +178,39 @@ restricted to `public/design`, and rendered responses use the deterministic cach
 
 The render endpoint returns `image/webp` by default. Add `format=png` for transparent/debug output or `refresh=true` to force a cache miss.
 
-Catalog-specific pages do not require a product-to-catalog assignment. Every
-active product can use every active catalog. The command below remains available
-only for pre-materializing variants ahead of time; normally it is unnecessary
-because the selected variant is created lazily when the customer adds it to cart:
+Home and listing cards use `product_catalogs.default_color_id` as the merchandising
+selection. The mapping controls the catalog and color shown first; all active
+colors and sizes from that catalog remain available on the product page. Assign a
+specific color only when that color exists in the catalog:
 
 ```bash
 cd api
 python -m app.cli assign-product-catalog \
   --product hamburger-helper-glove \
-  --catalog classic-t-shirt
+  --catalog classic-t-shirt \
+  --color black
 ```
+
+To create a small rotating showcase for the main departments, run this after
+products and catalogs have been imported:
+
+```bash
+python -m app.cli seed-product-showcase --per-category 8
+```
+
+The seed command assigns the requested number of active products **to each
+eligible catalog** tagged as unisex (both men and women), women, kids, or
+accessories. The same design can therefore appear on more than one garment
+type, such as both a T-shirt and a hoodie. It rotates through Black, White,
+Navy, Red, Royal, and Sport Grey, but always checks that the chosen color has
+an active variant in that catalog. Re-running it updates the same mappings and
+is safe. Use a larger value such as `8` or `12` when the storefront needs a
+broader showcase.
+
+Catalog-specific pages can still be opened without a saved assignment. Every
+active product without a saved assignment remains visible in listings for every
+eligible catalog. Once a product has an assignment, listings prefer that
+catalog, while the assignment also decides which catalog/color is the default.
 
 The catalog-specific storefront URL is:
 

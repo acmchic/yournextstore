@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { YNSMedia } from "@/lib/yns-media";
+import { StoreMedia } from "@/lib/store-media";
 import { type SearchSuggestion, searchSuggest } from "./search-suggest";
 
 const DEBOUNCE_MS = 200;
@@ -184,7 +184,7 @@ function Suggestions({
 					>
 						<span className="relative h-10 w-10 flex-none overflow-hidden bg-secondary">
 							{item.image ? (
-								<YNSMedia src={item.image} alt={item.name} fill sizes="40px" className="object-cover" />
+								<StoreMedia src={item.image} alt={item.name} fill sizes="40px" className="object-cover" />
 							) : null}
 						</span>
 						<span className="flex min-w-0 flex-1 flex-col">

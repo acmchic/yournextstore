@@ -10,7 +10,7 @@ import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 import { meGetCached } from "@/lib/commerce";
 
 // Must match CONSENT_COOKIE in ./cookie-consent-banner.tsx
-const CONSENT_COOKIE = "yns-cookie-consent";
+const CONSENT_COOKIE = "teebravo-cookie-consent";
 
 const ConsentScript = ({ state }: { state: "denied" | "granted" }) => (
 	<script

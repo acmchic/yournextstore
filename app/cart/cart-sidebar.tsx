@@ -17,14 +17,10 @@ import { CURRENCY, LOCALE } from "@/lib/constants";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
-export function CartSidebar({ baseUrl }: { baseUrl: string }) {
+export function CartSidebar() {
 	const { isOpen, closeCart, items, itemCount, subtotal, cartId, isMutating } = useCart();
 
-	const checkoutUrl = cartId
-		? baseUrl
-			? `${baseUrl}/api/v1/carts/${cartId}/checkout`
-			: `/checkout?cartId=${cartId}`
-		: "#";
+	const checkoutUrl = cartId ? `/checkout?cartId=${encodeURIComponent(cartId)}` : "#";
 
 	return (
 		<Sheet open={isOpen} onOpenChange={(open) => !open && closeCart()}>
@@ -77,10 +73,7 @@ export function CartSidebar({ baseUrl }: { baseUrl: string }) {
 									</span>
 								</div>
 								<p className="text-xs text-muted-foreground">Shipping and taxes calculated at checkout</p>
-								{/* Keep this a plain <a>, never <Link>/router.push: /checkout is proxied to a
-								    different Next.js zone (yns.store). A soft RSC nav 500s the cross-zone request.
-								    While a cart write is in flight, block the link: a full navigation now would
-								    load /checkout before the item is committed server-side and show an empty cart. */}
+								{/* Keep checkout as a plain anchor and wait for pending cart writes. */}
 								<Button
 									asChild
 									className="w-full h-12 text-base font-bold bg-primary hover:bg-primary/80 text-white"

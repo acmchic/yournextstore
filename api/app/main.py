@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
@@ -27,6 +29,8 @@ from app.settings import settings
 database = Database(settings)
 repository = CatalogRepository(database)
 cache = FileCache(settings.cache_dir)
+# Bounded striped locks prevent duplicate renders without retaining one lock per URL.
+render_locks = [asyncio.Lock() for _ in range(64)]
 
 
 @asynccontextmanager
@@ -59,7 +63,7 @@ async def ready() -> dict[str, str]:
 @app.get("/v1/store")
 async def get_store() -> dict[str, object]:
     return {
-        "name": "Your Next Store",
+        "name": "TeeBravo",
         "currency": "USD",
         "locale": "en-US",
         "settings": {"enabled_tools": {"blog": False, "contact_form": True}},
@@ -88,6 +92,23 @@ async def browse_products(
 @app.get("/v1/collections")
 async def list_collections(repo: Annotated[CatalogRepository, Depends(get_repository)]):
     return {"data": await repo.list_collections()}
+
+
+@app.get("/v1/shop")
+async def browse_shop(
+    limit: Annotated[int, Query(ge=1, le=48)] = 24,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    department: str | None = None,
+    product_type: str | None = None,
+    collection: str | None = None,
+    repo: CatalogRepository = Depends(get_repository),
+):
+    return await repo.browse_shop(limit=limit, offset=offset, department=department, product_type=product_type, collection=collection)
+
+
+@app.get("/v1/legal-pages")
+async def list_legal_pages(repo: Annotated[CatalogRepository, Depends(get_repository)]):
+    return {"data": await repo.list_legal_pages()}
 
 
 @app.get("/v1/collections/{slug}")
@@ -252,7 +273,7 @@ async def render_catalog_product_mockup(
     catalog_slug: str,
     color: Annotated[str, Query(alias="Color", min_length=1)],
     size: Annotated[str | None, Query(alias="Size")] = None,
-    placement: Annotated[str, Query(alias="Placement", pattern="^(front|back)$")] = "front",
+    placement: Annotated[str, Query(alias="Placement", pattern="^(front|chest|back)$")] = "front",
     width: Annotated[int, Query(ge=120)] = 1500,
     format: ImageFormat = "webp",
     refresh: bool = False,
@@ -274,24 +295,33 @@ async def render_catalog_product_mockup(
     safe_width = min(width, settings.max_width)
     cache_key = cache.key_for(job, width=safe_width, image_format=format)
     cache_path = cache.path_for(cache_key, format)
-    headers = {"Cache-Control": "public, max-age=31536000, immutable"}
+    headers = {"Cache-Control": "public, max-age=3600, must-revalidate"}
     if cache_path.exists() and not refresh:
         return FileResponse(
             cache_path,
             media_type=_media_type(format),
             headers={**headers, "X-Mockup-Cache": "hit"},
         )
-    try:
-        image_bytes = await run_in_threadpool(
-            render_mockup,
-            job,
-            width=safe_width,
-            image_format=format,
-            settings=settings,
-        )
-    except Exception as error:
-        raise HTTPException(status_code=422, detail=f"Could not render mockup: {error}") from error
-    cache_path.write_bytes(image_bytes)
+    async with render_locks[int(cache_key[:8], 16) % len(render_locks)]:
+        if cache_path.exists() and not refresh:
+            return FileResponse(
+                cache_path,
+                media_type=_media_type(format),
+                headers={**headers, "X-Mockup-Cache": "hit"},
+            )
+        try:
+            image_bytes = await run_in_threadpool(
+                render_mockup,
+                job,
+                width=safe_width,
+                image_format=format,
+                settings=settings,
+            )
+            await run_in_threadpool(_write_cached_image, cache_path, image_bytes)
+        except Exception as error:
+            raise HTTPException(
+                status_code=422, detail=f"Could not render mockup: {error}"
+            ) from error
     return Response(
         image_bytes,
         media_type=_media_type(format),
@@ -505,3 +535,43 @@ def _media_type(image_format: ImageFormat) -> str:
     if image_format == "jpeg":
         return "image/jpeg"
     return "image/png"
+
+
+def _write_cached_image(path: Path, data: bytes) -> None:
+    with NamedTemporaryFile(dir=path.parent, delete=False) as temporary:
+        temporary_path = Path(temporary.name)
+        try:
+            temporary.write(data)
+            temporary.close()
+            temporary_path.replace(path)
+        finally:
+            temporary_path.unlink(missing_ok=True)
+
+
+@app.get("/{product_slug}/{catalog_slug}_color-{color}.webp")
+async def render_simple_product_image(
+    product_slug: str,
+    catalog_slug: str,
+    color: str,
+    placement: str = "front",
+    blank: bool = False,
+    repo: CatalogRepository = Depends(get_repository),  # noqa: B008
+):
+    resolved_placement = "back" if placement.lower() == "back" else "front"
+    if blank:
+        asset = await repo.get_blank_catalog_asset(catalog_slug, color, resolved_placement)
+        if not asset:
+            raise HTTPException(status_code=404, detail="Blank mockup asset not found")
+        data = await run_in_threadpool(render_blank_mockup, asset["local_path"], width=min(1500, settings.max_width), image_format="webp", settings=settings, garment_color=asset.get("garment_color"))
+        return Response(content=data, media_type="image/webp", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    return await render_catalog_product_mockup(
+        product_slug=product_slug,
+        catalog_slug=catalog_slug,
+        color=color,
+        size=None,
+        placement="chest" if placement.lower() == "chest" else resolved_placement,
+        width=min(1500, settings.max_width),
+        format="webp",
+        refresh=False,
+        repo=repo,
+    )

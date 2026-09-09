@@ -1,0 +1,11 @@
+cd /Users/changha/workspace/Teeravo/api
+
+PYTHONPATH=. .venv/bin/python -m app.cli \
+  truncate-gearment-catalogs
+
+
+  cd /Users/changha/workspace/Teeravo/api
+
+./bootstrap-db.sh
+
+PYTHONPATH=. .venv/bin/python -m app.cli truncate-gearment-catalogs

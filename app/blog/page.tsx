@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cacheLife } from "next/cache";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { StoreLink } from "@/components/store-link";
 import {
 	Breadcrumb,
 	BreadcrumbItem,
@@ -10,11 +11,10 @@ import {
 	BreadcrumbPage,
 	BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { YnsLink } from "@/components/yns-link";
 import { commerce, getCanonicalUrl, meGetCached } from "@/lib/commerce";
 import { LOCALE } from "@/lib/constants";
 import { JsonLdScript } from "@/lib/json-ld";
-import { YNSMedia } from "@/lib/yns-media";
+import { StoreMedia } from "@/lib/store-media";
 
 const POSTS_LIMIT = 24;
 
@@ -100,10 +100,10 @@ export default async function BlogPage() {
 			) : (
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
 					{posts.map((post) => (
-						<YnsLink key={post.id} prefetch="eager" href={`/blog/${post.slug}`} className="group">
+						<StoreLink key={post.id} prefetch="eager" href={`/blog/${post.slug}`} className="group">
 							<div className="relative aspect-[3/2] bg-secondary rounded-2xl overflow-hidden mb-4">
 								{post.image && (
-									<YNSMedia
+									<StoreMedia
 										src={post.image}
 										alt={post.title}
 										fill
@@ -127,7 +127,7 @@ export default async function BlogPage() {
 									{post.title}
 								</h2>
 							</div>
-						</YnsLink>
+						</StoreLink>
 					))}
 				</div>
 			)}

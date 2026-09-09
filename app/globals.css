@@ -143,7 +143,7 @@
 	--tw-prose-counters: var(--muted-foreground);
 }
 
-.yns-image-shimmer {
+.store-image-shimmer {
 	background: linear-gradient(
 		90deg,
 		oklch(0.9 0 0) 0%,
@@ -153,10 +153,10 @@
 		oklch(0.9 0 0) 100%
 	);
 	background-size: 200% 100%;
-	animation: yns-image-shimmer 1.2s ease-in-out infinite;
+	animation: store-image-shimmer 1.2s ease-in-out infinite;
 }
 
-@keyframes yns-image-shimmer {
+@keyframes store-image-shimmer {
 	0% {
 		background-position: 200% 0;
 	}
