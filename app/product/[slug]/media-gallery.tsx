@@ -1,9 +1,8 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
+import useEmblaCarousel from "embla-carousel-react";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useMemo, useState } from "react";
 import { StoreMedia } from "@/lib/store-media";
 import { cn, isVideoUrl } from "@/lib/utils";
 
@@ -116,7 +115,7 @@ export function selectGalleryImages(images: string[], color: string, printArea: 
 export function MediaGallery({ images, productName, variants }: MediaGalleryProps) {
 	const searchParams = useSearchParams();
 	const [selectedIndex, setSelectedIndex] = useState(0);
-	const [isZoomed, setIsZoomed] = useState(false);
+	const [mobileCarouselRef, mobileCarouselApi] = useEmblaCarousel({ align: "start", loop: false });
 
 	const selectedColor = searchParams.get("Color") ?? "Black";
 	const printParam = searchParams.get("Print");
@@ -143,40 +142,23 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 		return index >= 0 ? index : 0;
 	}, [variants, searchParams, displayImages]);
 
-	// Jump to the selected variant's image when the variant changes (avoids useEffect)
-	const searchParamsKey = searchParams.toString();
-	const prevSearchParamsKey = useRef(searchParamsKey);
-	if (prevSearchParamsKey.current !== searchParamsKey) {
-		prevSearchParamsKey.current = searchParamsKey;
+	useEffect(() => {
 		setSelectedIndex(variantImageIndex);
-	}
-	if (selectedIndex >= displayImages.length && displayImages.length > 0) {
-		setSelectedIndex(0);
-	}
+		mobileCarouselApi?.reInit();
+		mobileCarouselApi?.scrollTo(variantImageIndex, true);
+	}, [mobileCarouselApi, variantImageIndex]);
 
-	const handlePrevious = useCallback(() => {
-		setSelectedIndex((prev) => (prev === 0 ? displayImages.length - 1 : prev - 1));
-	}, [displayImages.length]);
-
-	const handleNext = useCallback(() => {
-		setSelectedIndex((prev) => (prev === displayImages.length - 1 ? 0 : prev + 1));
-	}, [displayImages.length]);
-
-	// Keyboard navigation: ArrowLeft / ArrowRight (scoped to gallery container)
-	const handleKeyDown = useCallback(
-		(e: React.KeyboardEvent<HTMLDivElement>) => {
-			if (displayImages.length <= 1) return;
-
-			if (e.key === "ArrowLeft") {
-				e.preventDefault();
-				handlePrevious();
-			} else if (e.key === "ArrowRight") {
-				e.preventDefault();
-				handleNext();
-			}
-		},
-		[displayImages.length, handlePrevious, handleNext],
-	);
+	useEffect(() => {
+		if (!mobileCarouselApi) return;
+		const updateSelectedIndex = () => setSelectedIndex(mobileCarouselApi.selectedScrollSnap());
+		updateSelectedIndex();
+		mobileCarouselApi.on("select", updateSelectedIndex);
+		mobileCarouselApi.on("reInit", updateSelectedIndex);
+		return () => {
+			mobileCarouselApi.off("select", updateSelectedIndex);
+			mobileCarouselApi.off("reInit", updateSelectedIndex);
+		};
+	}, [mobileCarouselApi]);
 
 	if (displayImages.length === 0) {
 		return (
@@ -189,108 +171,49 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 	}
 
 	return (
-		<div
-			tabIndex={0}
-			onKeyDown={handleKeyDown}
-			className="flex flex-col gap-3 outline-none focus-visible:ring-1 focus-visible:ring-ring lg:self-start"
-		>
-			{/* Mobile: native horizontal swipe with CSS scroll snapping. */}
-			<div className="-mx-4 flex snap-x snap-mandatory overflow-x-auto px-4 [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
-				{displayImages.map((image, index) => (
+		<div className="flex flex-col gap-3 lg:self-start">
+			{/* Mobile: Embla keeps touch gestures native while the first image remains the LCP candidate. */}
+			<div className="-mx-4 md:hidden">
+				<div ref={mobileCarouselRef} className="overflow-hidden bg-white">
+					<div className="flex touch-pan-y">
+						{displayImages.map((image, index) => (
+							<div key={image} className="min-w-0 shrink-0 grow-0 basis-full">
+								<div className="relative aspect-[167/180] w-full overflow-hidden bg-white">
+									<StoreMedia
+										src={image}
+										alt={`${productName} - View ${index + 1}`}
+										fill
+										quality={
+											image.includes("/api/catalog-mockup/") || image.includes("_color-") ? 90 : undefined
+										}
+										sizes="100vw"
+										className="object-contain"
+										priority={index === 0}
+									/>
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+				{displayImages.length > 1 && (
 					<div
-						key={image}
-						className="relative aspect-[4/5] w-full shrink-0 snap-center overflow-hidden bg-[#f4f4f4]"
+						className="flex items-center justify-center gap-2 bg-white py-4"
+						role="group"
+						aria-label="Choose product image"
 					>
-						<StoreMedia
-							src={image}
-							alt={`${productName} - View ${index + 1}`}
-							fill
-							quality={image.includes("/api/catalog-mockup/") || image.includes("_color-") ? 90 : undefined}
-							sizes="(max-width: 768px) 100vw, 60vw"
-							className="object-contain"
-							priority={index === 0}
-						/>
-					</div>
-				))}
-			</div>
-
-			{/* Desktop main image */}
-			<div className="group relative hidden h-[min(78vh,900px)] min-h-[520px] overflow-hidden bg-[#f4f4f4]">
-				{isVideoUrl(displayImages[selectedIndex] ?? "") ? (
-					<video
-						className="absolute inset-0 h-full w-full object-contain"
-						src={displayImages[selectedIndex]}
-						muted
-						loop
-						autoPlay
-						playsInline
-						controls
-					/>
-				) : (
-					<StoreMedia
-						src={displayImages[selectedIndex]}
-						alt={`${productName} - View ${selectedIndex + 1}`}
-						fill
-						quality={
-							displayImages[selectedIndex]?.includes("/api/catalog-mockup/") ||
-							displayImages[selectedIndex]?.includes("_color-")
-								? 90
-								: undefined
-						}
-						sizes="(max-width: 1024px) 100vw, 50vw"
-						className={cn(
-							"object-contain transition-transform duration-500 ease-out",
-							isZoomed && "scale-150 cursor-zoom-out",
-						)}
-						onClick={() => setIsZoomed(!isZoomed)}
-						priority
-					/>
-				)}
-
-				{/* Navigation Arrows */}
-				{displayImages.length > 1 && (
-					<div className="absolute inset-x-4 top-1/2 flex -translate-y-1/2 justify-between opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-						<Button
-							variant="secondary"
-							size="icon"
-							className="h-10 w-10 border border-foreground/20 bg-background/95 shadow-none hover:bg-background"
-							onClick={(e) => {
-								e.stopPropagation();
-								handlePrevious();
-							}}
-							aria-label="Previous image"
-						>
-							<ChevronLeft className="h-5 w-5" />
-						</Button>
-						<Button
-							variant="secondary"
-							size="icon"
-							className="h-10 w-10 border border-foreground/20 bg-background/95 shadow-none hover:bg-background"
-							onClick={(e) => {
-								e.stopPropagation();
-								handleNext();
-							}}
-							aria-label="Next image"
-						>
-							<ChevronRight className="h-5 w-5" />
-						</Button>
-					</div>
-				)}
-
-				{/* Zoom Indicator (hidden for videos) */}
-				{!isVideoUrl(displayImages[selectedIndex] ?? "") && (
-					<div className="absolute bottom-4 right-4 opacity-0 transition-opacity group-hover:opacity-100">
-						<div className="flex items-center gap-2 bg-background/90 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.08em] backdrop-blur-sm">
-							<ZoomIn className="h-3.5 w-3.5" />
-							Click to zoom
-						</div>
-					</div>
-				)}
-
-				{/* Image Counter */}
-				{displayImages.length > 1 && (
-					<div className="absolute bottom-4 left-4 text-[10px] font-medium tracking-[0.08em]">
-						{selectedIndex + 1} / {displayImages.length}
+						{displayImages.map((image, index) => (
+							<button
+								key={`dot-${image}`}
+								type="button"
+								onClick={() => mobileCarouselApi?.scrollTo(index)}
+								className={cn(
+									"h-1.5 rounded-full transition-[width,background-color]",
+									selectedIndex === index ? "w-6 bg-black" : "w-1.5 bg-black/25",
+								)}
+								aria-label={`Show image ${index + 1}`}
+								aria-current={selectedIndex === index ? "true" : undefined}
+							/>
+						))}
 					</div>
 				)}
 			</div>

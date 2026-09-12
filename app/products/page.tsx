@@ -8,7 +8,7 @@ import { ProductsPagination } from "./products-pagination";
 import { SortLinks, SortSelect } from "./products-sort-select";
 
 const PRODUCTS_PER_PAGE = 12;
-export const instant = false;
+export const unstable_instant = false;
 
 const sortOptions = [
 	{ value: "newest", label: "Newest", orderBy: "createdAt", orderDirection: "desc" },

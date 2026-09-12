@@ -140,20 +140,18 @@ export function buildProductBreadcrumbJsonLd(product: APIProductGetByIdResult): 
 	const baseUrl = getBaseUrl();
 	const items = [
 		{ "@type": "ListItem", position: 1, name: "Home", item: baseUrl || undefined },
-		product.category
-			? {
-					"@type": "ListItem",
-					position: 2,
-					name: product.category.name,
-					item: `${baseUrl}/collection/${product.category.slug}`,
-				}
-			: null,
 		{
 			"@type": "ListItem",
-			position: product.category ? 3 : 2,
+			position: 2,
+			name: "Products",
+			item: `${baseUrl}/products`,
+		},
+		{
+			"@type": "ListItem",
+			position: 3,
 			name: product.name,
 		},
-	].filter(Boolean);
+	];
 
 	return {
 		"@context": "https://schema.org",

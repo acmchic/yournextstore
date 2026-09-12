@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 export function CartSidebar() {
 	const { isOpen, closeCart, items, itemCount, subtotal, cartId, isMutating } = useCart();
 
-	const checkoutUrl = cartId ? `/checkout?cartId=${encodeURIComponent(cartId)}` : "#";
+	const checkoutUrl = cartId ? "/checkout" : "#";
 
 	return (
 		<Sheet open={isOpen} onOpenChange={(open) => !open && closeCart()}>
@@ -49,7 +49,7 @@ export function CartSidebar() {
 						<Button
 							variant="outline"
 							onClick={closeCart}
-							className="border-primary text-primary hover:bg-primary hover:text-white"
+							className="rounded-[3px] border-[#c8cdd3] bg-[#f4f6f8] text-[#111318] shadow-none hover:bg-[#e7eaee] hover:text-[#111318]"
 						>
 							Continue Shopping
 						</Button>
@@ -73,10 +73,13 @@ export function CartSidebar() {
 									</span>
 								</div>
 								<p className="text-xs text-muted-foreground">Shipping and taxes calculated at checkout</p>
+								<a href="/cart" onClick={closeCart} className="block text-sm underline">
+									View cart & shipping options
+								</a>
 								{/* Keep checkout as a plain anchor and wait for pending cart writes. */}
 								<Button
 									asChild
-									className="w-full h-12 text-base font-bold bg-primary hover:bg-primary/80 text-white"
+									className="h-12 w-full rounded-[3px] border border-black bg-black text-base font-semibold text-white shadow-none hover:bg-[#242424] hover:text-white"
 								>
 									<a
 										href={checkoutUrl}
@@ -102,7 +105,7 @@ export function CartSidebar() {
 								<button
 									type="button"
 									onClick={closeCart}
-									className="w-full text-sm text-primary hover:text-primary/80 transition-colors"
+									className="w-full text-sm text-[#343a40] underline-offset-4 transition-colors hover:text-black hover:underline"
 								>
 									Continue Shopping
 								</button>

@@ -51,7 +51,10 @@ async function PolicyLinks() {
 	const { data } = await commerce.legalPageBrowse();
 	return data.map((page) => (
 		<li key={page.href}>
-			<StoreLink href={`/legal${page.href}`} className="text-xs text-muted-foreground hover:text-foreground">
+			<StoreLink
+				href={page.href === "/about" ? "/about" : `/legal${page.href}`}
+				className="text-xs text-muted-foreground hover:text-foreground"
+			>
 				{page.label}
 			</StoreLink>
 		</li>

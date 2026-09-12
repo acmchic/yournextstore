@@ -17,6 +17,7 @@ from app.product_media import (
     build_media_url,
 )
 from app.settings import settings
+from app.shipping import render_policy
 
 
 def _decode_json(value: Any) -> Any:
@@ -41,10 +42,19 @@ class CatalogRepository:
         self._database = database
 
     async def list_legal_pages(self) -> list[dict[str, Any]]:
-        return await self._database.fetch_all(
+        pages = await self._database.fetch_all(
             "select slug, title, content, updated_at from legal_pages where published=true order by title",
             (),
         )
+        config = await self._database.fetch_one("select * from checkout_settings where id=1", ())
+        return [
+            {
+                **page,
+                "content": render_policy(page["content"], config),
+                "updated_at": max(page["updated_at"], config["updated_at"]),
+            }
+            for page in pages
+        ]
 
     async def get_blank_catalog_asset(
         self, catalog_slug: str, color_slug: str, placement: str
@@ -119,10 +129,13 @@ class CatalogRepository:
             select distinct p.id, p.public_id, p.slug, p.title, p.description,
               p.seo_title, p.seo_description, p.brand, p.published_at, p.updated_at,
               d.slug design_slug,
-              (select min(pv.price_minor) from product_variants pv
-               where pv.product_id=p.id and pv.active=true) price_minor,
-              (select pv.currency from product_variants pv
-               where pv.product_id=p.id and pv.active=true order by pv.price_minor limit 1) currency
+              (select min(cv_price.default_price_minor) from product_variants pv_price
+               join catalog_variants cv_price on cv_price.id=pv_price.catalog_variant_id
+               where pv_price.product_id=p.id and pv_price.active=true and cv_price.active=true) price_minor,
+              (select cv_currency.currency from product_variants pv_currency
+               join catalog_variants cv_currency on cv_currency.id=pv_currency.catalog_variant_id
+               where pv_currency.product_id=p.id and pv_currency.active=true and cv_currency.active=true
+               order by cv_currency.default_price_minor limit 1) currency
             {from_where}
             order by p.published_at desc, p.id desc limit %s offset %s
             """,
@@ -285,7 +298,7 @@ class CatalogRepository:
         else:
             variants = await self._database.fetch_all(
                 """
-            select pv.public_id id, pv.sku, pv.price_minor, pv.compare_at_minor, pv.currency,
+            select pv.public_id id, pv.sku, cv.default_price_minor price_minor, pv.compare_at_minor, cv.currency,
               ca.slug catalog, ca.name catalog_name, ca.provider, cc.slug color,
               cc.name color_name, cc.hex color_hex,
               cs.code size, cs.label size_label,
@@ -766,7 +779,7 @@ class CatalogRepository:
             return None
         items = await self._database.fetch_all(
             """
-            select ci.quantity, pv.public_id variant_id, pv.sku, pv.price_minor, pv.currency,
+            select ci.quantity, pv.public_id variant_id, pv.sku, cv.default_price_minor price_minor, cv.currency,
               p.public_id product_id, p.slug product_slug, p.title product_title,
               d.slug design_slug, ca.slug catalog, ca.name catalog_name, ca.provider,
               cc.slug color, cc.name color_name, cs.code size
@@ -778,7 +791,7 @@ class CatalogRepository:
             join catalogs ca on ca.id=cv.catalog_id
             join catalog_colors cc on cc.id=cv.color_id
             join catalog_sizes cs on cs.id=cv.size_id
-            where ci.cart_id=%s order by ci.created_at
+            where ci.cart_id=%s order by ci.product_variant_id
             """,
             (cart["internal_id"],),
         )
@@ -813,13 +826,14 @@ class CatalogRepository:
     ) -> dict[str, Any]:
         resolved_id = public_id or str(uuid.uuid4())
         async with self._database.transaction() as cursor:
-            await cursor.execute(
-                """
+            if not public_id:
+                await cursor.execute(
+                    """
                 insert into carts(public_id, currency, status, expires_at)
                 values (%s,'USD','active',%s) on duplicate key update updated_at=current_timestamp(6)
                 """,
-                (resolved_id, datetime.now(UTC) + timedelta(days=30)),
-            )
+                    (resolved_id, datetime.now(UTC) + timedelta(days=30)),
+                )
             await cursor.execute(
                 "select id from carts where public_id=%s and status='active' for update",
                 (resolved_id,),
@@ -828,12 +842,20 @@ class CatalogRepository:
             if not cart:
                 raise ValueError("Cart is not active")
             await cursor.execute(
+                "select id from checkout_attempts where cart_id=%s and status in ('creating','open') limit 1",
+                (cart["id"],),
+            )
+            if await cursor.fetchone():
+                raise ValueError(
+                    "Checkout is in progress. Return to checkout and choose Edit cart first."
+                )
+            await cursor.execute(
                 """
                 select pv.id from product_variants pv join products p on p.id=pv.product_id
                 join catalog_variants cv on cv.id=pv.catalog_variant_id
-                where pv.public_id=%s and pv.active=true and p.status='active' and cv.active=true
+                where pv.public_id=%s and (%s=0 or (pv.active=true and p.status='active' and cv.active=true))
                 """,
-                (variant_id,),
+                (variant_id, quantity),
             )
             variant = await cursor.fetchone()
             if not variant:
@@ -892,6 +914,27 @@ class CatalogRepository:
                 variant = await cursor.fetchone()
                 if not variant:
                     raise RuntimeError("Variant could not be materialized")
+            if quantity > 0:
+                await cursor.execute(
+                    "select cv.id,cv.stock_quantity,cv.stock_policy from product_variants pv join catalog_variants cv on cv.id=pv.catalog_variant_id join catalogs ca on ca.id=cv.catalog_id and ca.active=true where pv.id=%s for update",
+                    (variant["id"],),
+                )
+                stock = await cursor.fetchone()
+                await cursor.execute(
+                    "select quantity from cart_items where cart_id=%s and product_variant_id=%s",
+                    (cart["id"], variant["id"]),
+                )
+                previous = await cursor.fetchone()
+                desired = quantity + (previous["quantity"] if previous and mode == "add" else 0)
+                if (
+                    not stock
+                    or desired > 99
+                    or (stock["stock_policy"] != "continue" and stock["stock_quantity"] < desired)
+                ):
+                    raise ValueError("Requested quantity is unavailable")
+            await cursor.execute(
+                "update carts set updated_at=current_timestamp(6) where id=%s", (cart["id"],)
+            )
             if quantity == 0:
                 await cursor.execute(
                     "delete from cart_items where cart_id=%s and product_variant_id=%s",

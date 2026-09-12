@@ -1,5 +1,18 @@
 # TeeBravo — context và kiến trúc cho AI
 
+## Cập nhật cart / checkout / policies ngày 2026-09-10
+
+- Cart được lưu trong MySQL qua cookie HttpOnly chứa cart ID. Trang `/cart`, cart drawer và checkout đều đọc cùng cart; API từ chối sửa cart trong lúc một Stripe Checkout Session đang mở.
+- `/checkout` tạo Stripe-hosted Checkout Session cho USD/US. `card` là payment-method type duy nhất trong code; Apple Pay và Google Pay được Stripe hiển thị trong Checkout khi domain, Dashboard, browser và thiết bị đủ điều kiện. Không có form billing tự xây.
+- Checkout giữ snapshot bất biến của item, giá, shipping và cấu hình thuế; giữ stock cho đến khi thanh toán hoặc Session hết hạn. Chỉ webhook Stripe đã xác minh chữ ký hoặc reconciliation trực tiếp với Stripe mới tạo order `paid`. Endpoint tạo order chưa thanh toán cũ trả `410`.
+- Thông tin tên, email và địa chỉ giao hàng US được lưu vào `customers` và bản sao theo đơn trong `order_addresses`. Admin xem được carts, checkout attempts, shipping, tax và Stripe identifiers trên order.
+- Shipping tính theo tổng số item trong đơn: Standard 500 cents item đầu + 300 cents/item tiếp; Express 1100 + 400. Bốn giá này và các chi tiết business/processing/transit/returns được sửa tại admin `Shipping & business`.
+- Admin seed About, Shipping, Returns, Privacy và Terms dưới dạng draft. API chỉ public policy đã publish và thay token `{{...}}` bằng cấu hình hiện hành, nên giá shipping trong policy thay đổi cùng admin. Product detail hiển thị hai block Shipping/Returns; chỉ gắn link khi policy tương ứng đã publish.
+- Product detail dùng tên bán hàng dạng `Product name — Catalog name` nhất quán cho H1, cart, Product JSON-LD và Merchant feed. Breadcrumb hiển thị `Home / Products / Product name`; mô tả ngắn tự sinh không nằm trong purchase panel, nhưng mô tả đầy đủ vẫn ở phần Product details.
+- Storefront hỗ trợ light/dark theo hệ điều hành và lưu lựa chọn thủ công qua nút Sun/Moon trong header.
+- Admin `Shipping & business` có công tắc cho cụm delivery/purchase information trên PDP và sáu trường min/max theo business day. Các trường này là nguồn chung cho timeline giao hàng và token processing/transit trong Shipping Policy; component không hiển thị khi công tắc tắt hoặc dữ liệu chưa đầy đủ.
+- Runbook cấu hình production và webhook nằm tại `docs/stripe-checkout-runbook.md`. Không bật live checkout cho đến khi Stripe secrets và toàn bộ năm policy bắt buộc đã publish với dữ liệu thật.
+
 ## Cập nhật storefront / CMS ngày 2026-09-08
 
 - Home: `Hero` → `HomeCollections`, phong cách ảnh lớn, monochrome, typography gọn. Không còn form newsletter chưa có API hoạt động hoặc nút Favorites không có chức năng.
@@ -43,6 +56,8 @@ Repo gồm ba phần:
 | Product variant | `product_variants` | Product + catalog variant: biến thể áo in có thể đưa vào giỏ |
 | Mockup | `mockup_templates`, `catalog_assets` | Ảnh áo nền, placement, print area và dữ liệu phục vụ renderer |
 | Collection | `collections`, `collection_products` | Nhóm listing dùng để trưng bày; khác catalog áo nền |
+| Checkout | `checkout_settings`, `checkout_attempts`, `stripe_events` | Cấu hình shipping/policy, snapshot + stock reservation, webhook deduplication |
+| Customer/order | `customers`, `orders`, `order_items`, `order_addresses` | Hồ sơ giao hàng tối thiểu và snapshot đơn đã thanh toán |
 
 Quan hệ cốt lõi:
 
@@ -78,7 +93,8 @@ Lệnh `seed-product-showcase` trong `api/app/cli.py` tạo nhanh các mapping �
 3. API đọc MySQL qua `api/app/repository.py`, trả listing, variant và media URL.
 4. Trang `/product/[slug]/[catalog]` dùng chung implementation với `/product/[slug]`; helper `productGetByCatalog` gửi `?catalog=...` đến API.
 5. Thêm hàng gọi `PUT /v1/carts/{cart_id}/items`; lấy giỏ qua `GET /v1/carts/{cart_id}`.
-6. API có `POST /v1/orders`, nhưng storefront checkout hiện vẫn là preview, chưa phải luồng thanh toán hoàn chỉnh.
+6. `/checkout` gọi `POST /v1/carts/{cart_id}/checkout`, rồi chuyển khách sang Stripe-hosted Checkout. Webhook `/v1/stripe/webhook` xác minh sự kiện và tạo order sau khi đối chiếu session với snapshot.
+7. `/checkout/success` chỉ hiện xác nhận tối thiểu khi cookie cart và Stripe Session cùng khớp một checkout attempt; không nhận order ID công khai để đọc PII.
 
 ### Render ảnh
 
@@ -121,8 +137,8 @@ Schema SQL hiện tại là nguồn quan trọng hơn phần giới thiệu lega
 - API: trong `api/`, cài dependency theo `pyproject.toml`, chạy `uvicorn app.main:app --reload --port 8000`. DB dùng các biến `DB_*` (fallback `MYSQL_*`), asset/cache dùng `MOCKUP_*`; đọc `settings.py` để biết tên và default.
 - `compose.yaml` root có MySQL, API, worker và storefront; chưa có service admin.
 - Admin là app Laravel riêng với config/runtime riêng; đọc `admin/composer.json`, `admin/package.json` và config DB trước khi chạy.
-- `app/checkout/page.tsx` hiện là “Private checkout preview”. Không mô tả hệ thống đã có thanh toán production chỉ vì API có endpoint order.
-- `api/app/worker.py` hiện lấy outbox event rồi đánh dấu done; chưa thấy fulfillment/payment integration trong worker này.
+- Checkout code đã hoàn chỉnh nhưng production còn phụ thuộc Stripe live keys, public webhook, domain HTTPS/wallet registration, tax configuration và policy thật đã publish.
+- `api/app/worker.py` lấy outbox event `order.paid` rồi đánh dấu done; chưa tích hợp nhà fulfillment hoặc email xác nhận đơn.
 - README ở root/admin còn dấu vết starter kit. Tài liệu kế hoạch trong `plans/` không phải bằng chứng tính năng đã hoàn thành.
 
 ## 7. Quy tắc khi AI sửa repo

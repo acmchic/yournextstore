@@ -28,6 +28,12 @@ services:
       DB_USER: ${DB_USER:-ac}
       DB_PASSWORD: ${DB_PASSWORD:-password}
       DB_NAME: ${DB_NAME:-pod_store}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_AUTOMATIC_TAX: ${STRIPE_AUTOMATIC_TAX:-false}
+      CHECKOUT_SUCCESS_URL: ${CHECKOUT_SUCCESS_URL:-}
+      CHECKOUT_CANCEL_URL: ${CHECKOUT_CANCEL_URL:-}
+      STOREFRONT_PUBLIC_URL: ${STOREFRONT_PUBLIC_URL:-https://teebravo.com}
       MOCKUP_ASSET_ROOT: /app/public
       MOCKUP_CACHE_DIR: /app/.cache/mockups
     volumes:

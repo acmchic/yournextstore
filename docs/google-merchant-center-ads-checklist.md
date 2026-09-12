@@ -5,7 +5,7 @@ legal/trust pages, structured data, product feeds, image generation, or ad copy.
 The goal is to keep the store ready for Google Merchant Center approval and
 avoid product/account disapprovals at go-live.
 
-Last policy review: 2026-07-07.
+Cart/checkout and return-policy requirements reviewed: 2026-09-10. Other checklist items still require a launch-time review.
 
 Official references:
 
@@ -21,6 +21,37 @@ Official references:
   https://support.google.com/merchants/answer/6149970
 - Google Ads editorial policy:
   https://support.google.com/adspolicy/answer/6021546
+- Merchant Center return-policy requirements:
+  https://support.google.com/merchants/answer/14011730
+- Google Search merchant return-policy structured data:
+  https://developers.google.com/search/docs/appearance/structured-data/return-policy
+- Google Search merchant shipping-policy structured data:
+  https://developers.google.com/search/docs/appearance/structured-data/shipping-policy
+
+## Checkout and policy implementation notes (2026-09-10)
+
+- The approved US shipping model is per order quantity: Standard $5 for the
+  first unit plus $3 for every additional unit; Express $11 plus $4. Read
+  current rates from admin-managed DB settings. Never duplicate these numbers
+  in published policy prose. Existing orders retain their price snapshots.
+- Missing business identity, contact, processing/transit times and return terms
+  remain drafts/configurable in admin until the owner provides them. This is
+  explicitly approved by the owner; do not publish guessed promises.
+- Return information must address both defective items and non-defective cases
+  such as buyer's remorse, even when the latter are not accepted. Explain the
+  window, procedure, fees and refund timing according to the actual policy.
+- Published policy pages must be accessible without login and consistent with
+  PDP summaries and account-level Merchant Center settings. Updating the store
+  DB does not automatically update Merchant Center or Search Console settings.
+- Use structured data only for published facts. A general published returns
+  page can be referenced through Organization.hasMerchantReturnPolicy with
+  merchantReturnLink. Do not describe quantity-based shipping as an
+  unconditional flat rate for every order.
+- Stripe Checkout can reduce payment-form code, but launch verification still
+  requires a completed test purchase, signed/idempotent webhook handling,
+  customer/address persistence and actual wallet eligibility/configuration.
+- Google approval and organic ranking are not guaranteed by passing code tests
+  or adding structured data.
 
 ## Non-negotiable Build Rules
 
@@ -163,4 +194,3 @@ Before merging changes touching commerce surfaces, confirm:
   `<a>` tags for checkout.
 - No hardcoded go-live domain has been added before the real domain is chosen.
 - `tsgo --noEmit` and `bun run lint` pass for code changes.
-

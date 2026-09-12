@@ -10,6 +10,7 @@ import type {
 	APIProductsBrowseResult,
 	Commerce,
 } from "commerce-kit";
+import { productDisplayName } from "@/lib/merchant";
 import { storefront } from "@/lib/storefront-config";
 
 const API_URL = process.env.STORE_API_URL || "http://localhost:8000";
@@ -162,6 +163,8 @@ type ApiCart = {
 		product_id: string;
 		product_slug: string;
 		product_title: string;
+		catalog: string;
+		catalog_name: string;
 		color: string;
 		color_name: string;
 		size: string;
@@ -389,14 +392,19 @@ function mapCart(cart: ApiCart | null): APICartGetResult {
 			productVariantId: item.variant_id,
 			productVariant: {
 				id: item.variant_id,
+				productUrl: `/product/${item.product_slug}/${item.catalog}?${new URLSearchParams({ Color: item.color_name, Size: item.size })}`,
+				variantLabel: `${item.color_name} · ${item.size}`,
 				price: String(item.price_minor),
-				images: [item.image],
+				images: [resolveMediaUrl(item.image)],
 				sku: item.sku,
 				product: {
 					id: item.product_id,
-					name: item.product_title,
+					name: productDisplayName({
+						name: item.product_title,
+						category: { name: item.catalog_name },
+					}),
 					slug: item.product_slug,
-					images: [item.image],
+					images: [resolveMediaUrl(item.image)],
 				},
 			},
 		})),
@@ -468,7 +476,9 @@ export const ownCommerce: OwnCommerceClient = {
 		};
 	},
 	async cartGet({ cartId }): Promise<APICartGetResult> {
-		return mapCart(await apiFetch<ApiCart | null>(`/v1/carts/${encodeURIComponent(cartId)}`));
+		return mapCart(
+			await apiFetch<ApiCart | null>(`/v1/carts/${encodeURIComponent(cartId)}`, { cache: "no-store" }),
+		);
 	},
 	async cartUpsert(body): Promise<APICartCreateResult> {
 		if (!body.variantId) return null;

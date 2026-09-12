@@ -7,7 +7,7 @@ import { JsonLdScript } from "@/lib/json-ld";
 import { shopBrowse, storefrontCollections } from "@/lib/own-commerce";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ page?: string }> };
-export const instant = false;
+export const unstable_instant = false;
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
 	const [{ slug }, query, collections] = await Promise.all([params, searchParams, storefrontCollections()]);

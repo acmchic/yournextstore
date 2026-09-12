@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { try_ as safe } from "safe-try";
 import { commerce } from "@/lib/commerce";
 import { getCartCookieJson, setCartCookie } from "@/lib/cookies";
 
@@ -20,14 +21,16 @@ export async function getCart() {
 
 export async function addToCart(variantId: string, quantity = 1) {
 	const cartCookie = await getCartCookieJson();
+	const existing = cartCookie ? await commerce.cartGet({ cartId: cartCookie.id }) : null;
+	const [error, cart] = await safe(
+		commerce.cartUpsert({
+			cartId: existing?.id,
+			variantId,
+			quantity,
+		}),
+	);
 
-	const cart = await commerce.cartUpsert({
-		cartId: cartCookie?.id,
-		variantId,
-		quantity,
-	});
-
-	if (!cart) {
+	if (error || !cart) {
 		return { success: false, cart: null };
 	}
 

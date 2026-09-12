@@ -1,5 +1,9 @@
 import type { APIProductGetByIdResult } from "commerce-kit";
 
+export function productDisplayName(product: { name: string; category?: { name: string } | null }) {
+	return product.category?.name ? `${product.name} — ${product.category.name}` : product.name;
+}
+
 export function merchantVariants(
 	product: NonNullable<APIProductGetByIdResult>,
 	baseUrl: string,
@@ -13,7 +17,7 @@ export function merchantVariants(
 		return {
 			id: variant.id,
 			groupId: `${product.id}:${product.category?.slug ?? "default"}`,
-			title: product.name,
+			title: productDisplayName(product),
 			description: product.summary ?? product.name,
 			sku: variant.sku ?? variant.id,
 			image: variant.images[0] ?? product.images[0],

@@ -7,24 +7,29 @@ import { Suspense } from "react";
 import { AddToCartButton } from "@/app/product/[slug]/add-to-cart-button";
 import { CatalogDetails } from "@/app/product/[slug]/catalog-details";
 import { MediaGallery } from "@/app/product/[slug]/media-gallery";
+import { ProductAssurance, ProductDeliveryEstimate } from "@/app/product/[slug]/product-assurance";
 import { ProductFeatures } from "@/app/product/[slug]/product-features";
 import { ProductReviews } from "@/app/product/[slug]/product-reviews";
 import { RelatedProducts } from "@/app/product/[slug]/related-products";
+import { TrustBadges } from "@/app/product/[slug]/trust-badges";
 import { TiptapRenderer } from "@/components/tiptap-renderer";
 import {
 	Breadcrumb,
 	BreadcrumbItem,
 	BreadcrumbLink,
 	BreadcrumbList,
+	BreadcrumbPage,
 	BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getShippingQuote } from "@/lib/checkout";
 import { commerce, meGetCached } from "@/lib/commerce";
 import { buildProductBreadcrumbJsonLd, buildProductJsonLd, JsonLdScript } from "@/lib/json-ld";
+import { productDisplayName } from "@/lib/merchant";
 import { catalogBrowse, productGetByCatalog } from "@/lib/own-commerce";
 import { cn } from "@/lib/utils";
 
-export const instant = false;
+export const unstable_instant = false;
 
 function StarRow({ rating }: { rating: number }) {
 	const rounded = Math.round(rating);
@@ -60,7 +65,15 @@ export async function generateMetadata({
 		return { title: "Product Not Found", robots: { index: false, follow: true } };
 	}
 
-	const seoTitle = product.seo?.title || product.name;
+	const displayName = productDisplayName(product);
+	const configuredTitle = product.seo?.title?.trim();
+	const catalogName = product.category?.name;
+	const seoTitle =
+		configuredTitle &&
+		catalogName &&
+		!configuredTitle.toLocaleLowerCase().includes(catalogName.toLocaleLowerCase())
+			? `${configuredTitle} — ${catalogName}`
+			: configuredTitle || displayName;
 	const seoDescription = product.seo?.description || product.summary || undefined;
 	const canonical = product.seo?.canonical || `/product/${product.slug}`;
 	const image = product.images[0];
@@ -74,7 +87,7 @@ export async function generateMetadata({
 			title: seoTitle,
 			description: seoDescription,
 			url: canonical,
-			images: image ? [{ url: image, alt: product.name }] : undefined,
+			images: image ? [{ url: image, alt: displayName }] : undefined,
 		},
 		twitter: {
 			card: image ? "summary_large_image" : "summary",
@@ -88,7 +101,7 @@ export async function generateMetadata({
 function ProductDetailsSkeleton() {
 	return (
 		<div
-			className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7"
+			className="mx-auto max-w-[1600px] px-4 py-3 sm:px-6 lg:px-8 lg:py-4"
 			role="status"
 			aria-busy="true"
 			aria-label="Loading product details"
@@ -173,15 +186,16 @@ export default async function ProductPage(props: { params: Promise<ProductRouteP
 
 const ProductDetails = async ({ params }: { params: Promise<ProductRouteParams> }) => {
 	"use cache";
-	cacheLife("minutes");
+	cacheLife({ stale: 0, revalidate: 30, expire: 60 });
 	const { slug, catalog } = await params;
 	const me = await meGetCached().catch(() => null);
 	const reviewsEnabled = me?.store.settings?.enabledTools?.reviews ?? false;
-	const [product, reviews, catalogs, legalPages] = await Promise.all([
+	const [product, reviews, catalogs, legalPages, shipping] = await Promise.all([
 		getProduct(slug, catalog),
 		reviewsEnabled ? commerce.productReviewsBrowse({ idOrSlug: slug }, { limit: 20 }) : Promise.resolve(null),
 		catalogBrowse(),
 		commerce.legalPageBrowse(),
+		getShippingQuote(),
 	]);
 
 	if (!product) {
@@ -202,15 +216,18 @@ const ProductDetails = async ({ params }: { params: Promise<ProductRouteParams> 
 		...product.images,
 		...product.variants.flatMap((v) => v.images).filter((img) => !product.images.includes(img)),
 	];
+	const displayName = productDisplayName(product);
+	const displayProduct = { ...product, name: displayName };
+	const inStock = product.variants.some((variant) => variant.stock === null || variant.stock > 0);
 
-	const productJsonLd = await buildProductJsonLd(product, reviews);
+	const productJsonLd = await buildProductJsonLd(displayProduct, reviews);
 
 	return (
-		<div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+		<div className="mx-auto max-w-[1600px] px-4 py-3 sm:px-6 lg:px-8 lg:py-4">
 			<JsonLdScript data={productJsonLd} />
-			<JsonLdScript data={buildProductBreadcrumbJsonLd(product)} />
-			<Breadcrumb className="mb-5 border-b border-border/60 pb-4 text-[11px] uppercase tracking-[0.08em]">
-				<BreadcrumbList>
+			<JsonLdScript data={buildProductBreadcrumbJsonLd(displayProduct)} />
+			<Breadcrumb className="mb-3 border-b border-border/60 pb-2 text-[10px] uppercase leading-none tracking-[0.06em]">
+				<BreadcrumbList className="flex-nowrap gap-1 overflow-hidden text-[10px] sm:gap-1.5">
 					<BreadcrumbItem>
 						<BreadcrumbLink asChild>
 							<Link href="/">Home</Link>
@@ -222,28 +239,24 @@ const ProductDetails = async ({ params }: { params: Promise<ProductRouteParams> 
 							<Link href="/products">Products</Link>
 						</BreadcrumbLink>
 					</BreadcrumbItem>
-					{product.category && (
-						<>
-							<BreadcrumbSeparator />
-							<BreadcrumbItem>
-								<BreadcrumbLink asChild>
-									<Link href={`/category/${product.category.slug}`}>{product.category.name}</Link>
-								</BreadcrumbLink>
-							</BreadcrumbItem>
-						</>
-					)}
+					<BreadcrumbSeparator />
+					<BreadcrumbItem className="min-w-0">
+						<BreadcrumbPage className="max-w-[55vw] truncate sm:max-w-none" title={product.name}>
+							{product.name}
+						</BreadcrumbPage>
+					</BreadcrumbItem>
 				</BreadcrumbList>
 			</Breadcrumb>
 			<div className="lg:grid lg:grid-cols-[minmax(0,1.18fr)_minmax(380px,0.82fr)] lg:gap-12 xl:grid-cols-[minmax(0,1.25fr)_minmax(420px,0.75fr)] xl:gap-20">
 				{/* Left: Image Gallery (sticky on desktop) */}
-				<MediaGallery images={allImages} productName={product.name} variants={product.variants} />
+				<MediaGallery images={allImages} productName={displayName} variants={product.variants} />
 
 				{/* Right: Product Details */}
 				<div className="mt-8 lg:sticky lg:top-24 lg:mt-0 lg:self-start lg:px-4 xl:px-8">
 					{/* Title & reviews summary */}
-					<div className="mb-7 space-y-3 border-b border-border/60 pb-6">
+					<div className="mb-4 space-y-2 border-b border-border/60 pb-4">
 						<h1 className="text-balance text-sm font-semibold uppercase leading-snug tracking-[0.025em] text-foreground">
-							{product.name}
+							{displayName}
 						</h1>
 						{reviewSummary && reviewSummary.reviewCount > 0 && (
 							<a
@@ -264,13 +277,14 @@ const ProductDetails = async ({ params }: { params: Promise<ProductRouteParams> 
 						variants={product.variants}
 						product={{
 							id: product.id,
-							name: product.name,
+							name: displayName,
 							slug: product.slug,
 							images: product.images,
 						}}
-						summary={product.summary}
 						volumePricingTiers={product.volumePricingTiers}
 					/>
+					<ProductDeliveryEstimate shipping={shipping} />
+					<TrustBadges rates={shipping.rates} policies={policies} />
 					<CatalogDetails
 						details={{
 							catalogName: catalogDetails?.name ?? product.category?.name ?? "TeeBravo",
@@ -303,6 +317,12 @@ const ProductDetails = async ({ params }: { params: Promise<ProductRouteParams> 
 
 			{/* Features Section (full width below) */}
 			<ProductFeatures />
+			<ProductAssurance
+				shipping={shipping}
+				policies={policies}
+				volumePricingTiers={product.volumePricingTiers}
+				inStock={inStock}
+			/>
 
 			{/* Related Products */}
 			<RelatedProducts productId={product.id} categorySlug={product.category?.slug} />

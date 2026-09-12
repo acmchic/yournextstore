@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
 export function ThemeToggle() {
-	const { theme, setTheme } = useTheme();
+	const { resolvedTheme, setTheme } = useTheme();
 	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
@@ -13,18 +13,20 @@ export function ThemeToggle() {
 	}, []);
 
 	if (!mounted) {
-		return null;
+		return <span className="block size-9" aria-hidden />;
 	}
+	const nextTheme = resolvedTheme === "dark" ? "light" : "dark";
 
 	return (
 		<button
 			type="button"
-			onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-			className="fixed bottom-4 right-4 z-50 bg-foreground text-background p-3 rounded-full shadow-lg hover:scale-110 transition-transform"
-			aria-label="Toggle theme"
+			onClick={() => setTheme(nextTheme)}
+			className="inline-flex size-9 items-center justify-center rounded-sm border border-transparent text-current transition-colors hover:border-current hover:bg-foreground/5"
+			aria-label={`Switch to ${nextTheme} mode`}
+			title={`Switch to ${nextTheme} mode`}
 		>
-			<Moon className="h-5 w-5 block dark:hidden" />
-			<Sun className="h-5 w-5 hidden dark:block" />
+			<Moon className="block size-[18px] dark:hidden" />
+			<Sun className="hidden size-[18px] dark:block" />
 		</button>
 	);
 }

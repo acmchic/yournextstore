@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { addToCart } from "@/app/cart/actions";
 import { useCart } from "@/app/cart/cart-context";
 import { PrintPlacementSelector } from "@/app/product/[slug]/print-placement-selector";
-import { TrustBadges } from "@/app/product/[slug]/trust-badges";
 import { VariantSelector } from "@/app/product/[slug]/variant-selector";
 import { useVolumePricing, VolumePricingDisplay, type VolumeTier } from "@/app/product/[slug]/volume-pricing";
 import { CURRENCY, LOCALE } from "@/lib/constants";
@@ -43,18 +42,12 @@ type AddToCartButtonProps = {
 		slug: string;
 		images: string[];
 	};
-	summary?: string | null;
 	volumePricingTiers?: VolumeTier[];
 };
 
 const LOW_STOCK_THRESHOLD = 5;
 
-export function AddToCartButton({
-	variants,
-	product,
-	summary,
-	volumePricingTiers = [],
-}: AddToCartButtonProps) {
+export function AddToCartButton({ variants, product, volumePricingTiers = [] }: AddToCartButtonProps) {
 	const searchParams = useSearchParams();
 	const [quantity, setQuantity] = useState(1);
 	const { items, openCart, dispatch, startMutation } = useCart();
@@ -179,9 +172,13 @@ export function AddToCartButton({
 			// with the updated cart — compare against what we asked for so the
 			// optimistic item doesn't silently vanish on revert.
 			const result = await addToCart(variantId, addedQuantity);
-			const line = result.cart?.lineItems.find((item) => item.productVariant.id === variantId);
+			const line = result.cart?.lineItems.find(
+				(item: { productVariant: { id: string } }) => item.productVariant.id === variantId,
+			);
 			if (!result.success || !line) {
-				toast.error("This item is out of stock");
+				toast.error(
+					"Could not add this item. Check availability, or return to checkout and choose Edit cart.",
+				);
 			} else if (line.quantity < previousQuantity + addedQuantity) {
 				toast.warning(`Only ${line.quantity} in stock - quantity adjusted`);
 			}
@@ -190,8 +187,6 @@ export function AddToCartButton({
 
 	return (
 		<div className="space-y-8 sm:space-y-7">
-			{summary && <p className="max-w-[62ch] text-sm leading-relaxed text-muted-foreground">{summary}</p>}
-
 			{/* Price & sale */}
 			<div className="space-y-2 border-b border-border/60 pb-6">
 				<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -226,8 +221,6 @@ export function AddToCartButton({
 					{buttonText}
 				</button>
 			</form>
-
-			<TrustBadges />
 		</div>
 	);
 }

@@ -4,9 +4,9 @@ import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
@@ -19,15 +19,18 @@ from app.catalog import (
     parse_placement,
     split_design_and_catalog,
 )
+from app.checkout import CheckoutService
 from app.db import Database
 from app.models import CartItemUpsert, ImageFormat, OrderCreate, ProductSummary
 from app.public_ref import build_product_ref, parse_product_ref, product_public_id
 from app.rendering.pipeline import render_blank_mockup, render_mockup
 from app.repository import CatalogRepository
 from app.settings import settings
+from app.shipping import delivery_settings, shipping_options
 
 database = Database(settings)
 repository = CatalogRepository(database)
+checkout = CheckoutService(database, settings)
 cache = FileCache(settings.cache_dir)
 # Bounded striped locks prevent duplicate renders without retaining one lock per URL.
 render_locks = [asyncio.Lock() for _ in range(64)]
@@ -96,14 +99,20 @@ async def list_collections(repo: Annotated[CatalogRepository, Depends(get_reposi
 
 @app.get("/v1/shop")
 async def browse_shop(
+    repo: Annotated[CatalogRepository, Depends(get_repository)],
     limit: Annotated[int, Query(ge=1, le=48)] = 24,
     offset: Annotated[int, Query(ge=0)] = 0,
     department: str | None = None,
     product_type: str | None = None,
     collection: str | None = None,
-    repo: CatalogRepository = Depends(get_repository),
 ):
-    return await repo.browse_shop(limit=limit, offset=offset, department=department, product_type=product_type, collection=collection)
+    return await repo.browse_shop(
+        limit=limit,
+        offset=offset,
+        department=department,
+        product_type=product_type,
+        collection=collection,
+    )
 
 
 @app.get("/v1/legal-pages")
@@ -125,6 +134,113 @@ async def get_cart(cart_id: str, repo: Annotated[CatalogRepository, Depends(get_
     if not cart:
         raise HTTPException(status_code=404, detail="Cart not found")
     return cart
+
+
+@app.get("/v1/shipping")
+async def get_shipping(quantity: Annotated[int, Query(ge=0, le=9900)] = 1):
+    config = await checkout.settings()
+    return {
+        "options": shipping_options(config, quantity),
+        "rates": {
+            key: config[key]
+            for key in (
+                "standard_first_minor",
+                "standard_additional_minor",
+                "express_first_minor",
+                "express_additional_minor",
+            )
+        },
+        "delivery": delivery_settings(config),
+    }
+
+
+@app.post("/v1/carts/{cart_id}/checkout")
+async def start_checkout(
+    cart_id: str,
+    shipping_method: Annotated[Literal["standard", "express"], Query()] = "standard",
+):
+    try:
+        return await checkout.start(cart_id, shipping_method)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@app.get("/v1/carts/{cart_id}/checkout-review")
+async def checkout_review(cart_id: str):
+    cart = await repository.get_cart(cart_id)
+    if not cart:
+        raise HTTPException(404, "Cart not found")
+    attempt = await database.fetch_one(
+        "select a.snapshot_json from checkout_attempts a join carts c on c.id=a.cart_id where c.public_id=%s and a.status in ('creating','open') limit 1",
+        (cart_id,),
+    )
+    from app.shipping import decode
+
+    if attempt:
+        snapshot = decode(attempt["snapshot_json"])
+        cart.update(
+            {
+                "subtotal_minor": snapshot["subtotal"],
+                "items": [
+                    {**item, "product_title": item["title"], "size": item["size_code"]}
+                    for item in snapshot["items"]
+                ],
+                "shipping_options": snapshot["shipping"],
+                "selected_shipping": snapshot.get("selected_shipping", "standard"),
+                "locked": True,
+            }
+        )
+    else:
+        cart["shipping_options"] = shipping_options(
+            await checkout.settings(), sum(item["quantity"] for item in cart["items"])
+        )
+        cart["locked"] = False
+        cart["selected_shipping"] = "standard"
+    return cart
+
+
+@app.post("/v1/carts/{cart_id}/checkout/cancel")
+async def cancel_checkout(cart_id: str):
+    try:
+        await checkout.cancel(cart_id)
+        return {"ok": True}
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+
+
+@app.get("/v1/carts/{cart_id}/confirmation")
+async def checkout_confirmation(cart_id: str, session_id: str):
+    try:
+        return await checkout.confirmation(cart_id, session_id)
+    except ValueError as error:
+        raise HTTPException(404, str(error)) from error
+
+
+@app.post("/v1/stripe/webhook")
+async def stripe_webhook(request: Request):
+    import stripe
+
+    if not settings.stripe_webhook_secret:
+        raise HTTPException(503, "Webhook is not configured")
+    try:
+        event = stripe.Webhook.construct_event(
+            await request.body(),
+            request.headers.get("stripe-signature", ""),
+            settings.stripe_webhook_secret,
+        )
+    except (ValueError, stripe.SignatureVerificationError) as error:
+        raise HTTPException(400, "Invalid webhook signature") from error
+    if event["type"] in (
+        "checkout.session.completed",
+        "checkout.session.expired",
+        "checkout.session.async_payment_succeeded",
+    ):
+        # Retrieve authoritative current state, including rate metadata, before fulfillment.
+        session = await checkout.stripe().v1.checkout.sessions.retrieve_async(
+            event["data"]["object"]["id"], {"expand": ["shipping_cost.shipping_rate"]}
+        )
+        await checkout.reconcile(session, event["id"], event["type"])
+    return {"received": True}
 
 
 @app.put("/v1/carts/{cart_id}/items")
@@ -150,15 +266,7 @@ async def create_order(
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8)],
     repo: Annotated[CatalogRepository, Depends(get_repository)],
 ):
-    try:
-        return await repo.create_order(
-            cart_id=body.cart_id,
-            email=body.email,
-            address=body.shipping_address.model_dump(),
-            idempotency_key=idempotency_key,
-        )
-    except ValueError as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
+    raise HTTPException(410, "Use cart checkout. Orders are created after verified payment.")
 
 
 @app.get("/img/blank/{filename}")
@@ -562,8 +670,19 @@ async def render_simple_product_image(
         asset = await repo.get_blank_catalog_asset(catalog_slug, color, resolved_placement)
         if not asset:
             raise HTTPException(status_code=404, detail="Blank mockup asset not found")
-        data = await run_in_threadpool(render_blank_mockup, asset["local_path"], width=min(1500, settings.max_width), image_format="webp", settings=settings, garment_color=asset.get("garment_color"))
-        return Response(content=data, media_type="image/webp", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+        data = await run_in_threadpool(
+            render_blank_mockup,
+            asset["local_path"],
+            width=min(1500, settings.max_width),
+            image_format="webp",
+            settings=settings,
+            garment_color=asset.get("garment_color"),
+        )
+        return Response(
+            content=data,
+            media_type="image/webp",
+            headers={"Cache-Control": "public, max-age=31536000, immutable"},
+        )
     return await render_catalog_product_mockup(
         product_slug=product_slug,
         catalog_slug=catalog_slug,

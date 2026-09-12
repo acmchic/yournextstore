@@ -9,7 +9,7 @@ test("merchant variant URL selects the exact color and size and uses actual stoc
 		slug: "graphic",
 		name: "Graphic hoodie",
 		summary: "Design & clothing",
-		category: { slug: "hoodie" },
+		category: { slug: "hoodie", name: "Premium Hoodie" },
 		images: [],
 		variants: [
 			{
@@ -27,6 +27,7 @@ test("merchant variant URL selects the exact color and size and uses actual stoc
 	} as unknown as NonNullable<APIProductGetByIdResult>;
 	const [item] = merchantVariants(product, "https://teebravo.com", "USD");
 	assert.equal(item.groupId, "design-1:hoodie");
+	assert.equal(item.title, "Graphic hoodie — Premium Hoodie");
 	assert.equal(new URL(item.link).searchParams.get("Color"), "Navy Blue");
 	assert.equal(new URL(item.link).searchParams.get("Size"), "XL");
 	assert.equal(item.price, "29.99");

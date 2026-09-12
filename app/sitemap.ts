@@ -54,7 +54,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 	const staticRoutes: MetadataRoute.Sitemap = [
 		{ url: `${baseUrl}/`, lastModified: now, changeFrequency: "daily", priority: 1.0 },
 		{ url: `${baseUrl}/products`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
-		{ url: `${baseUrl}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
 		{ url: `${baseUrl}/faq`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
 	];
 
@@ -91,7 +90,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 	}));
 
 	const legalRoutes: MetadataRoute.Sitemap = legalPages.map((p) => ({
-		url: `${baseUrl}/legal${p.path}`,
+		url: p.path === "/about" ? `${baseUrl}/about` : `${baseUrl}/legal${p.path}`,
 		lastModified: new Date(p.updatedAt),
 		changeFrequency: "yearly",
 		priority: 0.3,

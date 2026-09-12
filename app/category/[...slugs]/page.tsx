@@ -18,7 +18,7 @@ import { buildCategoryBreadcrumbJsonLd, JsonLdScript } from "@/lib/json-ld";
 import { CategoryPagination } from "./category-pagination";
 
 const PRODUCTS_PER_PAGE = 12;
-export const instant = false;
+export const unstable_instant = false;
 
 // Filters that apply on top of the path-locked category.
 type CategoryFilterParams = {

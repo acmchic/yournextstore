@@ -17,6 +17,7 @@ import { AuthButton } from "@/components/auth-button";
 import { CookieConsent } from "@/components/cookie-consent";
 import { ErrorOverlayRemover, NavigationReporter } from "@/components/devtools";
 import { NewsletterDialog } from "@/components/newsletter-dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
 import { AUTH_ENABLED } from "@/lib/auth-config";
 import { catalogNavigation } from "@/lib/catalog-navigation";
@@ -154,9 +155,9 @@ async function CartProviderWrapper({ children }: { children: React.ReactNode }) 
 			<div className="min-h-screen flex flex-col bg-card">
 				<div className="w-full relative bg-card">
 					{/* Brutalist Grid Header */}
-					<header className="relative z-30 grid grid-cols-12 grid-border-b h-16 md:h-20 items-center bg-[#fafafa] text-[#171717]">
+					<header className="relative z-30 grid grid-cols-12 grid-border-b h-16 md:h-20 items-center bg-background text-foreground">
 						{/* Logo */}
-						<div className="col-span-4 md:col-span-3 h-full flex items-center px-3 md:px-6 grid-border-r">
+						<div className="order-2 md:order-1 col-span-4 md:col-span-3 h-full flex items-center justify-center md:justify-start px-3 md:px-6 md:border-r md:border-border">
 							<Link href="/">
 								<span className="font-display font-bold text-sm sm:text-lg tracking-tighter uppercase">
 									{storefront.brandName}
@@ -164,22 +165,21 @@ async function CartProviderWrapper({ children }: { children: React.ReactNode }) 
 							</Link>
 						</div>
 
-						{/* Navigation - Hidden on mobile */}
+						{/* Mobile menu and desktop navigation */}
 						<nav
 							aria-label="Main navigation"
-							className="col-span-4 md:col-span-6 flex h-full items-center justify-center gap-4 xl:gap-6 grid-border-r font-medium text-xs tracking-wide"
+							className="order-1 md:order-2 col-span-4 md:col-span-6 flex h-full items-center justify-start md:justify-center pl-3 md:pl-0 gap-4 xl:gap-6 md:border-r md:border-border font-medium text-xs tracking-wide"
 						>
 							<Navbar links={navigation.links} groups={navigation.groups} />
 						</nav>
 
-						{/* Empty space on mobile */}
-
 						{/* Icons */}
-						<div className="col-span-4 md:col-span-3 h-full flex items-center justify-end px-3 md:px-6 space-x-4 md:space-x-6">
+						<div className="order-3 col-span-4 md:col-span-3 h-full flex items-center justify-end px-3 md:px-6 space-x-1 sm:space-x-3 md:space-x-5">
 							<Suspense>
 								<SearchInput />
 							</Suspense>
 							{AUTH_ENABLED && <AuthButton />}
+							<ThemeToggle />
 							<Suspense fallback={<CartButtonFallback />}>
 								<CartButton />
 							</Suspense>
@@ -233,7 +233,7 @@ export default async function RootLayout({
 				<Suspense>
 					<StoreJsonLd />
 				</Suspense>
-				<ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+				<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
 					<Suspense fallback={null}>
 						<CartProviderWrapper>{children}</CartProviderWrapper>
 					</Suspense>

@@ -46,7 +46,9 @@ export function QuickAddButton({ variantId, variantPrice, variantImages, product
 			// The server clamps to available stock and still returns the cart, so surface
 			// the failure instead of letting the optimistic item silently vanish.
 			const result = await addToCart(variantId, 1);
-			const line = result.cart?.lineItems.find((item) => item.productVariant.id === variantId);
+			const line = result.cart?.lineItems.find(
+				(item: { productVariant: { id: string } }) => item.productVariant.id === variantId,
+			);
 			if (!result.success || !line) {
 				toast.error("This item is out of stock");
 			}

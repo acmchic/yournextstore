@@ -4,6 +4,7 @@ import { Minus, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useTransition } from "react";
+import { toast } from "sonner";
 import { setCartQuantity } from "@/app/cart/actions";
 import { type CartLineItem, getLineItemUnitPrice, useCart } from "@/app/cart/cart-context";
 import { CURRENCY, LOCALE } from "@/lib/constants";
@@ -51,7 +52,11 @@ export function CartItem({ item }: CartItemProps) {
 						return; // newest value already sent
 					}
 					targetQuantityRef.current = null;
-					await setCartQuantity(productVariant.id, latest);
+					const result = await setCartQuantity(productVariant.id, latest);
+					if (!result.success)
+						toast.error(
+							"Could not update your cart. If checkout is open, return there and choose Edit cart.",
+						);
 				});
 				// Drain the queue, then refresh — concurrent transitions land here together,
 				// so their refresh calls batch into one re-render.
@@ -87,7 +92,7 @@ export function CartItem({ item }: CartItemProps) {
 		<div className="flex gap-3 py-4">
 			{/* Product Image */}
 			<Link
-				href={`/product/${product.slug}`}
+				href={productVariant.productUrl ?? `/product/${product.slug}`}
 				onClick={closeCart}
 				className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-secondary"
 			>
@@ -98,7 +103,7 @@ export function CartItem({ item }: CartItemProps) {
 			<div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
 				<div className="flex items-start justify-between gap-2">
 					<Link
-						href={`/product/${product.slug}`}
+						href={productVariant.productUrl ?? `/product/${product.slug}`}
 						onClick={closeCart}
 						className="text-sm font-medium leading-tight text-foreground hover:underline line-clamp-2"
 					>
@@ -115,6 +120,9 @@ export function CartItem({ item }: CartItemProps) {
 					</button>
 				</div>
 
+				{productVariant.variantLabel && (
+					<p className="my-2 text-xs text-muted-foreground">{productVariant.variantLabel}</p>
+				)}
 				<div className="flex items-center justify-between">
 					{/* Quantity Controls */}
 					<div

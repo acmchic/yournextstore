@@ -57,6 +57,8 @@ next-env.d.ts
 !api/mysql/init/007_remove_unused_catalog_payload.sql
 !api/mysql/init/008_catalog_asset_categories.sql
 !api/mysql/init/009_catalog_material_json.sql
+!api/mysql/init/010_checkout_stripe_shipping.sql
+!api/mysql/init/011_pdp_delivery_estimate.sql
 api/catalog-import.cache.json
 api/catalog-cache/
 api/public/mockup

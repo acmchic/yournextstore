@@ -7,9 +7,9 @@ export async function setCartCookie(cartCookieJson: CartCookieJson) {
 	try {
 		(await cookies()).set(CART_COOKIE, JSON.stringify(cartCookieJson), {
 			httpOnly: true,
-			secure: true,
-			sameSite: "none",
-			partitioned: true,
+			secure: process.env.NODE_ENV === "production",
+			sameSite: "lax",
+			maxAge: 60 * 60 * 24 * 30,
 			path: "/",
 		});
 	} catch (error) {
