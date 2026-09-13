@@ -51,6 +51,17 @@ export function AddToCartButton({ variants, product, volumePricingTiers = [] }: 
 	const searchParams = useSearchParams();
 	const [quantity, setQuantity] = useState(1);
 	const { items, openCart, dispatch, startMutation } = useCart();
+	const optionValuesByLabel = useMemo(() => {
+		return variants
+			.flatMap((variant) => variant.combinations)
+			.reduce((valuesByLabel, combination) => {
+				const label = combination.variantValue.variantType.label;
+				const values = valuesByLabel.get(label) ?? new Set<string>();
+				values.add(combination.variantValue.value);
+				valuesByLabel.set(label, values);
+				return valuesByLabel;
+			}, new Map<string, Set<string>>());
+	}, [variants]);
 
 	const selectedVariant = useMemo(() => {
 		if (variants.length === 1) {
@@ -67,12 +78,17 @@ export function AddToCartButton({ variants, product, volumePricingTiers = [] }: 
 		});
 
 		return variants.find((variant) =>
-			variant.combinations.every(
-				(combination) =>
-					paramsOptions[combination.variantValue.variantType.label] === combination.variantValue.value,
-			),
+			variant.combinations.every((combination) => {
+				const label = combination.variantValue.variantType.label;
+				const selectedValue = paramsOptions[label];
+				const optionValues = optionValuesByLabel.get(label);
+				if (optionValues?.size === 1) {
+					return !selectedValue || selectedValue === combination.variantValue.value;
+				}
+				return selectedValue === combination.variantValue.value;
+			}),
 		);
-	}, [variants, searchParams]);
+	}, [variants, searchParams, optionValuesByLabel]);
 
 	// stock === null means stock isn't tracked for this variant (unlimited)
 	const isOutOfStock = selectedVariant?.stock === 0;
@@ -89,7 +105,7 @@ export function AddToCartButton({ variants, product, volumePricingTiers = [] }: 
 	const totalPrice = unitPrice ? BigInt(unitPrice) * BigInt(effectiveQuantity) : null;
 
 	const buttonText = useMemo(() => {
-		if (!selectedVariant) return "Select options";
+		if (!selectedVariant) return "Add to Cart";
 		if (isOutOfStock) return "Out of stock";
 		if (totalPrice) {
 			return `Add to Cart - ${formatMoney({ amount: totalPrice, currency: CURRENCY, locale: LOCALE })}`;
@@ -145,7 +161,25 @@ export function AddToCartButton({ variants, product, volumePricingTiers = [] }: 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 
-		if (!selectedVariant || isOutOfStock) return;
+		if (!selectedVariant) {
+			const hasSelectedOption = (label: string) =>
+				variants.some((variant) =>
+					variant.combinations.some(
+						(combination) =>
+							combination.variantValue.variantType.label === label &&
+							combination.variantValue.value === searchParams.get(label),
+					),
+				);
+			if (optionValuesByLabel.get("Size")?.size !== 1 && !hasSelectedOption("Size")) {
+				toast.error("Please select a size before adding this item.");
+			} else if (optionValuesByLabel.get("Color")?.size !== 1 && !hasSelectedOption("Color")) {
+				toast.error("Please select a color before adding this item.");
+			} else {
+				toast.error("Please select all product options before adding this item.");
+			}
+			return;
+		}
+		if (isOutOfStock) return;
 
 		const variantId = selectedVariant.id;
 		const addedQuantity = effectiveQuantity;
@@ -215,7 +249,7 @@ export function AddToCartButton({ variants, product, volumePricingTiers = [] }: 
 			<form className="mt-6 block sm:mt-4" onSubmit={handleSubmit}>
 				<button
 					type="submit"
-					disabled={!selectedVariant || isOutOfStock}
+					disabled={isOutOfStock}
 					className="h-12 w-full cursor-pointer rounded bg-foreground px-8 py-3 text-sm font-medium uppercase tracking-[0.06em] text-background transition-[box-shadow,opacity,transform] duration-150 ease-out hover:shadow-[0_0_0_2px_#aaaaac] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{buttonText}

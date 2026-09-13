@@ -29,6 +29,43 @@ def _decode_json(value: Any) -> Any:
         return None
 
 
+def _public_catalog_taxonomy(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Expose shared men/women bodies as unisex and keep women-only bodies separate."""
+    departments_by_type = {
+        type_slug: {row["department"] for row in rows if row["type_slug"] == type_slug}
+        for type_slug in {row["type_slug"] for row in rows}
+    }
+    normalized = [
+        {
+            **row,
+            "department": "unisex" if row["department"] == "men" else row["department"],
+        }
+        for row in rows
+        if not (row["department"] == "women" and "men" in departments_by_type[row["type_slug"]])
+    ]
+    return list({(row["department"], row["type_slug"]): row for row in normalized}.values())
+
+
+def _rotate_listing_color(product: dict[str, Any], position: int) -> dict[str, Any]:
+    """Pick a stable, varied in-stock color for a product card in a listing."""
+    colors = list(
+        {
+            variant["color"]: variant["color_name"]
+            for variant in product.get("variants", [])
+            if variant.get("stock") != 0 and variant.get("color")
+        }.items()
+    )
+    if not colors:
+        return product
+    color_slug, color_name = colors[position % len(colors)]
+    return {**product, "default_color": color_slug, "default_color_name": color_name}
+
+
+def _listing_catalog_at(catalogs: list[dict[str, Any]], position: int) -> str:
+    """Cycle through any eligible catalog without coupling collections to catalog names."""
+    return catalogs[position % len(catalogs)]["slug"]
+
+
 def _guideline_percent(value: Any, default: float) -> float:
     """Accept provider guidelines expressed as either 0..1 ratios or percentages."""
     if value is None:
@@ -67,9 +104,14 @@ class CatalogRepository:
                left join catalog_colors selected_color on selected_color.catalog_id=catalog.id
                  and selected_color.slug=%s and selected_color.active=true
                where catalog.slug=%s and catalog.active=true and asset.status='active'
-                 and asset.placement=%s and (color.slug=%s or color.slug is null)
+                 and (
+                   asset.placement=%s
+                   -- Databases imported before migration 005 still label gallery-3 as gallery.
+                   or (%s='back' and asset.placement='gallery' and lower(asset.local_path) like '%%/gallery-3.%%')
+                 )
+                 and (color.slug=%s or color.slug is null)
                order by (color.slug is null), asset.id limit 1""",
-            (color_slug, catalog_slug, placement, color_slug),
+            (color_slug, catalog_slug, placement, placement, color_slug),
         )
 
     async def get_product_by_slug(self, slug: str) -> ProductSummary | None:
@@ -162,6 +204,7 @@ class CatalogRepository:
         offset: int,
         department: str | None = None,
         product_type: str | None = None,
+        catalog_slug: str | None = None,
         collection: str | None = None,
     ) -> dict[str, Any]:
         catalogs = await self.list_catalogs()
@@ -176,6 +219,7 @@ class CatalogRepository:
         eligible = [
             c
             for c in catalogs
+            if (not catalog_slug or c["slug"] == catalog_slug)
             if any(
                 (not department or t["department"] == department)
                 and (not product_type or t["type_slug"] == product_type)
@@ -183,13 +227,35 @@ class CatalogRepository:
                 and (
                     not rule
                     or rule["selection_rule"] == "manual"
-                    or t["department"] in ("men", "women", "kids")
+                    or t["department"] in ("unisex", "women", "kids")
                 )
                 for t in c["taxonomy"]
             )
         ]
         if not eligible:
             return {"data": [], "meta": {"count": 0, "limit": limit, "offset": offset}}
+
+        if rule and rule["selection_rule"] != "manual":
+            count = await self._database.fetch_one(
+                "select count(*) count from products where status='active'", ()
+            )
+            rows = await self._database.fetch_all(
+                "select slug from products where status='active' order by published_at desc, id desc limit %s offset %s",
+                (limit, offset),
+            )
+            data = []
+            for index, row in enumerate(rows):
+                position = offset + index
+                product = await self.get_product_detail(
+                    row["slug"], catalog_slug=_listing_catalog_at(eligible, position)
+                )
+                if product:
+                    data.append(_rotate_listing_color(product, position))
+            return {
+                "data": data,
+                "meta": {"count": int(count["count"]), "limit": limit, "offset": offset},
+            }
+
         placeholders = ",".join(["%s"] * len(eligible))
         params = tuple(c["slug"] for c in eligible)
         where = (
@@ -212,29 +278,16 @@ class CatalogRepository:
         if rule and rule["selection_rule"] == "manual":
             where += " and exists(select 1 from collection_products cp where cp.product_id=p.id and cp.collection_id=%s)"
             params += (rule["id"],)
-        # Automatic collections show each design once on a representative eligible body.
-        if rule and rule["selection_rule"] != "manual":
-            where += " and c.slug=%s"
-            representative = next(
-                (
-                    c
-                    for c in eligible
-                    if rule["selection_rule"] == "newest"
-                    and any(t["type_slug"] == "hoodies" for t in c["taxonomy"])
-                ),
-                eligible[0],
-            )
-            params += (representative["slug"],)
         count = await self._database.fetch_one(f"select count(*) count {where}", params)
         rows = await self._database.fetch_all(
             f"select p.slug, c.slug catalog {where} order by p.published_at desc, p.id desc, c.sort_order, c.id limit %s offset %s",
             (*params, limit, offset),
         )
         data = []
-        for row in rows:
+        for index, row in enumerate(rows):
             product = await self.get_product_detail(row["slug"], catalog_slug=row["catalog"])
             if product:
-                data.append(product)
+                data.append(_rotate_listing_color(product, offset + index))
         return {
             "data": data,
             "meta": {"count": int(count["count"]), "limit": limit, "offset": offset},
@@ -385,13 +438,19 @@ class CatalogRepository:
             if variant["provider"] == "gearment"
         }
         catalog_ids = {catalog for catalog, _color, _name in dynamic_media_keys}
+        # Keep supporting catalogs imported before migration 005 normalized gallery-3 to back.
         back_catalogs = (
             {
                 row["catalog"]
                 for row in await self._database.fetch_all(
                     f"""select c.slug catalog
                 from catalogs c join catalog_assets asset on asset.catalog_id=c.id
-                where c.slug in ({",".join(["%s"] * len(catalog_ids))}) and asset.placement in ('back','unknown') and asset.status='active'
+                where c.slug in ({",".join(["%s"] * len(catalog_ids))})
+                  and asset.status='active'
+                  and (
+                    asset.placement in ('back','unknown')
+                    or (asset.placement='gallery' and lower(asset.local_path) like '%%/gallery-3.%%')
+                  )
                 """,
                     tuple(catalog_ids),
                 )
@@ -739,7 +798,7 @@ class CatalogRepository:
             internal_id = catalog.pop("internal_id")
             catalog["colors"] = grouped(colors, internal_id)
             catalog["sizes"] = grouped(sizes, internal_id)
-            catalog["taxonomy"] = grouped(taxonomy, internal_id)
+            catalog["taxonomy"] = _public_catalog_taxonomy(grouped(taxonomy, internal_id))
         return catalogs
 
     async def list_collections(self) -> list[dict[str, Any]]:

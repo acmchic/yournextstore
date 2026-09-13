@@ -9,7 +9,7 @@ import { catalogBrowse, shopBrowse } from "@/lib/own-commerce";
 
 type Props = {
 	params: Promise<{ department: string }>;
-	searchParams: Promise<{ type?: string; page?: string }>;
+	searchParams: Promise<{ type?: string; catalog?: string; page?: string }>;
 };
 export const unstable_instant = false;
 
@@ -20,7 +20,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 		title: data?.label ?? "Shop",
 		description: data?.description,
 		alternates: { canonical: `/shop/${department}` },
-		robots: query.type || query.page ? { index: false, follow: true } : undefined,
+		robots: query.type || query.catalog || query.page ? { index: false, follow: true } : undefined,
 	};
 }
 
@@ -30,12 +30,24 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
 	if (!group) notFound();
 	const selected = group.children.find((item) => item.slug === query.type);
 	if (query.type && !selected) notFound();
+	const selectedCatalog = selected?.catalogs.find((item) => item.slug === query.catalog);
+	if (query.catalog && !selectedCatalog) notFound();
 	const page = Number(query.page ?? 1);
 	if (!Number.isSafeInteger(page) || page < 1) notFound();
-	const products = await shopBrowse({ department, type: query.type, limit: 24, offset: (page - 1) * 24 });
+	const products = await shopBrowse({
+		department,
+		type: query.type,
+		catalog: query.catalog,
+		limit: 24,
+		offset: (page - 1) * 24,
+	});
 	if (page > 1 && !products.data.length) notFound();
 	const href = (target: number) =>
-		`${group.href}?${new URLSearchParams({ ...(query.type ? { type: query.type } : {}), page: String(target) })}`;
+		`${group.href}?${new URLSearchParams({
+			...(query.type ? { type: query.type } : {}),
+			...(query.catalog ? { catalog: query.catalog } : {}),
+			page: String(target),
+		})}`;
 	return (
 		<div>
 			<JsonLdScript
@@ -56,11 +68,11 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
 			<header className="border-b border-border px-6 py-16 text-center md:py-24">
 				<p className="text-xs uppercase tracking-widest">{group.label}</p>
 				<h1 className="mt-4 text-3xl font-semibold uppercase tracking-tight md:text-5xl">
-					{selected?.label ?? group.label}
+					{selectedCatalog?.label ?? selected?.label ?? group.label}
 				</h1>
 				<p className="mx-auto mt-5 max-w-md text-sm text-muted-foreground">{group.description}</p>
 			</header>
-			<div className="grid gap-8 p-4 md:p-8 lg:grid-cols-[12rem_minmax(0,1fr)]">
+			<div className="grid gap-8 p-4 md:p-8 lg:grid-cols-[18rem_minmax(0,1fr)]">
 				<aside>
 					<nav
 						aria-label={`${group.label} categories`}
@@ -74,14 +86,27 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
 							View all
 						</Link>
 						{group.children.map((item) => (
-							<Link
-								key={item.slug}
-								href={item.href}
-								aria-current={selected?.slug === item.slug ? "page" : undefined}
-								className="p-2 text-xs uppercase aria-[current=page]:underline underline-offset-4"
-							>
-								{item.label}
-							</Link>
+							<div key={item.slug} className="flex flex-col gap-1">
+								<Link
+									href={item.href}
+									aria-current={selected?.slug === item.slug && !selectedCatalog ? "page" : undefined}
+									className="p-2 text-xs font-medium uppercase aria-[current=page]:underline underline-offset-4"
+								>
+									{item.label}
+								</Link>
+								<div className="flex flex-col border-l border-border pl-2">
+									{item.catalogs.map((catalog) => (
+										<Link
+											key={catalog.slug}
+											href={catalog.href}
+											aria-current={selectedCatalog?.slug === catalog.slug ? "page" : undefined}
+											className="px-2 py-1.5 text-xs text-muted-foreground aria-[current=page]:text-foreground aria-[current=page]:underline underline-offset-4"
+										>
+											{catalog.label}
+										</Link>
+									))}
+								</div>
+							</div>
 						))}
 					</nav>
 				</aside>
@@ -93,6 +118,7 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
 								key={`${product.id}:${product.category?.slug}`}
 								product={product}
 								priority={index < 2}
+								showCatalogMeta
 							/>
 						))}
 					</div>

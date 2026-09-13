@@ -2,7 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type VariantValue = {
@@ -52,7 +52,7 @@ function SizeSelect({
 	onSelect: (id: string) => void;
 }) {
 	const [open, setOpen] = useState(false);
-	const selected = selectedOption?.value ?? "Select size";
+	const selected = selectedOption?.value ?? "Select Size";
 	return (
 		<div className="relative">
 			<button
@@ -173,23 +173,6 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 		});
 		router.push(`${pathname}?${params.toString()}`, { scroll: false });
 	};
-
-	// Auto-redirect to first variant when no URL params exist (for multi-variant products)
-	useEffect(() => {
-		if (variants.length <= 1) return;
-
-		const firstVariant = variants[0];
-		const params = new URLSearchParams(searchParams.toString());
-		let changed = false;
-		firstVariant.combinations.forEach((c) => {
-			const label = c.variantValue.variantType.label;
-			if (!params.has(label)) {
-				params.set(label, c.variantValue.value);
-				changed = true;
-			}
-		});
-		if (changed) router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-	}, [variants, searchParams, pathname]);
 
 	const groupsWithChoices = variantGroups
 		.filter((group) => group.options.length > 1)

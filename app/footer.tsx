@@ -48,7 +48,7 @@ async function FooterContactLink() {
 }
 
 async function PolicyLinks() {
-	const { data } = await commerce.legalPageBrowse();
+	const { data } = await commerce.legalPageBrowse().catch(() => ({ data: [] }));
 	return data.map((page) => (
 		<li key={page.href}>
 			<StoreLink

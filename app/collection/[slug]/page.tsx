@@ -66,6 +66,7 @@ export default async function CollectionPage({ params, searchParams }: Props) {
 							key={`${product.id}:${product.category?.slug}`}
 							product={product}
 							priority={index < 2}
+							showCatalogMeta
 						/>
 					))}
 				</div>

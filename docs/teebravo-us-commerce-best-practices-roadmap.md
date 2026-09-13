@@ -447,6 +447,8 @@ Start with a small controlled product set, not the whole catalog. Exclude unprov
 
 ## 12-week implementation roadmap
 
+> Implementation note: pricing work (C2/TB-01) is intentionally deferred by the owner. It remains a Merchant Center submission gate, but it is outside the current implementation scope until product pricing is finalized.
+
 ### Phase 0 — Freeze acquisition and establish truth (Days 1–3)
 
 | Task | Owner | Effort | Exit criterion |

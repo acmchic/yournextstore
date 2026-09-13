@@ -22,9 +22,9 @@ export function Hero() {
 					/>
 				</Link>
 				<Link
-					href="/shop/men"
+					href="/shop/unisex"
 					className="group relative block h-[58svh] min-h-[340px] overflow-hidden bg-secondary md:h-[72svh]"
-					aria-label="Shop men"
+					aria-label="Shop unisex"
 				>
 					<Image
 						src={menImage}
@@ -45,8 +45,8 @@ export function Hero() {
 					<Link href="/shop/women" className="py-2 underline underline-offset-4">
 						Shop women
 					</Link>
-					<Link href="/shop/men" className="py-2 underline underline-offset-4">
-						Shop men
+					<Link href="/shop/unisex" className="py-2 underline underline-offset-4">
+						Shop unisex
 					</Link>
 				</div>
 			</div>

@@ -83,7 +83,11 @@ export async function HomeCollections() {
 						</header>
 						<div className="grid grid-cols-2 gap-x-3 gap-y-8 px-4 md:grid-cols-4 md:gap-x-6 md:px-8">
 							{products.data.map((product) => (
-								<ProductCard key={`${product.id}:${product.category?.slug}`} product={product} />
+								<ProductCard
+									key={`${product.id}:${product.category?.slug}`}
+									product={product}
+									showCatalogMeta
+								/>
 							))}
 						</div>
 						<div className="mt-10 text-center">

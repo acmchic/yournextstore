@@ -17,6 +17,7 @@ import { AuthButton } from "@/components/auth-button";
 import { CookieConsent } from "@/components/cookie-consent";
 import { ErrorOverlayRemover, NavigationReporter } from "@/components/devtools";
 import { NewsletterDialog } from "@/components/newsletter-dialog";
+import { RouteProgressBar } from "@/components/route-progress-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
 import { AUTH_ENABLED } from "@/lib/auth-config";
@@ -42,13 +43,15 @@ const spaceGrotesk = Space_Grotesk({
 async function getStoreMetadata(): Promise<Metadata> {
 	"use cache";
 	cacheLife("hours");
-	const me = await meGetCached();
-	const storeName = me.store.name || storefront.brandName;
-	const storeDescription = me.store.settings?.storeDescription || storefront.description;
-	const faviconUrl = getStoreFaviconUrl(me.store.settings) ?? "/logo.svg";
+	const me = await meGetCached().catch(() => null);
+	const storeName = me?.store.name || storefront.brandName;
+	const storeDescription = me?.store.settings?.storeDescription || storefront.description;
+	const faviconUrl = getStoreFaviconUrl(me?.store.settings) ?? "/logo.svg";
 	const storeLogo =
-		typeof me.store.settings?.logo === "string" ? me.store.settings.logo : me.store.settings?.logo?.imageUrl;
-	const ogImage = me.store.settings?.ogimage || storeLogo || "/logo.svg";
+		typeof me?.store.settings?.logo === "string"
+			? me.store.settings.logo
+			: me?.store.settings?.logo?.imageUrl;
+	const ogImage = me?.store.settings?.ogimage || storeLogo || "/logo.svg";
 
 	return {
 		title: {
@@ -128,7 +131,7 @@ async function getNavLinks(): Promise<{ links: NavLink[]; groups: NavGroup[] }> 
 	"use cache";
 	cacheLife("minutes");
 	const [collections, me, catalogs] = await Promise.all([
-		commerce.collectionBrowse({ limit: 5 }),
+		commerce.collectionBrowse({ limit: 5 }).catch(() => ({ data: [] })),
 		meGetCached().catch(() => null),
 		catalogBrowse().catch(() => ({ data: [] })),
 	]);
@@ -229,6 +232,9 @@ export default async function RootLayout({
 				{/* DO NOT REMOVE / REORDER: required for GDPR + GTM Consent Mode v2. Must stay at top of <body>. */}
 				<Suspense>
 					<CookieConsent />
+				</Suspense>
+				<Suspense fallback={null}>
+					<RouteProgressBar />
 				</Suspense>
 				<Suspense>
 					<StoreJsonLd />

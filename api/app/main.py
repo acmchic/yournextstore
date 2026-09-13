@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -27,6 +28,8 @@ from app.rendering.pipeline import render_blank_mockup, render_mockup
 from app.repository import CatalogRepository
 from app.settings import settings
 from app.shipping import delivery_settings, shipping_options
+
+logger = logging.getLogger(__name__)
 
 database = Database(settings)
 repository = CatalogRepository(database)
@@ -104,6 +107,7 @@ async def browse_shop(
     offset: Annotated[int, Query(ge=0)] = 0,
     department: str | None = None,
     product_type: str | None = None,
+    catalog: str | None = None,
     collection: str | None = None,
 ):
     return await repo.browse_shop(
@@ -111,6 +115,7 @@ async def browse_shop(
         offset=offset,
         department=department,
         product_type=product_type,
+        catalog_slug=catalog,
         collection=collection,
     )
 
@@ -446,7 +451,8 @@ async def get_product(
     try:
         product = await repo.get_product_detail(slug, catalog_slug=catalog)
     except Exception as error:
-        raise HTTPException(status_code=503, detail=f"MySQL unavailable: {error}") from error
+        logger.exception("Product lookup failed for slug=%s catalog=%s", slug, catalog)
+        raise HTTPException(status_code=503, detail="MySQL temporarily unavailable") from error
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     return product

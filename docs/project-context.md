@@ -16,11 +16,11 @@
 ## Cập nhật storefront / CMS ngày 2026-09-08
 
 - Home: `Hero` → `HomeCollections`, phong cách ảnh lớn, monochrome, typography gọn. Không còn form newsletter chưa có API hoạt động hoặc nút Favorites không có chức năng.
-- `lib/catalog-navigation.ts` là nguồn grouping menu; `/shop/[department]?type=...&page=...` dùng `/v1/shop` phân trang 24 cặp design–catalog. Không gộp sản phẩm chỉ theo design ID. Filter/page noindex, department chính có canonical và breadcrumbs.
-- Admin `/collections`: active/draft, featured, sort order, mô tả; rule `manual` chọn design, `newest` dùng thứ tự published_at, `tees` chỉ catalog taxonomy t-shirts. Home tối đa 3 collections featured, 4 sản phẩm/module. Automatic collections chọn một catalog đại diện; New Arrivals ưu tiên hoodie, Graphic Tees lấy tee đầu theo thứ tự catalog. Đây là lựa chọn merchandising hiện tại, không phải bestseller.
+- `lib/catalog-navigation.ts` là nguồn grouping menu; `/shop/[department]?type=...&page=...` dùng `/v1/shop` phân trang 24 cặp design–catalog. Storefront chuẩn hóa catalog có taxonomy nguồn `men` thành `unisex`, bỏ taxonomy `women` trùng trên cùng loại, và chỉ giữ `women` cho catalog nữ chuyên biệt. Không gộp sản phẩm chỉ theo design ID. Filter/page noindex, department chính có canonical và breadcrumbs.
+- Admin `/collections`: active/draft, featured, sort order, mô tả; rule `manual` chọn design, `newest` dùng thứ tự published_at, `tees` chỉ catalog taxonomy t-shirts. Home tối đa 3 collections featured, 4 sản phẩm/module. Automatic collections xoay vòng toàn bộ catalog đủ điều kiện bằng một selector dùng chung, rồi xoay màu còn hàng theo vị trí card; không hard-code hoodie, tee hay tên catalog cụ thể. Đây là lựa chọn merchandising hiện tại, không phải bestseller.
 - Admin `/legal`: soạn plain text, preview, draft/published, unpublish. URL không đổi sau khi tạo. API chỉ đọc published. Text được escape để tránh XSS. Thay đổi lưu vào activity_logs cùng transaction. Footer/sitemap đọc published policies; không có nội dung chính sách giả được xuất bản.
 - Migrations Laravel bổ sung: `2026_09_08_000001_create_legal_pages_table.php`, `2026_09_08_000002_add_collection_rules.php` trên connection `store`. Chạy trước khi cập nhật API/storefront ở môi trường mới.
-- Feed chuẩn bị tại `/api/feed/google?department=men&page=1` (men/women/kids, 12 cặp design–catalog/trang, header X-Feed-Pages). `MERCHANT_FEED_ENABLED=false` mặc định. `lib/merchant.ts` chia sẻ URL, giá, currency và stock với JSON-LD. Chỉ bật sau khi kiểm tra payment, quyền artwork, chính sách, ảnh HTTPS và dữ liệu feed. Không coi feature này là Google approval.
+- Feed chuẩn bị tại `/api/feed/google?department=unisex&page=1` (unisex/women/kids, 12 cặp design–catalog/trang, header X-Feed-Pages). `MERCHANT_FEED_ENABLED=false` mặc định. `lib/merchant.ts` chia sẻ URL, giá, currency và stock với JSON-LD. Chỉ bật sau khi kiểm tra payment, quyền artwork, chính sách, ảnh HTTPS và dữ liệu feed. Không coi feature này là Google approval.
 - `bun scripts/audit-storefront.ts http://localhost:3000` so sánh status/title/canonical/legacy branding của browser thường và Googlebot trên 7 routes. Đây chưa phải full feed/checkout audit.
 - Production build hoạt động khi chạy ngoài sandbox có quyền truy cập API/font; Turbopack root được cố định trong next.config.ts.
 - Launch vẫn cần thông tin doanh nghiệp, shipping/returns thực tế, rà quyền sử dụng artwork/ảnh hiện có, xác nhận retail pricing và tích hợp payment thực. Checkout hiện là preview, nằm ngoài phạm vi homepage/CMS.
@@ -96,6 +96,8 @@ Lệnh `seed-product-showcase` trong `api/app/cli.py` tạo nhanh các mapping �
 6. `/checkout` gọi `POST /v1/carts/{cart_id}/checkout`, rồi chuyển khách sang Stripe-hosted Checkout. Webhook `/v1/stripe/webhook` xác minh sự kiện và tạo order sau khi đối chiếu session với snapshot.
 7. `/checkout/success` chỉ hiện xác nhận tối thiểu khi cookie cart và Stripe Session cùng khớp một checkout attempt; không nhận order ID công khai để đọc PII.
 
+Storefront read requests trong `lib/own-commerce.ts` có timeout và retry giới hạn cho lỗi kết nối/gateway tạm thời. Các dữ liệu công khai không bắt buộc như navigation, catalog, collection, legal và product browse dùng fallback rỗng/cấu hình thương hiệu để không làm crash toàn trang khi FastAPI đang khởi động lại; các thao tác cart/checkout và ghi dữ liệu vẫn báo lỗi thay vì dùng dữ liệu giả.
+
 ### Render ảnh
 
 Renderer kết hợp artwork với ảnh catalog, màu và vị trí in theo dữ liệu mockup. Asset gốc nằm trong `api/public/design/` và `api/public/mockup/`; ảnh kết quả được cache qua `api/app/cache.py`. Không cần dựng sẵn toàn bộ tích design × catalog × màu × size.
@@ -135,6 +137,7 @@ Schema SQL hiện tại là nguồn quan trọng hơn phần giới thiệu lega
 
 - Storefront: `bun dev` tại root; `STORE_API_URL` mặc định `http://localhost:8000`. `POD_MOCKUP_API_URL` dùng cho kết nối mockup; `NEXT_PUBLIC_URL` dùng cho public origin. Không lấy `YNS_API_KEY` trong hướng dẫn template làm bằng chứng phải dùng backend YNS.
 - API: trong `api/`, cài dependency theo `pyproject.toml`, chạy `uvicorn app.main:app --reload --port 8000`. DB dùng các biến `DB_*` (fallback `MYSQL_*`), asset/cache dùng `MOCKUP_*`; đọc `settings.py` để biết tên và default.
+- API giữ pool MySQL có vòng đời hữu hạn (`DB_POOL_RECYCLE`) và ping trước truy vấn; các truy vấn đọc tự reconnect/retry giới hạn khi socket bị MySQL đóng, còn transaction/ghi không tự retry để tránh ghi trùng. `api/start.sh` phải được chạy trong môi trường có DB để áp dụng các migration chưa có.
 - `compose.yaml` root có MySQL, API, worker và storefront; chưa có service admin.
 - Admin là app Laravel riêng với config/runtime riêng; đọc `admin/composer.json`, `admin/package.json` và config DB trước khi chạy.
 - Checkout code đã hoàn chỉnh nhưng production còn phụ thuộc Stripe live keys, public webhook, domain HTTPS/wallet registration, tax configuration và policy thật đã publish.

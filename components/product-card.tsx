@@ -17,9 +17,11 @@ type FullProduct = NonNullable<APIProductGetByIdResult>;
 export function ProductCard({
 	product,
 	priority = false,
+	showCatalogMeta = false,
 }: {
 	product: BrowseProduct | CollectionProduct | FullProduct;
 	priority?: boolean;
+	showCatalogMeta?: boolean;
 }) {
 	const variants = "variants" in product ? product.variants : null;
 	const firstVariantPrice = variants?.[0] ? BigInt(variants[0].price) : null;
@@ -57,6 +59,17 @@ export function ProductCard({
 	const productHref = selectedCatalog
 		? `/product/${product.slug}/${selectedCatalog}${selectedColor ? `?Color=${encodeURIComponent(selectedColor)}` : ""}`
 		: `/product/${product.slug}`;
+	const availableColors =
+		variants?.reduce<Array<{ name: string; hex: string | null }>>((colors, variant) => {
+			const color = variant.combinations?.find(
+				(combination) => combination.variantValue.variantType.label === "Color",
+			);
+			if (!color || variant.stock === 0 || colors.some((item) => item.name === color.variantValue.value))
+				return colors;
+			colors.push({ name: color.variantValue.value, hex: color.variantValue.colorValue });
+			return colors;
+		}, []) ?? [];
+	const catalogName = "category" in product ? product.category?.name : null;
 
 	return (
 		<StoreLink prefetch={"eager"} href={productHref} className="group">
@@ -100,6 +113,32 @@ export function ProductCard({
 				<h3 className="text-base font-medium text-foreground">{product.name}</h3>
 				<p className="whitespace-nowrap font-mono text-sm font-semibold text-foreground">{priceDisplay}</p>
 			</div>
+			{showCatalogMeta && (catalogName || availableColors.length > 0) && (
+				<div className="mt-3 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+					{catalogName && <span className="truncate">{catalogName}</span>}
+					{availableColors.length > 0 && <span className="shrink-0">{availableColors.length} colors</span>}
+				</div>
+			)}
+			{showCatalogMeta && availableColors.length > 0 && (
+				<div className="mt-2 flex items-center gap-1.5">
+					<span className="sr-only">
+						Available colors: {availableColors.map((color) => color.name).join(", ")}
+					</span>
+					{availableColors.slice(0, 8).map((color) => (
+						<span
+							key={color.name}
+							className="size-4 rounded-full border border-foreground/20 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.3)]"
+							style={{ backgroundColor: color.hex ?? "#e5e7eb" }}
+							title={color.name}
+						/>
+					))}
+					{availableColors.length > 8 && (
+						<span className="ml-0.5 text-[10px] font-medium text-muted-foreground">
+							+{availableColors.length - 8}
+						</span>
+					)}
+				</div>
+			)}
 		</StoreLink>
 	);
 }

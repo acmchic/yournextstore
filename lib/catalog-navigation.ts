@@ -2,9 +2,9 @@ import type { ApiCatalog } from "@/lib/own-commerce";
 
 export const departments = [
 	{
-		slug: "men",
-		label: "Men",
-		description: "Graphic tees, hoodies, and sweatshirts for your everyday rotation.",
+		slug: "unisex",
+		label: "Unisex",
+		description: "Graphic tees, hoodies, and sweatshirts designed for everyone.",
 	},
 	{
 		slug: "women",
@@ -27,9 +27,12 @@ export const departments = [
 export function catalogNavigation(catalogs: ApiCatalog[]) {
 	return departments
 		.map((department) => {
-			const entries = catalogs
+			const departmentCatalogs = catalogs
 				.filter((catalog) => catalog.product_count > 0)
-				.flatMap((catalog) => catalog.taxonomy.filter((item) => item.department === department.slug));
+				.filter((catalog) => catalog.taxonomy.some((item) => item.department === department.slug));
+			const entries = departmentCatalogs.flatMap((catalog) =>
+				catalog.taxonomy.filter((item) => item.department === department.slug),
+			);
 			const types = [
 				...new Map(
 					entries
@@ -44,6 +47,20 @@ export function catalogNavigation(catalogs: ApiCatalog[]) {
 					label: type.type_label,
 					slug: type.type_slug,
 					href: `/shop/${department.slug}?type=${encodeURIComponent(type.type_slug)}`,
+					catalogs: departmentCatalogs
+						.filter((catalog) =>
+							catalog.taxonomy.some(
+								(item) => item.department === department.slug && item.type_slug === type.type_slug,
+							),
+						)
+						.map((catalog) => ({
+							label: catalog.name,
+							slug: catalog.slug,
+							href: `/shop/${department.slug}?${new URLSearchParams({
+								type: type.type_slug,
+								catalog: catalog.slug,
+							})}`,
+						})),
 				})),
 			};
 		})

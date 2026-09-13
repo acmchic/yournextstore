@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 
 const placements = [
 	{ value: "front", label: "Front" },
-	{ value: "chest", label: "Chest" },
 	{ value: "back", label: "Back" },
 	{ value: "front-back", label: "Front & Back" },
 ] as const;
@@ -14,7 +13,10 @@ export function PrintPlacementSelector() {
 	const pathname = usePathname();
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const selected = searchParams.get("Print") ?? "front";
+	const requestedPlacement = searchParams.get("Print");
+	const selected = placements.some((placement) => placement.value === requestedPlacement)
+		? requestedPlacement
+		: "front";
 
 	return (
 		<fieldset className="m-0 border-0 p-0">

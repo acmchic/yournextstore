@@ -126,7 +126,7 @@ export type ApiCatalog = {
 	size_chart?: { unit?: string; note?: string; rows?: string[][] } | null;
 	product_count: number;
 	taxonomy: Array<{
-		department: "men" | "women" | "kids" | "home-living" | "accessories";
+		department: "unisex" | "women" | "kids" | "home-living" | "accessories";
 		type_slug: string;
 		type_label: string;
 		sort_order: number;
@@ -150,6 +150,11 @@ type ApiStore = {
 	currency?: string | null;
 	locale?: string | null;
 };
+
+const TRANSIENT_API_STATUSES = new Set([502, 503, 504]);
+const READ_RETRY_LIMIT = 3;
+const RETRY_BACKOFF_MS = 250;
+const API_REQUEST_TIMEOUT_MS = Math.max(1000, Number(process.env.STORE_API_TIMEOUT_MS) || 10000);
 type ApiCart = {
 	id: string;
 	currency: string;
@@ -173,10 +178,43 @@ type ApiCart = {
 };
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-	const response = await fetch(`${API_URL}${path}`, {
-		...init,
-		headers: { Accept: "application/json", "Content-Type": "application/json", ...init?.headers },
-	});
+	const method = (init?.method || "GET").toUpperCase();
+	const canRetry = method === "GET" || method === "HEAD";
+	let response: Response | undefined;
+	let lastError: unknown;
+	for (let attempt = 0; attempt <= (canRetry ? READ_RETRY_LIMIT : 0); attempt += 1) {
+		response = undefined;
+		const controller = init?.signal ? undefined : new AbortController();
+		const timeout = controller ? setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS) : undefined;
+		try {
+			response = await fetch(`${API_URL}${path}`, {
+				...init,
+				signal: init?.signal ?? controller?.signal,
+				headers: {
+					Accept: "application/json",
+					"Content-Type": "application/json",
+					...init?.headers,
+				},
+			});
+		} catch (error) {
+			lastError = error;
+			if (!canRetry || attempt === READ_RETRY_LIMIT) break;
+			await new Promise((resolve) => setTimeout(resolve, RETRY_BACKOFF_MS * 2 ** attempt));
+			continue;
+		} finally {
+			if (timeout) clearTimeout(timeout);
+		}
+		if (!canRetry || !TRANSIENT_API_STATUSES.has(response.status) || attempt === READ_RETRY_LIMIT) {
+			break;
+		}
+		await response.arrayBuffer();
+		await new Promise((resolve) => setTimeout(resolve, RETRY_BACKOFF_MS * 2 ** attempt));
+	}
+	if (!response) {
+		const error = new Error(`Store API unavailable at ${API_URL}${path}`);
+		if (lastError instanceof Error) error.cause = lastError;
+		throw error;
+	}
 	if (!response.ok) {
 		if (response.status === 404) return null as T;
 		throw new Error(`Store API ${response.status}: ${path}`);
@@ -234,11 +272,13 @@ function mapProduct(product: ApiProduct): NonNullable<APIProductGetByIdResult> {
 	const catalogName = selectedVariant?.catalog_name ?? product.variants[0]?.catalog_name ?? "Products";
 	const catalogSlug = defaultCatalog ?? product.variants[0]?.catalog ?? "products";
 	const variants = product.variants.map((variant) => {
-		const variantImages =
-			variant.images?.map(resolveMediaUrl) ??
-			product.media
-				.filter((media) => media.catalog === variant.catalog && media.color === variant.color)
-				.flatMap((media) => [media.url, media.blank_url].filter(Boolean).map(resolveMediaUrl));
+		// Provider variant images contain printed views; catalog media also carries blank placement views.
+		const catalogMediaImages = product.media
+			.filter((media) => media.catalog === variant.catalog && media.color === variant.color)
+			.flatMap((media) => [media.url, media.blank_url].filter(Boolean).map(resolveMediaUrl));
+		const variantImages = [
+			...new Set([...(variant.images ?? []).map(resolveMediaUrl), ...catalogMediaImages]),
+		];
 		return {
 			id: variant.id,
 			createdAt: product.created_at,
@@ -344,25 +384,35 @@ function mapProduct(product: ApiProduct): NonNullable<APIProductGetByIdResult> {
 
 export async function productGetByCatalog(slug: string, catalog: string) {
 	const search = new URLSearchParams({ catalog });
-	const product = await apiFetch<ApiProduct | null>(
-		`/v1/products/${encodeURIComponent(slug)}?${search.toString()}`,
-	);
-	return product ? mapProduct(product) : null;
+	try {
+		const product = await apiFetch<ApiProduct | null>(
+			`/v1/products/${encodeURIComponent(slug)}?${search.toString()}`,
+		);
+		return product ? mapProduct(product) : null;
+	} catch {
+		return null;
+	}
 }
 
 export async function catalogBrowse() {
-	return apiFetch<{ data: ApiCatalog[] }>("/v1/catalogs");
+	try {
+		return await apiFetch<{ data: ApiCatalog[] }>("/v1/catalogs");
+	} catch {
+		return { data: [] };
+	}
 }
 
 export async function shopBrowse({
 	department,
 	type,
+	catalog,
 	collection,
 	limit = 24,
 	offset = 0,
 }: {
 	department?: string;
 	type?: string;
+	catalog?: string;
 	collection?: string;
 	limit?: number;
 	offset?: number;
@@ -370,13 +420,24 @@ export async function shopBrowse({
 	const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
 	if (department) query.set("department", department);
 	if (type) query.set("product_type", type);
+	if (catalog) query.set("catalog", catalog);
 	if (collection) query.set("collection", collection);
-	const result = await apiFetch<ApiBrowse>(`/v1/shop?${query}`);
-	return { data: result.data.map(mapProduct), meta: result.meta };
+	try {
+		const result = await apiFetch<ApiBrowse>(`/v1/shop?${query}`);
+		return { data: result.data.map(mapProduct), meta: result.meta };
+	} catch {
+		return { data: [], meta: { count: 0, limit, offset } };
+	}
 }
 
 export async function storefrontCollections() {
-	return apiFetch<{ data: (ApiCollection & { featured: boolean; indexable: boolean })[] }>("/v1/collections");
+	try {
+		return await apiFetch<{ data: (ApiCollection & { featured: boolean; indexable: boolean })[] }>(
+			"/v1/collections",
+		);
+	} catch {
+		return { data: [] };
+	}
 }
 
 function mapCart(cart: ApiCart | null): APICartGetResult {
@@ -417,18 +478,24 @@ function mapCart(cart: ApiCart | null): APICartGetResult {
 
 export const ownCommerce: OwnCommerceClient = {
 	async meGet(): Promise<APIMeGetResult> {
-		const store = resolveStoreConfig(await apiFetch<ApiStore | null>("/v1/store"));
+		let store: ApiStore | null = null;
+		try {
+			store = await apiFetch<ApiStore | null>("/v1/store");
+		} catch {
+			// Keep public layout/metadata usable while the optional API is restarting.
+		}
+		const resolvedStore = resolveStoreConfig(store);
 		return {
 			store: {
 				id: "own-store",
-				name: store.name,
-				currency: store.currency,
+				name: resolvedStore.name,
+				currency: resolvedStore.currency,
 				settings: {
-					storeName: store.name,
+					storeName: resolvedStore.name,
 					storeDescription: storefront.description,
 					logo: "/logo.svg",
 					ogimage: "/brand/og.png",
-					defaultLanguage: store.locale,
+					defaultLanguage: resolvedStore.locale,
 					enabledTools: { blog: false, contactForm: true, reviews: false, newsletter: false },
 				},
 			},
@@ -443,37 +510,60 @@ export const ownCommerce: OwnCommerceClient = {
 		if (params.query) search.set("q", params.query);
 		if (params.category) search.set("catalog", String(params.category));
 		if (params.collection) search.set("collection", String(params.collection));
-		const result = await apiFetch<ApiBrowse>(`/v1/products?${search}`);
-		return {
-			data: result.data.map(mapProduct),
-			meta: {
-				count: result.meta.count,
-				countPublished: result.meta.count,
-				countDraft: 0,
-				countHidden: 0,
-				nextCursor: undefined,
-			},
-		} as unknown as APIProductsBrowseResult;
+		try {
+			const result = await apiFetch<ApiBrowse>(`/v1/products?${search}`);
+			return {
+				data: result.data.map(mapProduct),
+				meta: {
+					count: result.meta.count,
+					countPublished: result.meta.count,
+					countDraft: 0,
+					countHidden: 0,
+					nextCursor: undefined,
+				},
+			} as unknown as APIProductsBrowseResult;
+		} catch {
+			return {
+				data: [],
+				meta: { count: 0, countPublished: 0, countDraft: 0, countHidden: 0, nextCursor: undefined },
+			} as unknown as APIProductsBrowseResult;
+		}
 	},
 	async productGet({ idOrSlug }) {
-		const product = await apiFetch<ApiProduct | null>(`/v1/products/${encodeURIComponent(String(idOrSlug))}`);
-		return product ? mapProduct(product) : null;
+		try {
+			const product = await apiFetch<ApiProduct | null>(
+				`/v1/products/${encodeURIComponent(String(idOrSlug))}`,
+			);
+			return product ? mapProduct(product) : null;
+		} catch {
+			return null;
+		}
 	},
 	async productFilters() {
-		const [{ data: catalogs }, { data: collections }] = await Promise.all([
-			apiFetch<{ data: ApiCatalog[] }>("/v1/catalogs"),
-			apiFetch<{ data: ApiCollection[] }>("/v1/collections"),
-		]);
-		return {
-			priceBounds: { min: 0, max: 0 },
-			brands: [],
-			categories: catalogs.map(({ name, slug }) => ({ name, slug })),
-			collections: collections.map(({ title: name, slug }) => ({ name, slug })),
-			variantTypes: [
-				{ label: "Size", values: [...new Set(catalogs.flatMap((c) => c.sizes.map((s) => s.code)))] },
-				{ label: "Color", values: [...new Set(catalogs.flatMap((c) => c.colors.map((x) => x.name)))] },
-			],
-		};
+		try {
+			const [{ data: catalogs }, { data: collections }] = await Promise.all([
+				apiFetch<{ data: ApiCatalog[] }>("/v1/catalogs"),
+				apiFetch<{ data: ApiCollection[] }>("/v1/collections"),
+			]);
+			return {
+				priceBounds: { min: 0, max: 0 },
+				brands: [],
+				categories: catalogs.map(({ name, slug }) => ({ name, slug })),
+				collections: collections.map(({ title: name, slug }) => ({ name, slug })),
+				variantTypes: [
+					{ label: "Size", values: [...new Set(catalogs.flatMap((c) => c.sizes.map((s) => s.code)))] },
+					{ label: "Color", values: [...new Set(catalogs.flatMap((c) => c.colors.map((x) => x.name)))] },
+				],
+			};
+		} catch {
+			return {
+				priceBounds: { min: 0, max: 0 },
+				brands: [],
+				categories: [],
+				collections: [],
+				variantTypes: [],
+			};
+		}
 	},
 	async cartGet({ cartId }): Promise<APICartGetResult> {
 		return mapCart(
@@ -493,17 +583,22 @@ export const ownCommerce: OwnCommerceClient = {
 		return mapCart(cart) as APICartCreateResult;
 	},
 	async categoriesBrowse(params): Promise<APICategoriesBrowseResult> {
-		const { data } = await apiFetch<{ data: ApiCatalog[] }>("/v1/catalogs");
+		const { data } = await catalogBrowse();
 		const sliced = data.slice(params.offset ?? 0, (params.offset ?? 0) + (params.limit ?? data.length));
 		return { data: sliced.map(categoryShape), meta: { count: data.length } } as APICategoriesBrowseResult;
 	},
 	async categoryGet({ idOrSlug }) {
-		const { data } = await apiFetch<{ data: ApiCatalog[] }>("/v1/catalogs");
+		const { data } = await catalogBrowse();
 		const catalog = data.find((item) => item.slug === idOrSlug || item.id === idOrSlug);
 		if (!catalog) return null;
-		const products = await apiFetch<ApiBrowse>(
-			`/v1/products?catalog=${encodeURIComponent(catalog.slug)}&limit=100`,
-		);
+		let products: ApiBrowse;
+		try {
+			products = await apiFetch<ApiBrowse>(
+				`/v1/products?catalog=${encodeURIComponent(catalog.slug)}&limit=100`,
+			);
+		} catch {
+			products = { data: [], meta: { count: 0, limit: 100, offset: 0 } };
+		}
 		return {
 			...categoryShape(catalog),
 			products: products.data.map(mapProduct),
@@ -512,7 +607,12 @@ export const ownCommerce: OwnCommerceClient = {
 		} as unknown as APICategoryGetByIdResult;
 	},
 	async collectionBrowse(params): Promise<APICollectionsBrowseResult> {
-		const { data } = await apiFetch<{ data: ApiCollection[] }>("/v1/collections");
+		let data: ApiCollection[] = [];
+		try {
+			({ data } = await apiFetch<{ data: ApiCollection[] }>("/v1/collections"));
+		} catch {
+			// Empty navigation is a safe fallback while the API restarts.
+		}
 		const sliced = data.slice(params.offset ?? 0, (params.offset ?? 0) + (params.limit ?? data.length));
 		return {
 			data: sliced.map((item) => ({
@@ -531,9 +631,12 @@ export const ownCommerce: OwnCommerceClient = {
 		} as APICollectionsBrowseResult;
 	},
 	async collectionGet({ idOrSlug }) {
-		const item = await apiFetch<ApiCollection | null>(
-			`/v1/collections/${encodeURIComponent(String(idOrSlug))}`,
-		);
+		let item: ApiCollection | null = null;
+		try {
+			item = await apiFetch<ApiCollection | null>(`/v1/collections/${encodeURIComponent(String(idOrSlug))}`);
+		} catch {
+			return null;
+		}
 		if (!item) return null;
 		return {
 			id: item.id,
@@ -559,9 +662,14 @@ export const ownCommerce: OwnCommerceClient = {
 		} as unknown as APICollectionGetByIdResult;
 	},
 	async search(params) {
-		const result = await apiFetch<ApiBrowse>(
-			`/v1/products?q=${encodeURIComponent(params.query)}&limit=${params.limit ?? 6}&offset=${params.offset ?? 0}`,
-		);
+		let result: ApiBrowse;
+		try {
+			result = await apiFetch<ApiBrowse>(
+				`/v1/products?q=${encodeURIComponent(params.query)}&limit=${params.limit ?? 6}&offset=${params.offset ?? 0}`,
+			);
+		} catch {
+			result = { data: [], meta: { count: 0, limit: params.limit ?? 6, offset: params.offset ?? 0 } };
+		}
 		return {
 			items: result.data.map((p) => ({
 				type: "product",
@@ -587,11 +695,21 @@ export const ownCommerce: OwnCommerceClient = {
 		return null;
 	},
 	async legalPageBrowse() {
-		const { data } = await apiFetch<{ data: ApiLegalPage[] }>("/v1/legal-pages");
+		let data: ApiLegalPage[] = [];
+		try {
+			({ data } = await apiFetch<{ data: ApiLegalPage[] }>("/v1/legal-pages"));
+		} catch {
+			// Policies are optional UI content; keep the storefront renderable during outages.
+		}
 		return { data: data.map(mapLegalPage), meta: { count: data.length, offset: 0, limit: data.length } };
 	},
 	async legalPageGet(slug) {
-		const { data } = await apiFetch<{ data: ApiLegalPage[] }>("/v1/legal-pages");
+		let data: ApiLegalPage[] = [];
+		try {
+			({ data } = await apiFetch<{ data: ApiLegalPage[] }>("/v1/legal-pages"));
+		} catch {
+			return null;
+		}
 		const page = data.find((page) => page.slug === String(slug).replace(/^\//, ""));
 		if (!page) return null;
 		return mapLegalPage(page);

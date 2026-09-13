@@ -20,6 +20,7 @@ type ProductGridProps = {
 		| NonNullable<APIProductGetByIdResult>
 	)[];
 	limit?: number;
+	showCatalogMeta?: boolean;
 	showViewAll?: boolean;
 	viewAllHref?: string;
 };
@@ -29,6 +30,7 @@ export async function ProductGrid({
 	description,
 	products,
 	limit = 6,
+	showCatalogMeta = false,
 	showViewAll = false,
 	viewAllHref = "/products",
 }: ProductGridProps) {
@@ -60,7 +62,12 @@ export async function ProductGrid({
 			{displayProducts.length > 0 ? (
 				<div className="grid grid-cols-1 gap-x-4 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-6">
 					{displayProducts.map((product, index) => (
-						<ProductCard key={product.id} product={product} priority={index < 3} />
+						<ProductCard
+							key={product.id}
+							product={product}
+							priority={index < 3}
+							showCatalogMeta={showCatalogMeta}
+						/>
 					))}
 				</div>
 			) : (

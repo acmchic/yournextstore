@@ -19,6 +19,13 @@ def _int_env(name: str, default: int) -> int:
     return int(value)
 
 
+def _float_env(name: str, default: float) -> float:
+    value = os.getenv(name)
+    if not value:
+        return default
+    return float(value)
+
+
 def _bool_env(name: str, default: bool) -> bool:
     value = os.getenv(name)
     if value is None:
@@ -37,6 +44,12 @@ class Settings:
     mysql_user: str = _env("DB_USER", "MYSQL_USER", "root")
     mysql_password: str = _env("DB_PASSWORD", "MYSQL_PASSWORD", "")
     mysql_database: str = _env("DB_NAME", "MYSQL_DATABASE", "pod_store")
+    # Keep pooled connections younger than the usual MySQL idle timeout and
+    # retry only read queries after a transient connection drop.
+    mysql_connect_timeout: float = _float_env("DB_CONNECT_TIMEOUT", 5.0)
+    mysql_pool_recycle: int = _int_env("DB_POOL_RECYCLE", 1800)
+    mysql_read_retries: int = _int_env("DB_READ_RETRIES", 2)
+    mysql_retry_backoff_ms: int = _int_env("DB_RETRY_BACKOFF_MS", 100)
 
     asset_root: Path = field(
         default_factory=lambda: Path(os.getenv("MOCKUP_ASSET_ROOT", "./public")).resolve()

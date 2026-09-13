@@ -119,8 +119,7 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 
 	const selectedColor = searchParams.get("Color") ?? "Black";
 	const printParam = searchParams.get("Print");
-	const printArea: PrintArea =
-		printParam === "chest" || printParam === "back" || printParam === "front-back" ? printParam : "front";
+	const printArea: PrintArea = printParam === "back" || printParam === "front-back" ? printParam : "front";
 	const displayImages = useMemo(
 		() => selectGalleryImages(images, selectedColor, printArea),
 		[images, selectedColor, printArea],
@@ -245,6 +244,8 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 							key={`${image}-${index}`}
 							type="button"
 							onClick={() => setSelectedIndex(index)}
+							aria-label={`Show ${productName} image ${index + 1} of ${displayImages.length}`}
+							aria-current={selectedIndex === index ? "true" : undefined}
 							className={cn(
 								"relative aspect-square w-20 flex-shrink-0 overflow-hidden border transition-opacity duration-200",
 								selectedIndex === index
@@ -260,13 +261,7 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 									playsInline
 								/>
 							) : (
-								<StoreMedia
-									src={image}
-									alt={`${productName} thumbnail ${index + 1}`}
-									fill
-									sizes="80px"
-									className="object-contain"
-								/>
+								<StoreMedia src={image} alt="" fill sizes="80px" className="object-contain" />
 							)}
 						</button>
 					))}

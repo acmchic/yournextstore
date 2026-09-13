@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { cacheLife } from "next/cache";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { AddToCartButton } from "@/app/product/[slug]/add-to-cart-button";
 import { CatalogDetails } from "@/app/product/[slug]/catalog-details";
@@ -51,14 +52,9 @@ async function getProduct(slug: string, catalog?: string) {
 	return catalog ? productGetByCatalog(slug, catalog) : commerce.productGet({ idOrSlug: slug });
 }
 
-export async function generateMetadata({
-	params,
-}: {
-	params: Promise<ProductRouteParams>;
-}): Promise<Metadata> {
+async function getProductMetadata(slug: string, catalog?: string): Promise<Metadata> {
 	"use cache";
 	cacheLife("minutes");
-	const { slug, catalog } = await params;
 	const product = await getProduct(slug, catalog);
 
 	if (!product) {
@@ -96,6 +92,15 @@ export async function generateMetadata({
 			images: image ? [image] : undefined,
 		},
 	};
+}
+
+export async function generateMetadata({
+	params,
+}: {
+	params: Promise<ProductRouteParams>;
+}): Promise<Metadata> {
+	const { slug, catalog } = await params;
+	return getProductMetadata(slug, catalog);
 }
 
 function ProductDetailsSkeleton() {
@@ -176,26 +181,40 @@ function ProductDetailsSkeleton() {
 	);
 }
 
-export default async function ProductPage(props: { params: Promise<ProductRouteParams> }) {
+async function DynamicRouteMarker() {
+	await connection();
+	return null;
+}
+
+export default function ProductPage(props: { params: Promise<ProductRouteParams> }) {
 	return (
-		<Suspense fallback={<ProductDetailsSkeleton />}>
-			<ProductDetails params={props.params} />
-		</Suspense>
+		<>
+			<Suspense fallback={null}>
+				<DynamicRouteMarker />
+			</Suspense>
+			<Suspense fallback={<ProductDetailsSkeleton />}>
+				<ProductDetails params={props.params} />
+			</Suspense>
+		</>
 	);
 }
 
 const ProductDetails = async ({ params }: { params: Promise<ProductRouteParams> }) => {
+	const { slug, catalog } = await params;
+	return <CachedProductDetails slug={slug} catalog={catalog} />;
+};
+
+const CachedProductDetails = async ({ slug, catalog }: ProductRouteParams) => {
 	"use cache";
 	cacheLife({ stale: 0, revalidate: 30, expire: 60 });
-	const { slug, catalog } = await params;
 	const me = await meGetCached().catch(() => null);
 	const reviewsEnabled = me?.store.settings?.enabledTools?.reviews ?? false;
 	const [product, reviews, catalogs, legalPages, shipping] = await Promise.all([
-		getProduct(slug, catalog),
+		getProduct(slug, catalog).catch(() => null),
 		reviewsEnabled ? commerce.productReviewsBrowse({ idOrSlug: slug }, { limit: 20 }) : Promise.resolve(null),
-		catalogBrowse(),
-		commerce.legalPageBrowse(),
-		getShippingQuote(),
+		catalogBrowse().catch(() => ({ data: [] })),
+		commerce.legalPageBrowse().catch(() => ({ data: [], meta: { count: 0, offset: 0, limit: 0 } })),
+		getShippingQuote().catch(() => null),
 	]);
 
 	if (!product) {
@@ -254,10 +273,13 @@ const ProductDetails = async ({ params }: { params: Promise<ProductRouteParams> 
 				{/* Right: Product Details */}
 				<div className="mt-8 lg:sticky lg:top-24 lg:mt-0 lg:self-start lg:px-4 xl:px-8">
 					{/* Title & reviews summary */}
-					<div className="mb-4 space-y-2 border-b border-border/60 pb-4">
-						<h1 className="text-balance text-sm font-semibold uppercase leading-snug tracking-[0.025em] text-foreground">
+					<div className="mb-4 space-y-3 border-b border-border/60 pb-5">
+						<h1 className="text-balance text-2xl font-semibold uppercase leading-[1.08] tracking-[-0.025em] text-foreground sm:text-3xl">
 							{displayName}
 						</h1>
+						{product.summary && (
+							<p className="max-w-xl text-sm leading-relaxed text-muted-foreground">{product.summary}</p>
+						)}
 						{reviewSummary && reviewSummary.reviewCount > 0 && (
 							<a
 								href="#reviews"
@@ -283,8 +305,8 @@ const ProductDetails = async ({ params }: { params: Promise<ProductRouteParams> 
 						}}
 						volumePricingTiers={product.volumePricingTiers}
 					/>
-					<ProductDeliveryEstimate shipping={shipping} />
-					<TrustBadges rates={shipping.rates} policies={policies} />
+					{shipping && <ProductDeliveryEstimate shipping={shipping} />}
+					{shipping && <TrustBadges rates={shipping.rates} policies={policies} />}
 					<CatalogDetails
 						details={{
 							catalogName: catalogDetails?.name ?? product.category?.name ?? "TeeBravo",
@@ -317,12 +339,14 @@ const ProductDetails = async ({ params }: { params: Promise<ProductRouteParams> 
 
 			{/* Features Section (full width below) */}
 			<ProductFeatures />
-			<ProductAssurance
-				shipping={shipping}
-				policies={policies}
-				volumePricingTiers={product.volumePricingTiers}
-				inStock={inStock}
-			/>
+			{shipping && (
+				<ProductAssurance
+					shipping={shipping}
+					policies={policies}
+					volumePricingTiers={product.volumePricingTiers}
+					inStock={inStock}
+				/>
+			)}
 
 			{/* Related Products */}
 			<RelatedProducts productId={product.id} categorySlug={product.category?.slug} />

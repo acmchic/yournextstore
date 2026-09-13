@@ -4,7 +4,7 @@ export {};
 
 const routes = [
 	"/",
-	"/shop/men",
+	"/shop/unisex",
 	"/shop/women",
 	"/shop/kids",
 	"/shop/accessories",

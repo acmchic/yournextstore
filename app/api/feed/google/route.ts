@@ -8,9 +8,9 @@ export async function GET(request: Request) {
 	if (process.env.MERCHANT_FEED_ENABLED !== "true")
 		return Response.json({ error: "Merchant feed is not enabled for launch." }, { status: 503 });
 	const query = new URL(request.url).searchParams;
-	const department = query.get("department") ?? "men";
+	const department = query.get("department") ?? "unisex";
 	const page = Number(query.get("page") ?? 1);
-	if (!["men", "women", "kids"].includes(department) || !Number.isSafeInteger(page) || page < 1)
+	if (!["unisex", "women", "kids"].includes(department) || !Number.isSafeInteger(page) || page < 1)
 		return Response.json({ error: "Invalid feed page or department" }, { status: 400 });
 	const [products, catalogs] = await Promise.all([
 		shopBrowse({ department, limit: 12, offset: (page - 1) * 12 }),
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 	const items = variants
 		.map(
 			(item) =>
-				`<item>${tag("id", item.id)}${tag("item_group_id", item.groupId)}${tag("title", item.title)}${tag("description", item.description)}${tag("link", item.link)}${tag("image_link", item.image)}${tag("price", `${item.price} ${item.currency}`)}${tag("availability", item.availability)}${tag("condition", "new")}${tag("brand", storefront.brandName)}${tag("mpn", item.sku)}${tag("color", item.color)}${tag("size", item.size)}${tag("gender", (item.catalog?.taxonomy.some((t) => t.department === "men") && item.catalog?.taxonomy.some((t) => t.department === "women")) || department === "kids" ? "unisex" : department === "men" ? "male" : "female")}${tag("age_group", department === "kids" ? "kids" : "adult")}${tag("product_type", item.catalog?.name ?? "Clothing")}</item>`,
+				`<item>${tag("id", item.id)}${tag("item_group_id", item.groupId)}${tag("title", item.title)}${tag("description", item.description)}${tag("link", item.link)}${tag("image_link", item.image)}${tag("price", `${item.price} ${item.currency}`)}${tag("availability", item.availability)}${tag("condition", "new")}${tag("brand", storefront.brandName)}${tag("mpn", item.sku)}${tag("color", item.color)}${tag("size", item.size)}${tag("gender", department === "women" ? "female" : "unisex")}${tag("age_group", department === "kids" ? "kids" : "adult")}${tag("product_type", item.catalog?.name ?? "Clothing")}</item>`,
 		)
 		.join("");
 	return new Response(
