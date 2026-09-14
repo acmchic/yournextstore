@@ -1071,6 +1071,22 @@ class CatalogRepository:
             raise RuntimeError("Cart could not be loaded after update")
         return result
 
+    async def get_order_for_tracking(self, lookup: str) -> dict[str, Any] | None:
+        normalized = lookup.strip()
+        return await self._database.fetch_one(
+            """
+            select o.order_number, o.email, o.currency, o.subtotal_minor, o.shipping_minor,
+              o.tax_minor, o.discount_minor, o.total_minor, o.payment_status,
+              o.fulfillment_status, o.created_at,
+              coalesce((select sum(quantity) from order_items where order_id=o.id), 0) item_count
+            from orders o
+            where o.order_number=%s or lower(o.email)=lower(%s)
+            order by o.id desc
+            limit 1
+            """,
+            (normalized, normalized),
+        )
+
     async def create_order(
         self, *, cart_id: str, email: str, address: dict[str, Any], idempotency_key: str
     ) -> dict[str, Any]:

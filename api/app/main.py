@@ -275,6 +275,21 @@ async def create_order(
     raise HTTPException(410, "Use cart checkout. Orders are created after verified payment.")
 
 
+@app.get("/v1/orders/lookup")
+async def lookup_order(
+    lookup: Annotated[str, Query(min_length=3, max_length=320)],
+    repo: Annotated[CatalogRepository, Depends(get_repository)],
+):
+    try:
+        order = await repo.get_order_for_tracking(lookup)
+    except Exception as error:
+        logger.exception("Order tracking lookup failed")
+        raise HTTPException(status_code=503, detail="Order tracking is temporarily unavailable") from error
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return order
+
+
 @app.get("/img/blank/{filename}")
 async def render_blank_image(
     filename: str,

@@ -130,8 +130,7 @@ async function getInitialCart() {
 async function getNavLinks(): Promise<{ links: NavLink[]; groups: NavGroup[] }> {
 	"use cache";
 	cacheLife("minutes");
-	const [collections, me, catalogs] = await Promise.all([
-		commerce.collectionBrowse({ limit: 5 }).catch(() => ({ data: [] })),
+	const [me, catalogs] = await Promise.all([
 		meGetCached().catch(() => null),
 		catalogBrowse().catch(() => ({ data: [] })),
 	]);
@@ -139,12 +138,8 @@ async function getNavLinks(): Promise<{ links: NavLink[]; groups: NavGroup[] }> 
 	const groups = catalogNavigation(catalogs.data).filter((group) => group.slug !== "home-living");
 	return {
 		links: [
-			{ href: "/products", label: "View all" },
-			...collections.data.map((collection) => ({
-				href: `/collection/${collection.slug}`,
-				label: collection.name,
-			})),
 			...(blogEnabled ? [{ href: "/blog", label: "Blog" }] : []),
+			{ href: "/track-order", label: "Track order" },
 		],
 		groups,
 	};
