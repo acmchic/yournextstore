@@ -104,7 +104,7 @@ export function ProductCard({
 							fill
 							quality={primaryImage.includes("/api/catalog-mockup/") ? 90 : undefined}
 							sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-							className="bg-cream object-contain transition-transform duration-500 ease-out group-hover:scale-[1.01] motion-reduce:transition-none"
+							className="bg-cream object-cover transition-transform duration-500 ease-out group-hover:scale-[1.01] motion-reduce:transition-none"
 							priority={priority}
 						/>
 					))}

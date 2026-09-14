@@ -20,7 +20,7 @@ export type NavGroup = {
 export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavGroup[] }) {
 	const [open, setOpen] = useState(false);
 	const [active, setActive] = useState<string | null>(null);
-	const triggers = useRef<Record<string, HTMLButtonElement | null>>({});
+	const triggers = useRef<Record<string, HTMLAnchorElement | null>>({});
 
 	return (
 		<>
@@ -29,7 +29,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 					<button
 						type="button"
 						aria-label="Open menu"
-						className="-order-1 rounded-full p-2 transition-colors hover:bg-secondary lg:hidden"
+						className="-order-1 cursor-pointer rounded-full p-2 transition-colors hover:bg-secondary lg:hidden"
 					>
 						<Menu className="h-6 w-6" />
 					</button>
@@ -45,7 +45,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 								<StoreLink
 									href={group.href}
 									onClick={() => setOpen(false)}
-									className="text-[11px] font-medium uppercase tracking-[0.2em]"
+									className="cursor-pointer text-[11px] font-medium uppercase tracking-[0.2em]"
 								>
 									{group.label}
 								</StoreLink>
@@ -55,7 +55,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 											key={child.href}
 											href={child.href}
 											onClick={() => setOpen(false)}
-											className="py-1 text-[13px] leading-5 text-muted-foreground transition-colors hover:text-foreground"
+											className="cursor-pointer py-1 text-[13px] leading-5 text-muted-foreground transition-colors hover:text-foreground"
 										>
 											{child.label}
 										</StoreLink>
@@ -69,7 +69,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 								prefetch="eager"
 								href={link.href}
 								onClick={() => setOpen(false)}
-								className="border-b border-transparent px-0 py-3 text-[13px] font-medium uppercase leading-5 tracking-[0.14em] text-foreground transition-colors hover:border-foreground"
+								className="cursor-pointer border-b border-transparent px-0 py-3 text-[13px] font-medium uppercase leading-5 tracking-[0.14em] text-foreground transition-colors hover:border-foreground"
 							>
 								{link.label}
 							</StoreLink>
@@ -93,18 +93,18 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 						}
 					}}
 				>
-					<button
-						type="button"
+					<StoreLink
+						href={group.href}
 						ref={(node) => {
 							triggers.current[group.href] = node;
 						}}
 						aria-expanded={active === group.href}
 						aria-controls={`shop-menu-${group.label}`}
-						onClick={() => setActive(group.href)}
-						className="h-full min-h-11 whitespace-nowrap border-b-2 border-transparent text-[11px] font-medium uppercase tracking-[0.12em] aria-expanded:border-[#171717] focus-visible:outline-2 focus-visible:outline-offset-4"
+						onClick={() => setActive(null)}
+						className="flex h-full min-h-11 cursor-pointer items-center whitespace-nowrap border-b-2 border-transparent text-[11px] font-medium uppercase tracking-[0.12em] aria-expanded:border-[#171717] focus-visible:outline-2 focus-visible:outline-offset-4"
 					>
 						{group.label}
-					</button>
+					</StoreLink>
 					<div
 						id={`shop-menu-${group.label}`}
 						hidden={active !== group.href}
@@ -118,7 +118,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 								<StoreLink
 									href={group.href}
 									onClick={() => setActive(null)}
-									className="inline-block py-3 text-xs uppercase tracking-[0.08em] underline underline-offset-4"
+									className="inline-block cursor-pointer py-3 text-xs uppercase tracking-[0.08em] underline underline-offset-4"
 								>
 									View all {group.label}
 								</StoreLink>
@@ -129,7 +129,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 										key={child.href}
 										href={child.href}
 										onClick={() => setActive(null)}
-										className="block min-h-11 py-3 text-[11px] uppercase tracking-[0.08em] transition-colors hover:underline hover:underline-offset-4"
+										className="block min-h-11 cursor-pointer py-3 text-[11px] uppercase tracking-[0.08em] transition-colors hover:underline hover:underline-offset-4"
 									>
 										{child.label}
 									</StoreLink>
@@ -143,7 +143,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 										setActive(null);
 										triggers.current[group.href]?.focus();
 									}}
-									className="flex min-h-11 items-center gap-3 px-3 text-[10px] uppercase tracking-widest"
+									className="flex min-h-11 cursor-pointer items-center gap-3 px-3 text-[10px] uppercase tracking-widest"
 								>
 									Close
 									<X size={16} />
@@ -158,7 +158,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 					key={link.href}
 					prefetch="eager"
 					href={link.href}
-					className="hidden whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.12em] transition-colors hover:text-primary lg:block"
+					className="hidden cursor-pointer whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.12em] transition-colors hover:text-primary lg:block"
 				>
 					{link.label}
 				</StoreLink>

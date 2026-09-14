@@ -284,11 +284,11 @@ const CachedProductDetails = async ({ slug, catalog }: ProductRouteParams) => {
 				<div className="mt-8 lg:sticky lg:top-24 lg:mt-0 lg:self-start lg:px-4 xl:px-8">
 					{/* Title & reviews summary */}
 					<div className="mb-4 space-y-3 border-b border-border/60 pb-5">
-						<div className="grid grid-cols-[minmax(0,4fr)_minmax(5rem,1fr)] items-start gap-3">
-							<h1 className="text-left text-lg font-semibold uppercase leading-[1.08] tracking-[-0.025em] text-foreground sm:text-2xl">
+						<div className="flex items-start gap-3">
+							<h1 className="min-w-0 flex-1 text-left text-base font-semibold uppercase leading-[1.12] tracking-[-0.02em] text-foreground sm:text-xl">
 								{displayName}
 							</h1>
-							<span className="pt-0.5 text-right text-lg font-medium tracking-tight sm:hidden">
+							<span className="shrink-0 pt-0.5 text-right text-base font-medium tracking-tight sm:hidden">
 								${(Number(product.variants[0]?.price ?? 0) / 100).toFixed(2)}
 							</span>
 						</div>
