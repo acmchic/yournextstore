@@ -40,89 +40,80 @@
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
-	/* Font families */
-	--font-display: "Inter", sans-serif;
-	--font-body: "Space Grotesk", sans-serif;
+	--color-bone: var(--bone);
+	--color-cream: var(--cream);
+	--color-champagne: var(--champagne);
+	--color-sale: var(--sale);
+	--font-display: var(--font-display);
+	--font-sans: var(--font-sans);
 }
 
-/* Brutalist Light Theme - Default */
 :root {
-	--radius: 0;
-	/* Paper texture background */
-	--background: #F2F2F2;
-	--foreground: #000000;
-	/* Cards with transparency for backdrop blur */
-	--card: rgba(255, 255, 255, 0.5);
-	--card-foreground: #000000;
-	/* Popovers */
-	--popover: rgba(255, 255, 255, 0.9);
-	--popover-foreground: #000000;
-	/* Primary - Orange accent */
-	--primary: #F97316;
-	--primary-foreground: #ffffff;
-	/* Secondary */
-	--secondary: #E5E5E5;
-	--secondary-foreground: #000000;
-	/* Muted */
-	--muted: #D4D4D4;
-	--muted-foreground: #525252;
-	/* Accent - Same as primary */
-	--accent: #F97316;
-	--accent-foreground: #ffffff;
-	/* Destructive */
-	--destructive: #ef4444;
-	/* Borders - Solid black for brutalist grid */
-	--border: #000000;
-	--input: #000000;
-	--ring: #F97316;
-	/* Charts */
-	--chart-1: #F97316;
-	--chart-2: #000000;
-	--chart-3: #525252;
-	--chart-4: #737373;
-	--chart-5: #a3a3a3;
-	/* Sidebar */
-	--sidebar: #F2F2F2;
-	--sidebar-foreground: #000000;
-	--sidebar-primary: #F97316;
-	--sidebar-primary-foreground: #ffffff;
-	--sidebar-accent: #E5E5E5;
-	--sidebar-accent-foreground: #000000;
-	--sidebar-border: #000000;
-	--sidebar-ring: #F97316;
+	--radius: 0.125rem;
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.14 0 0);
+	--bone: oklch(0.965 0.005 80);
+	--cream: oklch(0.945 0.012 75);
+	--champagne: oklch(0.74 0.06 75);
+	--sale: oklch(0.58 0.21 27);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.14 0 0);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.14 0 0);
+	--primary: oklch(0.14 0 0);
+	--primary-foreground: oklch(0.99 0 0);
+	--secondary: oklch(0.945 0.012 75);
+	--secondary-foreground: oklch(0.14 0 0);
+	--muted: oklch(0.965 0.005 80);
+	--muted-foreground: oklch(0.45 0.005 80);
+	--accent: oklch(0.945 0.012 75);
+	--accent-foreground: oklch(0.14 0 0);
+	--destructive: oklch(0.58 0.21 27);
+	--border: oklch(0.9 0.005 80);
+	--input: oklch(0.9 0.005 80);
+	--ring: oklch(0.55 0.005 80);
+	--chart-1: oklch(0.646 0.222 41.116);
+	--chart-2: oklch(0.6 0.118 184.704);
+	--chart-3: oklch(0.398 0.07 227.392);
+	--chart-4: oklch(0.828 0.189 84.429);
+	--chart-5: oklch(0.769 0.188 70.08);
+	--sidebar: oklch(0.985 0 0);
+	--sidebar-foreground: oklch(0.14 0 0);
+	--sidebar-primary: oklch(0.14 0 0);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.945 0.012 75);
+	--sidebar-accent-foreground: oklch(0.14 0 0);
+	--sidebar-border: oklch(0.9 0.005 80);
+	--sidebar-ring: oklch(0.55 0.005 80);
 }
 
-/* Brutalist Dark Theme */
 .dark {
-	--background: #1A1A1A;
-	--foreground: #E5E5E5;
-	/* Cards with transparency */
-	--card: rgba(0, 0, 0, 0.2);
-	--card-foreground: #E5E5E5;
-	/* Popovers */
-	--popover: rgba(26, 26, 26, 0.95);
-	--popover-foreground: #E5E5E5;
-	/* Primary - Orange accent stays the same */
-	--primary: #F97316;
-	--primary-foreground: #ffffff;
-	/* Secondary */
-	--secondary: #2A2A2A;
-	--secondary-foreground: #E5E5E5;
-	/* Muted */
-	--muted: #3A3A3A;
-	--muted-foreground: #a3a3a3;
-	/* Accent */
-	--accent: #F97316;
-	--accent-foreground: #ffffff;
-	/* Borders - Gray for dark mode */
-	--border: #555555;
-	--input: #555555;
-	/* Sidebar */
-	--sidebar: #1A1A1A;
-	--sidebar-foreground: #E5E5E5;
-	--sidebar-accent: #2A2A2A;
-	--sidebar-accent-foreground: #E5E5E5;
-	--sidebar-border: #555555;
+	--background: oklch(0.14 0 0);
+	--foreground: oklch(0.985 0 0);
+	--card: oklch(0.2 0 0);
+	--card-foreground: oklch(0.985 0 0);
+	--popover: oklch(0.2 0 0);
+	--popover-foreground: oklch(0.985 0 0);
+	--primary: oklch(0.922 0 0);
+	--primary-foreground: oklch(0.2 0 0);
+	--secondary: oklch(0.26 0 0);
+	--secondary-foreground: oklch(0.985 0 0);
+	--muted: oklch(0.26 0 0);
+	--muted-foreground: oklch(0.7 0 0);
+	--accent: oklch(0.26 0 0);
+	--accent-foreground: oklch(0.985 0 0);
+	--destructive: oklch(0.7 0.19 22);
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.55 0 0);
+	--sidebar: oklch(0.14 0 0);
+	--sidebar-foreground: oklch(0.985 0 0);
+	--sidebar-primary: oklch(0.922 0 0);
+	--sidebar-primary-foreground: oklch(0.2 0 0);
+	--sidebar-accent: oklch(0.26 0 0);
+	--sidebar-accent-foreground: oklch(0.985 0 0);
+	--sidebar-border: oklch(1 0 0 / 10%);
+	--sidebar-ring: oklch(0.55 0 0);
 }
 
 @layer base {
@@ -131,6 +122,16 @@
 	}
 	body {
 		@apply bg-background text-foreground;
+		font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+		font-feature-settings: "ss01";
+	}
+	.font-display {
+		font-family: var(--font-display, "Tenor Sans", "Cormorant Garamond", Georgia, serif);
+		font-feature-settings: "ss01", "ss02", "liga", "dlig";
+		letter-spacing: -0.005em;
+	}
+	.font-sans {
+		font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
 	}
 }
 
@@ -143,7 +144,8 @@
 	--tw-prose-counters: var(--muted-foreground);
 }
 
-.store-image-shimmer {
+.store-image-shimmer,
+.yns-image-shimmer {
 	background: linear-gradient(
 		90deg,
 		oklch(0.9 0 0) 0%,
@@ -165,7 +167,7 @@
 	}
 }
 
-/* Brutalist Grid Utilities */
+/* Theme-neutral compatibility utilities used by existing storefront modules. */
 .grid-border-r {
 	border-right: 1px solid var(--border);
 }
@@ -174,14 +176,26 @@
 	border-bottom: 1px solid var(--border);
 }
 
-/* Paper texture backgrounds */
 .paper-bg {
 	background-color: var(--background);
-	background-image: url('https://www.transparenttextures.com/patterns/white-paper.png');
+	background-image: radial-gradient(circle at 1px 1px, oklch(0 0 0 / 0.03) 1px, transparent 0);
+	background-size: 12px 12px;
 }
 
-.dark .paper-bg {
-	background-image: url('https://www.transparenttextures.com/patterns/black-paper.png');
+.bg-editorial-warm {
+	background:
+		radial-gradient(ellipse at top right, oklch(0.965 0.025 75) 0%, transparent 55%),
+		radial-gradient(ellipse at bottom left, oklch(0.94 0.02 80) 0%, transparent 60%),
+		linear-gradient(180deg, oklch(0.985 0.005 80) 0%, oklch(0.95 0.012 75) 100%);
+}
+
+.bg-editorial-bone {
+	background: linear-gradient(180deg, oklch(0.97 0.008 80) 0%, oklch(0.92 0.015 75) 100%);
+}
+
+.editorial-rule {
+	background: linear-gradient(90deg, transparent, oklch(0.6 0.005 80 / 0.4), transparent);
+	height: 1px;
 }
 
 /* Justified text with left-aligned last line */

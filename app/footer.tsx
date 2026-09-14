@@ -47,62 +47,129 @@ async function FooterContactLink() {
 	);
 }
 
-async function PolicyLinks() {
-	const { data } = await commerce.legalPageBrowse().catch(() => ({ data: [] }));
-	return data.map((page) => (
-		<li key={page.href}>
+async function FooterCollections() {
+	"use cache";
+	cacheLife("hours");
+
+	const collections = await commerce.collectionBrowse({ limit: 5 }).catch(() => ({ data: [] }));
+	return (
+		<FooterColumn title="Collections">
+			{collections.data.length > 0 ? (
+				collections.data.map((collection) => (
+					<FooterLink key={collection.id} href={`/collection/${collection.slug}`}>
+						{collection.name}
+					</FooterLink>
+				))
+			) : (
+				<FooterLink href="/products">All Products</FooterLink>
+			)}
+		</FooterColumn>
+	);
+}
+
+async function FooterLegalPages() {
+	"use cache";
+	cacheLife("hours");
+
+	const pages = await commerce.legalPageBrowse().catch(() => ({ data: [] }));
+	return (
+		<FooterColumn title="Legal">
+			{pages.data.length > 0 ? (
+				pages.data.map((page) => (
+					<FooterLink key={page.href} href={`/legal${page.href}`}>
+						{page.label}
+					</FooterLink>
+				))
+			) : (
+				<>
+					<FooterLink href="/legal/terms">Terms of Service</FooterLink>
+					<FooterLink href="/legal/privacy">Privacy Policy</FooterLink>
+				</>
+			)}
+		</FooterColumn>
+	);
+}
+
+function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
+	return (
+		<div>
+			<h3 className="text-[10px] font-medium uppercase tracking-[0.3em] text-foreground">{title}</h3>
+			<ul className="mt-6 space-y-3.5">{children}</ul>
+		</div>
+	);
+}
+
+function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
+	return (
+		<li>
 			<StoreLink
-				href={page.href === "/about" ? "/about" : `/legal${page.href}`}
-				className="text-xs text-muted-foreground hover:text-foreground"
+				prefetch={"eager"}
+				href={href}
+				className="text-sm text-muted-foreground transition-colors hover:text-foreground"
 			>
-				{page.label}
+				{children}
 			</StoreLink>
 		</li>
-	));
+	);
 }
 
 export function Footer() {
 	return (
-		<section className="grid grid-cols-12 grid-border-b md:border-b-0">
-			{/* Left column with description text */}
-			<div className="col-span-12 md:col-span-4 grid-border-r p-8 md:p-12 min-h-[200px] flex items-center">
-				<p className="text-xs leading-relaxed opacity-70">{storefront.footerStatement}</p>
-			</div>
+		<footer className="border-t border-border bg-background">
+			<div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-10">
+				<div className="border-b border-border py-16 sm:py-20">
+					<p className="text-center text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+						Graphic clothing with a point of view
+					</p>
+					<div className="mt-6 select-none text-center font-display text-[14vw] leading-[0.9] tracking-[0.05em] text-foreground sm:text-[10vw] lg:text-[8vw]">
+						{storefront.brandName.toUpperCase()}
+					</div>
+				</div>
 
-			{/* Middle column with support links */}
-			<div className="col-span-12 md:col-span-4 grid-border-r p-8 md:p-12 flex items-center">
-				<ul className="space-y-2">
-					<li>
+				<div className="grid grid-cols-2 gap-10 py-14 sm:grid-cols-4 lg:grid-cols-5">
+					<div className="col-span-2 max-w-xs lg:col-span-2">
 						<StoreLink
 							prefetch={"eager"}
-							href="/about"
-							className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+							href="/"
+							className="font-display text-base tracking-[0.3em] text-foreground"
 						>
-							About Us
+							{storefront.brandName.toUpperCase()}
 						</StoreLink>
-					</li>
-					<FooterContactLink />
-					<li>
-						<StoreLink
-							prefetch={"eager"}
-							href="/faq"
-							className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-						>
-							FAQ
-						</StoreLink>
-					</li>
-					<FooterBlogLink />
-				</ul>
-			</div>
+						<p className="mt-4 text-sm leading-relaxed text-muted-foreground">{storefront.footerStatement}</p>
+						<div className="mt-6 flex items-center gap-4 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+							<span>EN / USD</span>
+							<span aria-hidden>·</span>
+							<span>United States</span>
+						</div>
+					</div>
 
-			{/* Right empty column */}
-			<div className="col-span-12 md:col-span-4 p-8 md:p-12">
-				<h2 className="mb-5 text-xs font-semibold uppercase tracking-wide">Store information</h2>
-				<ul className="space-y-3">
-					<PolicyLinks />
-				</ul>
-				<p className="mt-6 text-xs text-muted-foreground">United States · USD</p>
+					<FooterCollections />
+
+					<FooterColumn title="Support">
+						<FooterLink href="/about">About Us</FooterLink>
+						<FooterLink href="/faq">FAQ</FooterLink>
+						<FooterLink href="/faq#shipping">Shipping</FooterLink>
+						<FooterLink href="/faq#returns">Returns</FooterLink>
+						<FooterLink href="/faq#care">Garment Care</FooterLink>
+						<FooterContactLink />
+						<FooterBlogLink />
+					</FooterColumn>
+
+					<FooterLegalPages />
+				</div>
+
+				<div className="flex flex-col items-center justify-between gap-4 border-t border-border py-8 sm:flex-row">
+					<p className="text-center text-[11px] uppercase tracking-[0.2em] text-muted-foreground sm:text-left">
+						© {new Date().getFullYear()} {storefront.brandName} — All rights reserved
+					</p>
+					<div className="flex items-center gap-5 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+						<span>Visa</span>
+						<span>Mastercard</span>
+						<span>Amex</span>
+						<span>Apple Pay</span>
+					</div>
+				</div>
 			</div>
-		</section>
+		</footer>
 	);
 }

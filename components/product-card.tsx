@@ -73,7 +73,7 @@ export function ProductCard({
 
 	return (
 		<StoreLink prefetch={"eager"} href={productHref} className="group">
-			<div className="relative mb-4 aspect-square overflow-hidden border border-border bg-secondary">
+			<div className="relative mb-4 aspect-[3/4] overflow-hidden bg-cream">
 				{singleVariant && (
 					<QuickAddButton
 						variantId={singleVariant.id}
@@ -104,14 +104,14 @@ export function ProductCard({
 							fill
 							quality={primaryImage.includes("/api/catalog-mockup/") ? 90 : undefined}
 							sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-							className="bg-white object-contain transition-transform duration-500 ease-out group-hover:scale-[1.01] motion-reduce:transition-none"
+							className="bg-cream object-contain transition-transform duration-500 ease-out group-hover:scale-[1.01] motion-reduce:transition-none"
 							priority={priority}
 						/>
 					))}
 			</div>
 			<div className="flex items-start justify-between gap-4 border-t border-border pt-3">
 				<h3 className="text-base font-medium text-foreground">{product.name}</h3>
-				<p className="whitespace-nowrap font-mono text-sm font-semibold text-foreground">{priceDisplay}</p>
+				<p className="whitespace-nowrap font-display text-sm text-foreground">{priceDisplay}</p>
 			</div>
 			{showCatalogMeta && (catalogName || availableColors.length > 0) && (
 				<div className="mt-3 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">

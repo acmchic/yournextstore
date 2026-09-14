@@ -3,7 +3,7 @@ import "@/app/globals.css";
 import { ShoppingBag } from "lucide-react";
 import type { Metadata } from "next";
 import { cacheLife } from "next/cache";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter, Tenor_Sans } from "next/font/google";
 import Link from "next/link";
 import { ThemeProvider } from "next-themes";
 import { Suspense } from "react";
@@ -28,16 +28,16 @@ import { StoreJsonLd } from "@/lib/json-ld";
 import { catalogBrowse } from "@/lib/own-commerce";
 import { storefront } from "@/lib/storefront-config";
 
-const inter = Inter({
-	variable: "--font-display",
+const sans = Inter({
+	variable: "--font-sans",
 	subsets: ["latin"],
-	weight: ["300", "400", "500", "600", "700", "900"],
+	weight: ["400", "500", "600", "700"],
 });
 
-const spaceGrotesk = Space_Grotesk({
-	variable: "--font-body",
+const display = Tenor_Sans({
+	variable: "--font-display",
 	subsets: ["latin"],
-	weight: ["300", "400", "500", "600", "700"],
+	weight: ["400"],
 });
 
 async function getStoreMetadata(): Promise<Metadata> {
@@ -155,46 +155,40 @@ async function CartProviderWrapper({ children }: { children: React.ReactNode }) 
 
 	return (
 		<CartProvider initialCart={cart} initialCartId={cartId}>
-			<div className="min-h-screen flex flex-col bg-card">
-				<div className="w-full relative bg-card">
-					{/* Brutalist Grid Header */}
-					<header className="relative z-30 grid grid-cols-12 grid-border-b h-16 md:h-20 items-center bg-background text-foreground">
-						{/* Logo */}
-						<div className="order-2 md:order-1 col-span-4 md:col-span-3 h-full flex items-center justify-center md:justify-start px-3 md:px-6 md:border-r md:border-border">
-							<Link href="/">
-								<span className="font-display font-bold text-sm sm:text-lg tracking-tighter uppercase">
-									{storefront.brandName}
-								</span>
-							</Link>
-						</div>
-
-						{/* Mobile menu and desktop navigation */}
-						<nav
-							aria-label="Main navigation"
-							className="order-1 md:order-2 col-span-4 md:col-span-6 flex h-full items-center justify-start md:justify-center pl-3 md:pl-0 gap-4 xl:gap-6 md:border-r md:border-border font-medium text-xs tracking-wide"
-						>
-							<Navbar links={navigation.links} groups={navigation.groups} />
-						</nav>
-
-						{/* Icons */}
-						<div className="order-3 col-span-4 md:col-span-3 h-full flex items-center justify-end px-3 md:px-6 space-x-1 sm:space-x-3 md:space-x-5">
-							<Suspense>
-								<SearchInput />
-							</Suspense>
-							{AUTH_ENABLED && <AuthButton />}
-							<ThemeToggle />
-							<Suspense fallback={<CartButtonFallback />}>
-								<CartButton />
-							</Suspense>
-						</div>
-					</header>
-
-					{/* Page Content */}
-					<main className="flex-1">{children}</main>
-
-					{/* Footer */}
-					<Footer />
+			<div className="flex min-h-screen flex-col bg-background">
+				<div className="border-b border-border bg-foreground text-background">
+					<div className="mx-auto flex h-8 max-w-[1400px] items-center justify-center px-4 sm:px-6 lg:px-10">
+						<p className="font-sans text-[10px] font-medium uppercase tracking-[0.25em]">
+							Complimentary shipping on orders over $300 — United States
+						</p>
+					</div>
 				</div>
+				<header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
+					<div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-10">
+						<div className="grid h-16 grid-cols-3 items-center sm:h-20">
+							<nav aria-label="Main navigation" className="flex items-center justify-start gap-6">
+								<Navbar links={navigation.links} groups={navigation.groups} />
+							</nav>
+							<div className="flex items-center justify-center">
+								<Link href="/" className="font-display text-xl tracking-[0.28em] text-foreground sm:text-2xl">
+									{storefront.brandName.toUpperCase()}
+								</Link>
+							</div>
+							<div className="flex items-center justify-end gap-1 sm:gap-2">
+								<Suspense>
+									<SearchInput />
+								</Suspense>
+								{AUTH_ENABLED && <AuthButton />}
+								<ThemeToggle />
+								<Suspense fallback={<CartButtonFallback />}>
+									<CartButton />
+								</Suspense>
+							</div>
+						</div>
+					</div>
+				</header>
+				<main className="flex-1">{children}</main>
+				<Footer />
 			</div>
 			<CartSidebar />
 		</CartProvider>
@@ -228,7 +222,7 @@ export default async function RootLayout({
 
 	return (
 		<html lang={lang} className="scroll-smooth" data-scroll-behavior="smooth" suppressHydrationWarning>
-			<body className={`${inter.variable} ${spaceGrotesk.variable} font-body antialiased`}>
+			<body className={`${sans.variable} ${display.variable} font-sans antialiased`}>
 				{/* DO NOT REMOVE / REORDER: required for GDPR + GTM Consent Mode v2. Must stay at top of <body>. */}
 				<Suspense>
 					<CookieConsent />

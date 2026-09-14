@@ -34,18 +34,18 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 						<Menu className="h-6 w-6" />
 					</button>
 				</SheetTrigger>
-				<SheetContent side="left" className="gap-0 overflow-y-auto bg-[#fafafa] text-[#171717] p-6">
+				<SheetContent side="left" className="gap-0 overflow-y-auto bg-background p-6 text-foreground">
 					<SheetTitle className="sr-only">Menu</SheetTitle>
 					<div className="mt-6">
 						<MobileSearchInput onNavigate={() => setOpen(false)} />
 					</div>
-					<nav className="mt-4 flex flex-col gap-5">
+					<nav className="mt-4 flex flex-col gap-4">
 						{groups.map((group) => (
 							<section key={group.href}>
 								<StoreLink
 									href={group.href}
 									onClick={() => setOpen(false)}
-									className="text-[11px] font-bold uppercase tracking-[0.18em]"
+									className="text-[11px] font-medium uppercase tracking-[0.2em]"
 								>
 									{group.label}
 								</StoreLink>
@@ -55,7 +55,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 											key={child.href}
 											href={child.href}
 											onClick={() => setOpen(false)}
-											className="py-1 text-sm text-muted-foreground hover:text-foreground"
+											className="py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
 										>
 											{child.label}
 										</StoreLink>
@@ -69,7 +69,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 								prefetch="eager"
 								href={link.href}
 								onClick={() => setOpen(false)}
-								className="rounded-lg px-3 py-3 text-base font-medium text-foreground transition-colors hover:bg-secondary"
+								className="border-b border-transparent px-0 py-3 text-sm font-medium uppercase tracking-[0.14em] text-foreground transition-colors hover:border-foreground"
 							>
 								{link.label}
 							</StoreLink>
@@ -108,26 +108,28 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 					<div
 						id={`shop-menu-${group.label}`}
 						hidden={active !== group.href}
-						className="absolute inset-x-0 top-full border-y border-[#171717] bg-[#fafafa] text-[#171717] shadow-[0_16px_24px_-20px_rgba(0,0,0,0.35)]"
+						className="absolute inset-x-0 top-full border-y border-border bg-background text-foreground shadow-[0_16px_24px_-20px_rgba(0,0,0,0.35)]"
 					>
 						<div className="mx-auto grid max-w-[1600px] grid-cols-[1fr_2fr_1fr] gap-12 px-10 py-12">
 							<div>
-								<p className="mb-6 text-[10px] uppercase tracking-[0.16em] text-[#666]">Shop {group.label}</p>
+								<p className="mb-6 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+									Shop {group.label}
+								</p>
 								<StoreLink
 									href={group.href}
 									onClick={() => setActive(null)}
-									className="inline-block py-3 text-sm uppercase underline underline-offset-4"
+									className="inline-block py-3 text-sm uppercase tracking-[0.08em] underline underline-offset-4"
 								>
 									View all {group.label}
 								</StoreLink>
 							</div>
-							<div className="grid grid-cols-2 content-start gap-x-12 gap-y-1 border-l border-[#d4d4d4] pl-12">
+							<div className="grid grid-cols-2 content-start gap-x-12 gap-y-1 border-l border-border pl-12">
 								{group.children.map((child) => (
 									<StoreLink
 										key={child.href}
 										href={child.href}
 										onClick={() => setActive(null)}
-										className="block min-h-11 py-3 text-xs uppercase tracking-wide hover:underline underline-offset-4"
+										className="block min-h-11 py-3 text-xs uppercase tracking-wide transition-colors hover:underline hover:underline-offset-4"
 									>
 										{child.label}
 									</StoreLink>
