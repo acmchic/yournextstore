@@ -12,7 +12,7 @@ export function TrustBadges({
 	const returns = policies.find((page) => /return|refund/i.test(page.href));
 	const money = (amount: number) => formatMoney({ amount: String(amount), currency: "USD", locale: "en-US" });
 	return (
-		<div className="divide-y border-y text-sm">
+		<div className="divide-y text-sm">
 			<section className="space-y-2 py-5">
 				<h2 className="text-xs font-semibold uppercase tracking-widest">US shipping</h2>
 				<p>

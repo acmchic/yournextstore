@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { addToCart } from "@/app/cart/actions";
 import { useCart } from "@/app/cart/cart-context";
@@ -50,6 +50,8 @@ const LOW_STOCK_THRESHOLD = 5;
 export function AddToCartButton({ variants, product, volumePricingTiers = [] }: AddToCartButtonProps) {
 	const searchParams = useSearchParams();
 	const [quantity, setQuantity] = useState(1);
+	const [showStickyAdd, setShowStickyAdd] = useState(false);
+	const addButtonRef = useRef<HTMLButtonElement>(null);
 	const { items, openCart, dispatch, startMutation } = useCart();
 	const optionValuesByLabel = useMemo(() => {
 		return variants
@@ -219,10 +221,20 @@ export function AddToCartButton({ variants, product, volumePricingTiers = [] }: 
 		});
 	};
 
+	useEffect(() => {
+		const button = addButtonRef.current;
+		if (!button) return;
+		const observer = new IntersectionObserver(([entry]) => setShowStickyAdd(!entry.isIntersecting), {
+			threshold: 0.1,
+		});
+		observer.observe(button);
+		return () => observer.disconnect();
+	}, []);
+
 	return (
-		<div className="space-y-8 sm:space-y-7">
+		<div className="space-y-6 sm:space-y-7">
 			{/* Price & sale */}
-			<div className="space-y-2 border-b border-border/60 pb-6">
+			<div className="space-y-2 border-b border-border/60 pb-6 max-md:hidden">
 				<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
 					<span className="text-lg font-medium tracking-tight">{priceInfo.display}</span>
 					{priceInfo.compareAt && (
@@ -246,8 +258,9 @@ export function AddToCartButton({ variants, product, volumePricingTiers = [] }: 
 
 			<VolumePricingDisplay tiers={resolvedTiers} quantity={effectiveQuantity} volumePrice={volumePrice} />
 
-			<form className="mt-6 block sm:mt-4" onSubmit={handleSubmit}>
+			<form id="add-to-cart-form" className="mt-5 block sm:mt-4" onSubmit={handleSubmit}>
 				<button
+					ref={addButtonRef}
 					type="submit"
 					disabled={isOutOfStock}
 					className="h-12 w-full cursor-pointer rounded bg-foreground px-8 py-3 text-sm font-medium uppercase tracking-[0.06em] text-background transition-[box-shadow,opacity,transform] duration-150 ease-out hover:shadow-[0_0_0_2px_#aaaaac] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
@@ -255,6 +268,18 @@ export function AddToCartButton({ variants, product, volumePricingTiers = [] }: 
 					{buttonText}
 				</button>
 			</form>
+			{showStickyAdd && (
+				<div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur md:hidden">
+					<button
+						type="submit"
+						form="add-to-cart-form"
+						disabled={isOutOfStock}
+						className="h-12 w-full rounded bg-foreground px-8 py-3 text-sm font-medium uppercase tracking-[0.06em] text-background disabled:opacity-50"
+					>
+						{buttonText}
+					</button>
+				</div>
+			)}
 		</div>
 	);
 }

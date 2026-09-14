@@ -25,10 +25,15 @@ def render_mockup(
     source_width = base.shape[1]
     base = _resize_to_width(base, width)
     scale = base.shape[1] / source_width
-    dst_quad = [(x * scale, y * scale) for x, y in job.print_area.dst_quad]
+    source_quads = job.print_area.dst_quads or [job.print_area.dst_quad]
+    dst_quads = [[(x * scale, y * scale) for x, y in quad] for quad in source_quads]
     base_height, base_width = base.shape[:2]
-    prepared_artwork = _fit_artwork(artwork, dst_quad, job.print_area.artwork_fit)
-    warped = _warp_artwork(prepared_artwork, dst_quad, base_width, base_height)
+    warped = np.zeros((base_height, base_width, 4), dtype=np.uint8)
+    for dst_quad in dst_quads:
+        prepared_artwork = _fit_artwork(artwork, dst_quad, job.print_area.artwork_fit)
+        layer = _warp_artwork(prepared_artwork, dst_quad, base_width, base_height)
+        replace = layer[:, :, 3] > warped[:, :, 3]
+        warped[replace] = layer[replace]
 
     auto_maps = _derive_surface_maps(base) if job.print_area.surface_mode == "auto" else None
 
@@ -88,10 +93,22 @@ def render_mockup(
 
 
 def render_blank_mockup(
-    base_source: str, *, width: int, image_format: ImageFormat, settings: Settings, garment_color: str | None = None
+    base_source: str,
+    *,
+    width: int,
+    image_format: ImageFormat,
+    settings: Settings,
+    garment_color: str | None = None,
 ) -> bytes:
     base = _decode_color(base_source, settings, garment_color=garment_color)
     return _encode(_resize_to_width(base, width), image_format, settings)
+
+
+def render_design_preview(
+    artwork_source: str, *, width: int, image_format: ImageFormat, settings: Settings
+) -> bytes:
+    artwork = _decode_alpha(artwork_source, settings)
+    return _encode(_resize_to_width(artwork, width), image_format, settings)
 
 
 def _cv2():
@@ -179,9 +196,23 @@ def _decode_alpha(source: str, settings: Settings) -> np.ndarray:
     if image.ndim == 2:
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGRA)
     if image.shape[2] == 3:
-        alpha = np.full(image.shape[:2], 255, dtype=np.uint8)
+        alpha = _connected_light_background_alpha(image)
         image = np.dstack([image, alpha])
     return cast(np.ndarray, image)
+
+
+def _connected_light_background_alpha(image: np.ndarray) -> np.ndarray:
+    """Remove only near-white pixels connected to an artwork edge."""
+    cv2 = _cv2()
+    light = (np.min(image, axis=2) >= 245).astype(np.uint8)
+    component_count, labels, _, _ = cv2.connectedComponentsWithStats(light, connectivity=8)
+    if component_count <= 1:
+        return np.full(image.shape[:2], 255, dtype=np.uint8)
+    edge_labels = np.unique(np.concatenate((labels[0], labels[-1], labels[:, 0], labels[:, -1])))
+    background = np.isin(labels, edge_labels[edge_labels != 0])
+    alpha = np.full(image.shape[:2], 255, dtype=np.uint8)
+    alpha[background] = 0
+    return alpha
 
 
 def _decode_gray(source: str, settings: Settings, size: tuple[int, int]) -> np.ndarray:

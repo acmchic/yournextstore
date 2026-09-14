@@ -6,6 +6,7 @@ import pytest
 
 from app.rendering.pipeline import (
     _apply_displacement,
+    _connected_light_background_alpha,
     _decode_color,
     _fit_artwork,
     _quad_size,
@@ -66,6 +67,16 @@ def test_contain_preserves_artwork_ratio_and_adds_transparent_padding() -> None:
     assert opaque_columns.max() == 99
     assert opaque_rows.min() == 75
     assert opaque_rows.max() == 124
+
+
+def test_connected_white_artwork_background_becomes_transparent() -> None:
+    artwork = np.full((40, 60, 3), 255, dtype=np.uint8)
+    artwork[10:30, 20:40] = (20, 60, 180)
+
+    alpha = _connected_light_background_alpha(artwork)
+
+    assert alpha[0, 0] == 0
+    assert alpha[20, 30] == 255
 
 
 def test_cover_preserves_artwork_ratio_and_crops_from_center() -> None:

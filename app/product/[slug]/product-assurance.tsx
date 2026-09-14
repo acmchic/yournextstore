@@ -87,7 +87,7 @@ export function ProductDeliveryEstimate({ shipping }: { shipping: ShippingQuote 
 	if (!estimate) return null;
 
 	return (
-		<section className="mt-5 border-y border-border py-5" aria-labelledby="delivery-heading">
+		<section className="mt-5 py-5" aria-labelledby="delivery-heading">
 			<div className="mb-6 flex items-center gap-3">
 				<Truck className="size-4" aria-hidden />
 				<h2 id="delivery-heading" className="text-xs font-semibold uppercase tracking-[0.08em]">
@@ -111,7 +111,7 @@ export function ProductDeliveryEstimate({ shipping }: { shipping: ShippingQuote 
 					</div>
 				))}
 			</div>
-			<p className="mt-5 border-t border-border/60 pt-4 text-[11px] leading-relaxed text-muted-foreground">
+			<p className="mt-5 pt-4 text-[11px] leading-relaxed text-muted-foreground">
 				Express: <strong className="font-medium text-foreground">{estimate.express}</strong>. Business days
 				exclude weekends.
 			</p>

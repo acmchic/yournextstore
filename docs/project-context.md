@@ -102,6 +102,8 @@ Storefront read requests trong `lib/own-commerce.ts` có timeout và retry giớ
 
 Renderer kết hợp artwork với ảnh catalog, màu và vị trí in theo dữ liệu mockup. Asset gốc nằm trong `api/public/design/` và `api/public/mockup/`; ảnh kết quả được cache qua `api/app/cache.py`. Không cần dựng sẵn toàn bộ tích design × catalog × màu × size.
 
+`api/scripts/analyze_catalog_mockups.py` chuẩn bị vùng in offline. Guideline từ provider là vùng an toàn mặc định; analyzer còn nhận diện các vùng sản phẩm lặp lại trong một mockup (ví dụ hai tumbler) và lưu tọa độ chuẩn hóa vào `catalog_mockup_metadata`. Lúc phục vụ request, renderer chỉ đọc metadata và đặt một bản artwork theo chế độ `contain` vào từng vùng, không chạy computer vision. Artwork RGB/JPEG cũng được loại nền gần trắng nối với mép ảnh trước khi ghép, nhưng giữ lại chi tiết trắng nằm kín bên trong design.
+
 Các HTTP contract đang tồn tại trong `api/app/main.py`:
 
 - `/{product_slug}/{catalog_slug}_color-{color}.webp`: ảnh sản phẩm theo catalog/màu.
@@ -116,6 +118,8 @@ Các HTTP contract đang tồn tại trong `api/app/main.py`:
 `admin/routes/web.php` dùng middleware `auth` + `verified`; controller chính là `admin/app/Http/Controllers/Store/StoreController.php`. Admin dùng `DB::connection('store')` đọc/ghi trực tiếp DB nghiệp vụ, không đi qua FastAPI cho mọi thao tác CRUD. Connection `store` trong `admin/config/database.php` sao chép connection mặc định và bỏ table prefix; cấu hình deployment phải trỏ nó vào cùng DB mà API sử dụng.
 
 Admin gọi Python CLI trong `api/` để import folder design, import Gearment catalog và phân tích mockup. `runImporter()` chạy `bootstrap-db.sh` trước CLI; đường dẫn dùng `POD_API_PATH` hoặc mặc định là thư mục `api` cạnh thư mục `admin`, nên không phụ thuộc workspace local. Audit nghiệp vụ ghi vào `activity_logs` trên cùng connection.
+
+Admin `/operations` cung cấp allowlist cho các tác vụ vận hành: import product theo folder design, phân tích vùng in mockup, import catalog Gearment theo chế độ không truncate, cập nhật size chart và tạo showcase assignment. Không nhận command hoặc argument tùy ý từ trình duyệt; folder import product được kiểm tra phải nằm trong `api/public/design`.
 
 ## 5. Nên đọc file nào trước?
 

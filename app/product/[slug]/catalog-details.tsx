@@ -43,7 +43,7 @@ function formatMeasurement(value: string): string {
 function Disclosure({ title, children }: { title: string; children: React.ReactNode }) {
 	const [open, setOpen] = useState(false);
 	return (
-		<section className="border-t border-border">
+		<section>
 			<button
 				type="button"
 				aria-expanded={open}

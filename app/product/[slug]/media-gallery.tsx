@@ -4,7 +4,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { StoreMedia } from "@/lib/store-media";
-import { cn, isVideoUrl } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 type Variant = {
 	id: string;
@@ -23,6 +23,7 @@ type MediaGalleryProps = {
 	images: string[];
 	productName: string;
 	variants: Variant[];
+	avatarImage?: string | null;
 };
 
 type PrintArea = "front" | "chest" | "back" | "front-back";
@@ -112,7 +113,7 @@ export function selectGalleryImages(images: string[], color: string, printArea: 
 	return [...new Set(selected)];
 }
 
-export function MediaGallery({ images, productName, variants }: MediaGalleryProps) {
+export function MediaGallery({ images, productName, variants, avatarImage }: MediaGalleryProps) {
 	const searchParams = useSearchParams();
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const [mobileCarouselRef, mobileCarouselApi] = useEmblaCarousel({ align: "start", loop: false });
@@ -124,7 +125,10 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 		() => selectGalleryImages(images, selectedColor, printArea),
 		[images, selectedColor, printArea],
 	);
-
+	const mobileImages = useMemo(
+		() => [...displayImages, ...(avatarImage ? [avatarImage] : [])],
+		[displayImages, avatarImage],
+	);
 	const variantImageIndex = useMemo(() => {
 		const selectedVariant = variants.find(
 			(v) =>
@@ -175,7 +179,7 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 			<div className="-mx-4 md:hidden">
 				<div ref={mobileCarouselRef} className="overflow-hidden bg-white">
 					<div className="flex touch-pan-y">
-						{displayImages.map((image, index) => (
+						{mobileImages.map((image, index) => (
 							<div key={image} className="min-w-0 shrink-0 grow-0 basis-full">
 								<div className="relative aspect-[167/180] w-full overflow-hidden bg-white">
 									<StoreMedia
@@ -194,13 +198,13 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 						))}
 					</div>
 				</div>
-				{displayImages.length > 1 && (
+				{mobileImages.length > 1 && (
 					<div
 						className="flex items-center justify-center gap-2 bg-white py-4"
 						role="group"
 						aria-label="Choose product image"
 					>
-						{displayImages.map((image, index) => (
+						{mobileImages.map((image, index) => (
 							<button
 								key={`dot-${image}`}
 								type="button"
@@ -218,55 +222,23 @@ export function MediaGallery({ images, productName, variants }: MediaGalleryProp
 			</div>
 
 			<div className="hidden flex-col gap-4 md:flex">
-				{displayImages.map((image, index) => (
+				{[...displayImages, ...(avatarImage ? [avatarImage] : [])].map((image, index) => (
 					<div
 						key={`desktop-${image}-${index}`}
-						className="relative aspect-[4/5] w-full overflow-hidden bg-white"
+						className="relative mx-auto aspect-[4/5] w-full max-w-[720px] overflow-hidden bg-white"
 					>
 						<StoreMedia
 							src={image}
 							alt={`${productName} - View ${index + 1}`}
 							fill
 							quality={image.includes("_color-") ? 90 : undefined}
-							sizes="(max-width: 1024px) 100vw, 60vw"
+							sizes="(max-width: 1024px) 100vw, 58vw"
 							className="object-contain"
 							priority={index === 0}
 						/>
 					</div>
 				))}
 			</div>
-
-			{/* Thumbnails */}
-			{displayImages.length > 1 && (
-				<div className="hidden gap-2 overflow-x-auto pb-1 md:flex [scrollbar-width:thin]">
-					{displayImages.map((image, index) => (
-						<button
-							key={`${image}-${index}`}
-							type="button"
-							onClick={() => setSelectedIndex(index)}
-							aria-label={`Show ${productName} image ${index + 1} of ${displayImages.length}`}
-							aria-current={selectedIndex === index ? "true" : undefined}
-							className={cn(
-								"relative aspect-square w-20 flex-shrink-0 overflow-hidden border transition-opacity duration-200",
-								selectedIndex === index
-									? "border-foreground opacity-100"
-									: "border-transparent opacity-55 hover:opacity-100",
-							)}
-						>
-							{isVideoUrl(image) ? (
-								<video
-									className="absolute inset-0 h-full w-full object-contain"
-									src={image}
-									muted
-									playsInline
-								/>
-							) : (
-								<StoreMedia src={image} alt="" fill sizes="80px" className="object-contain" />
-							)}
-						</button>
-					))}
-				</div>
-			)}
 		</div>
 	);
 }

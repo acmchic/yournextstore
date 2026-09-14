@@ -237,6 +237,11 @@ const CachedProductDetails = async ({ slug, catalog }: ProductRouteParams) => {
 	];
 	const displayName = productDisplayName(product);
 	const displayProduct = { ...product, name: displayName };
+	const galleryAssets = (
+		product as typeof product & {
+			galleryAssets?: { design: string | null; avatar: string | null };
+		}
+	).galleryAssets;
 	const inStock = product.variants.some((variant) => variant.stock === null || variant.stock > 0);
 
 	const productJsonLd = await buildProductJsonLd(displayProduct, reviews);
@@ -268,18 +273,25 @@ const CachedProductDetails = async ({ slug, catalog }: ProductRouteParams) => {
 			</Breadcrumb>
 			<div className="lg:grid lg:grid-cols-[minmax(0,1.18fr)_minmax(380px,0.82fr)] lg:gap-12 xl:grid-cols-[minmax(0,1.25fr)_minmax(420px,0.75fr)] xl:gap-20">
 				{/* Left: Image Gallery (sticky on desktop) */}
-				<MediaGallery images={allImages} productName={displayName} variants={product.variants} />
+				<MediaGallery
+					images={allImages}
+					productName={displayName}
+					variants={product.variants}
+					avatarImage={galleryAssets?.avatar}
+				/>
 
 				{/* Right: Product Details */}
 				<div className="mt-8 lg:sticky lg:top-24 lg:mt-0 lg:self-start lg:px-4 xl:px-8">
 					{/* Title & reviews summary */}
 					<div className="mb-4 space-y-3 border-b border-border/60 pb-5">
-						<h1 className="text-balance text-2xl font-semibold uppercase leading-[1.08] tracking-[-0.025em] text-foreground sm:text-3xl">
-							{displayName}
-						</h1>
-						{product.summary && (
-							<p className="max-w-xl text-sm leading-relaxed text-muted-foreground">{product.summary}</p>
-						)}
+						<div className="grid grid-cols-[minmax(0,4fr)_minmax(5rem,1fr)] items-start gap-3">
+							<h1 className="text-left text-lg font-semibold uppercase leading-[1.08] tracking-[-0.025em] text-foreground sm:text-2xl">
+								{displayName}
+							</h1>
+							<span className="pt-0.5 text-right text-lg font-medium tracking-tight sm:hidden">
+								${(Number(product.variants[0]?.price ?? 0) / 100).toFixed(2)}
+							</span>
+						</div>
 						{reviewSummary && reviewSummary.reviewCount > 0 && (
 							<a
 								href="#reviews"

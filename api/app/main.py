@@ -18,13 +18,14 @@ from app.catalog import (
     parse_blank_image_path,
     parse_canonical_image_path,
     parse_placement,
+    resolve_design_path,
     split_design_and_catalog,
 )
 from app.checkout import CheckoutService
 from app.db import Database
 from app.models import CartItemUpsert, ImageFormat, OrderCreate, ProductSummary
 from app.public_ref import build_product_ref, parse_product_ref, product_public_id
-from app.rendering.pipeline import render_blank_mockup, render_mockup
+from app.rendering.pipeline import render_blank_mockup, render_design_preview, render_mockup
 from app.repository import CatalogRepository
 from app.settings import settings
 from app.shipping import delivery_settings, shipping_options
@@ -456,6 +457,45 @@ async def get_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     return product
+
+
+@app.get("/v1/products/{product_slug}/design-preview")
+async def get_product_design_preview(
+    product_slug: str,
+    repo: CatalogRepository = Depends(get_repository),  # noqa: B008
+):
+    asset = await repo.get_product_design_asset(product_slug)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Product design not found")
+    cache_path = settings.cache_dir / f"design-preview-{asset['checksum']}-1200.webp"
+    if not cache_path.exists():
+        image_bytes = await run_in_threadpool(
+            render_design_preview,
+            f"design/{resolve_design_path(asset['slug'], settings)}",
+            width=min(1200, settings.max_width),
+            image_format="webp",
+            settings=settings,
+        )
+        await run_in_threadpool(_write_cached_image, cache_path, image_bytes)
+    return FileResponse(
+        cache_path,
+        media_type="image/webp",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
+@app.get("/v1/catalogs/{catalog_slug}/avatar")
+async def get_catalog_avatar(
+    catalog_slug: str,
+    repo: CatalogRepository = Depends(get_repository),  # noqa: B008
+):
+    asset = await repo.get_catalog_avatar_asset(catalog_slug)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Catalog avatar not found")
+    return FileResponse(
+        settings.asset_root / asset["local_path"],
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 
 @app.get("/v1/mockups/render")

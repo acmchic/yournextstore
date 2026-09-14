@@ -17,6 +17,9 @@ const API_URL = process.env.STORE_API_URL || "http://localhost:8000";
 const now = () => new Date().toISOString();
 
 function resolveMediaUrl(url: string): string {
+	if (url.startsWith("/v1/products/") || url.startsWith("/v1/catalogs/")) {
+		return `${API_URL}${url}`;
+	}
 	if (url.startsWith("/") && /^\/[^/]+\/[^/]+_color-[^/]+\.webp(?:\?.*)?$/.test(url)) {
 		return `${API_URL}${url}`;
 	}
@@ -106,6 +109,7 @@ type ApiProduct = {
 	updated_at: string;
 	seo: { title: string; description: string | null; canonical: string };
 	design: { slug: string; alt_text: string; checksum: string };
+	gallery_assets?: { design?: string | null; avatar?: string | null };
 	variants: ApiVariant[];
 	media: ApiMedia[];
 	default_catalog?: string | null;
@@ -347,6 +351,10 @@ function mapProduct(product: ApiProduct): NonNullable<APIProductGetByIdResult> {
 		summary: product.description,
 		content: null,
 		images,
+		galleryAssets: {
+			design: product.gallery_assets?.design ? resolveMediaUrl(product.gallery_assets.design) : null,
+			avatar: product.gallery_assets?.avatar ? resolveMediaUrl(product.gallery_assets.avatar) : null,
+		},
 		defaultCatalog,
 		defaultColor: defaultColorName,
 		badge: null,

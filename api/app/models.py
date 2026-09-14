@@ -18,6 +18,7 @@ class ProductSummary(BaseModel):
 
 class PrintArea(BaseModel):
     dst_quad: list[tuple[float, float]] = Field(min_length=4, max_length=4)
+    dst_quads: list[list[tuple[float, float]]] | None = None
     displacement_strength: float = 8.0
     shadow_opacity: float = 0.35
     highlight_opacity: float = 0.16

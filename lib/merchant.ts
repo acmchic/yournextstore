@@ -1,7 +1,7 @@
 import type { APIProductGetByIdResult } from "commerce-kit";
 
 export function productDisplayName(product: { name: string; category?: { name: string } | null }) {
-	return product.category?.name ? `${product.name} — ${product.category.name}` : product.name;
+	return product.category?.name ? `${product.name} - ${product.category.name}` : product.name;
 }
 
 export function merchantVariants(

@@ -114,6 +114,24 @@ class CatalogRepository:
             (color_slug, catalog_slug, placement, placement, color_slug),
         )
 
+    async def get_product_design_asset(self, product_slug: str) -> dict[str, Any] | None:
+        return await self._database.fetch_one(
+            """select d.slug, d.checksum
+               from products p join designs d on d.id=p.design_id
+               where p.slug=%s and p.status='active' limit 1""",
+            (product_slug,),
+        )
+
+    async def get_catalog_avatar_asset(self, catalog_slug: str) -> dict[str, Any] | None:
+        return await self._database.fetch_one(
+            """select asset.local_path, asset.checksum
+               from catalog_assets asset join catalogs catalog on catalog.id=asset.catalog_id
+               where catalog.slug=%s and catalog.active=true and asset.status='active'
+                 and asset.placement='avatar'
+               order by asset.id limit 1""",
+            (catalog_slug,),
+        )
+
     async def get_product_by_slug(self, slug: str) -> ProductSummary | None:
         row = await self._database.fetch_one(
             """
@@ -515,6 +533,9 @@ class CatalogRepository:
                         ("front", "back") if variant["catalog"] in back_catalogs else ("front",)
                     )
                 ]
+        avatar_asset = (
+            await self.get_catalog_avatar_asset(default_catalog) if default_catalog else None
+        )
         return {
             "id": product["public_id"],
             "slug": product["slug"],
@@ -537,6 +558,14 @@ class CatalogRepository:
                 "slug": product["design_slug"],
                 "alt_text": product["alt_text"] or product["title"],
                 "checksum": product["design_checksum"],
+            },
+            "gallery_assets": {
+                "design": f"/v1/products/{product['slug']}/design-preview?v={product['design_checksum']}",
+                "avatar": (
+                    f"/v1/catalogs/{default_catalog}/avatar?v={avatar_asset['checksum']}"
+                    if avatar_asset
+                    else None
+                ),
             },
             "default_catalog": default_catalog,
             "default_color": default_color,
@@ -656,6 +685,11 @@ class CatalogRepository:
             )
         if not asset or not asset["width"] or not asset["height"]:
             return None
+        analyzed_area: dict[str, Any] = {}
+        if metadata and metadata["status"] == "ready":
+            analyzed_area = metadata["print_area_json"]
+            if isinstance(analyzed_area, str):
+                analyzed_area = json.loads(analyzed_area)
         if resolved_placement == "chest":
             design_kit = {
                 "designAreaX": 18,
@@ -663,16 +697,14 @@ class CatalogRepository:
                 "designAreaWidth": 18,
                 "designAreaHeight": 18,
             }
-        elif metadata and metadata["status"] == "ready":
-            analyzed_area = metadata["print_area_json"]
-            if isinstance(analyzed_area, str):
-                analyzed_area = json.loads(analyzed_area)
+        elif analyzed_area:
             design_kit = {
                 "designAreaX": float(analyzed_area.get("x", 0.30)) * 100,
                 "designAreaY": float(analyzed_area.get("y", 0.25)) * 100,
                 "designAreaWidth": float(analyzed_area.get("width", 0.40)) * 100,
                 "designAreaHeight": float(analyzed_area.get("height", 0.40)) * 100,
             }
+        analyzed_regions = analyzed_area.get("regions", []) if resolved_placement != "chest" else []
         left = _guideline_percent(design_kit.get("designAreaX"), 30) * int(asset["width"]) / 100
         top = _guideline_percent(design_kit.get("designAreaY"), 25) * int(asset["height"]) / 100
         width = (
@@ -693,6 +725,24 @@ class CatalogRepository:
             top = asset["height"] * 0.25
             width = asset["width"] * 0.40
             height = asset["height"] * 0.40
+        dst_quads = [
+            [
+                (float(region["x"]) * asset["width"], float(region["y"]) * asset["height"]),
+                (
+                    (float(region["x"]) + float(region["width"])) * asset["width"],
+                    float(region["y"]) * asset["height"],
+                ),
+                (
+                    (float(region["x"]) + float(region["width"])) * asset["width"],
+                    (float(region["y"]) + float(region["height"])) * asset["height"],
+                ),
+                (
+                    float(region["x"]) * asset["width"],
+                    (float(region["y"]) + float(region["height"])) * asset["height"],
+                ),
+            ]
+            for region in analyzed_regions
+        ]
         return RenderJob(
             product_id=variant["product_id"],
             artwork_id=variant["artwork_id"],
@@ -708,6 +758,7 @@ class CatalogRepository:
                     (left + width, top + height),
                     (left, top + height),
                 ],
+                dst_quads=dst_quads or None,
                 displacement_strength=0,
                 shadow_opacity=0,
                 highlight_opacity=0,
@@ -715,7 +766,7 @@ class CatalogRepository:
             ),
             # Bump this when catalog artwork resolution/fallback logic changes;
             # old blank renders must never survive in the immutable image cache.
-            version=f"gearment-v8-catalog:{variant['artwork_checksum']}:{asset['checksum']}:{variant['garment_color']}",
+            version=f"gearment-v9-safe-regions:{variant['artwork_checksum']}:{asset['checksum']}:{variant['garment_color']}",
             metadata={
                 "catalog": catalog_slug,
                 "placement": resolved_placement,
