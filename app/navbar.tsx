@@ -55,7 +55,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 											key={child.href}
 											href={child.href}
 											onClick={() => setOpen(false)}
-											className="py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+											className="py-1 text-[13px] leading-5 text-muted-foreground transition-colors hover:text-foreground"
 										>
 											{child.label}
 										</StoreLink>
@@ -69,7 +69,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 								prefetch="eager"
 								href={link.href}
 								onClick={() => setOpen(false)}
-								className="border-b border-transparent px-0 py-3 text-sm font-medium uppercase tracking-[0.14em] text-foreground transition-colors hover:border-foreground"
+								className="border-b border-transparent px-0 py-3 text-[13px] font-medium uppercase leading-5 tracking-[0.14em] text-foreground transition-colors hover:border-foreground"
 							>
 								{link.label}
 							</StoreLink>
@@ -101,7 +101,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 						aria-expanded={active === group.href}
 						aria-controls={`shop-menu-${group.label}`}
 						onClick={() => setActive(group.href)}
-						className="h-full min-h-11 whitespace-nowrap border-b-2 border-transparent uppercase aria-expanded:border-[#171717] focus-visible:outline-2 focus-visible:outline-offset-4"
+						className="h-full min-h-11 whitespace-nowrap border-b-2 border-transparent text-[11px] font-medium uppercase tracking-[0.12em] aria-expanded:border-[#171717] focus-visible:outline-2 focus-visible:outline-offset-4"
 					>
 						{group.label}
 					</button>
@@ -118,7 +118,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 								<StoreLink
 									href={group.href}
 									onClick={() => setActive(null)}
-									className="inline-block py-3 text-sm uppercase tracking-[0.08em] underline underline-offset-4"
+									className="inline-block py-3 text-xs uppercase tracking-[0.08em] underline underline-offset-4"
 								>
 									View all {group.label}
 								</StoreLink>
@@ -129,7 +129,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 										key={child.href}
 										href={child.href}
 										onClick={() => setActive(null)}
-										className="block min-h-11 py-3 text-xs uppercase tracking-wide transition-colors hover:underline hover:underline-offset-4"
+										className="block min-h-11 py-3 text-[11px] uppercase tracking-[0.08em] transition-colors hover:underline hover:underline-offset-4"
 									>
 										{child.label}
 									</StoreLink>
@@ -158,7 +158,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 					key={link.href}
 					prefetch="eager"
 					href={link.href}
-					className="hidden lg:block hover:text-primary transition-colors uppercase"
+					className="hidden whitespace-nowrap text-[11px] font-medium uppercase tracking-[0.12em] transition-colors hover:text-primary lg:block"
 				>
 					{link.label}
 				</StoreLink>
