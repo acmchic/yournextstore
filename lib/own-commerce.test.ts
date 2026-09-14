@@ -140,6 +140,9 @@ test("catalog media keeps blank placement images alongside variant images", asyn
 	try {
 		const product = await productGetByCatalog("design", "classic-t-shirt");
 		assert.ok(product?.variants[0]?.images.some((image) => image.endsWith(blankBack)));
+		const mediaOrigin = process.env.STORE_MEDIA_URL || process.env.STORE_API_URL || "http://localhost:8000";
+		assert.ok(product?.variants[0]?.images.includes(`${mediaOrigin}${front}`));
+		assert.ok(product?.variants[0]?.images.includes(`${mediaOrigin}${blankBack}`));
 	} finally {
 		globalThis.fetch = originalFetch;
 	}

@@ -1,0 +1,24 @@
+[Unit]
+Description=TeeBravo Next.js storefront
+After=network.target
+
+[Service]
+Type=simple
+User=teebravo
+Group=teebravo
+WorkingDirectory=/srv/teebravo/current
+EnvironmentFile=/etc/teebravo/storefront.env
+Environment=NODE_ENV=production HOSTNAME=127.0.0.1 PORT=1990 NEXT_TELEMETRY_DISABLED=1
+Environment=NODE_OPTIONS=--max-old-space-size=1024
+Environment=MALLOC_ARENA_MAX=2
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=35
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0022
+
+[Install]
+WantedBy=multi-user.target

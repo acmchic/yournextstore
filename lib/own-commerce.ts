@@ -14,14 +14,15 @@ import { productDisplayName } from "@/lib/merchant";
 import { storefront } from "@/lib/storefront-config";
 
 const API_URL = process.env.STORE_API_URL || "http://localhost:8000";
+const MEDIA_URL = process.env.STORE_MEDIA_URL || API_URL;
 const now = () => new Date().toISOString();
 
 function resolveMediaUrl(url: string): string {
 	if (url.startsWith("/v1/products/") || url.startsWith("/v1/catalogs/")) {
-		return `${API_URL}${url}`;
+		return `${MEDIA_URL}${url}`;
 	}
 	if (url.startsWith("/") && /^\/[^/]+\/[^/]+_color-[^/]+\.webp(?:\?.*)?$/.test(url)) {
-		return `${API_URL}${url}`;
+		return `${MEDIA_URL}${url}`;
 	}
 	return url;
 }

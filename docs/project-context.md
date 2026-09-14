@@ -162,3 +162,12 @@ Schema SQL hiện tại là nguồn quan trọng hơn phần giới thiệu lega
 ## Cập nhật thương hiệu 2026-09-08
 
 `lib/storefront-config.ts` là cấu hình thương hiệu. `NEXT_PUBLIC_URL` có default `https://teebravo.com`; robots, sitemap và JSON-LD dùng canonical helper. Store identity từ API là TeeBravo. Migration `006_teebravo_brand.sql` đổi brand placeholder cũ trong products sang TeeBravo. Frontend không còn preview toolbar/referral badge hay hosted checkout proxy. Các tên component public dùng `StoreLink` / `StoreMedia`; cookie dùng prefix `teebravo`. Copyright và nguồn gốc template vẫn lưu trong tài liệu source, không phải nội dung storefront.
+
+## VPS production (2026-09-14)
+
+- Host thực tế Ubuntu 20.04, PHP 7.4/8.1 và Python 3.8; không có package PHP 8.4 trong APT hiện tại, nhưng có Docker/Compose. Bộ deploy chuyển sang host Node + container backend, giữ nguyên runtime/database của domain khác.
+- `deploy.sh` mặc định chỉ deploy standalone Next trên loopback 1990; `--api`/`--admin`/`--all` mới build/update backend. Compose production project `teebravo-prod` có API Python 3.11, admin PHP 8.4 kèm Python CLI, MySQL 8.4 riêng không public port; API publish loopback 1991.
+- Admin/API cùng DB nội bộ `db:3306`, dùng shared assets/cache. Next gọi API nội bộ nhưng `STORE_MEDIA_URL` giữ URL ảnh public HTTPS. Nginx host chuyển FastCGI tới socket bind mount của container, chỉ trích public assets admin ra host.
+- Setup tạo secrets một lần, không thay file env hiện có. Build Next staging/cache, symlink release và rollback khi restart/HTTP health lỗi vẫn giữ; backend migrations chưa có rollback tự động.
+- VPS disk đang dùng 95%; script kiểm tra free space và giới hạn container logs, không prune chung. Native PHP/systemd backend templates cũ đã được thay bằng Docker, không dùng song song.
+- `INERTIA_SSR_ENABLED=false` production; ba SQL nền đã bỏ ignore để clone sạch đủ bootstrap input. Runbook: `docs/vps-deployment.md`. Chưa build Docker/integration test thực vì workspace không có Docker và chưa truy cập VPS.

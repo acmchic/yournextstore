@@ -1,0 +1,72 @@
+name: teebravo-prod
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    env_file: /etc/teebravo/db.env
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command: ["--innodb-buffer-pool-size=512M", "--max-connections=60", "--binlog-expire-logs-seconds=259200"]
+    mem_limit: 1536m
+    cpus: 1.5
+    logging: *logging
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql -h 127.0.0.1 -u\"$$MYSQL_USER\" \"$$MYSQL_DATABASE\" -Nse 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+  api:
+    image: teebravo-api:production
+    build:
+      context: ..
+      dockerfile: deploy/docker/backend.Dockerfile
+      target: api
+    restart: unless-stopped
+    ports: ["127.0.0.1:1991:8000"]
+    volumes:
+      - /etc/teebravo/api.env:/app/api/.env:ro
+      - /srv/teebravo/shared/assets:/app/api/public
+      - /srv/teebravo/shared/mockup-cache:/app/api/.cache/mockups
+    mem_limit: 1536m
+    cpus: 1.5
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "/app/api/.venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      db: {condition: service_healthy}
+  admin:
+    image: teebravo-admin:production
+    build:
+      context: ..
+      dockerfile: deploy/docker/backend.Dockerfile
+      target: admin
+    restart: unless-stopped
+    volumes:
+      - /etc/teebravo/admin.env:/app/admin/.env:ro
+      - /etc/teebravo/api.env:/app/api/.env:ro
+      - /srv/teebravo/shared/assets:/app/api/public
+      - /srv/teebravo/shared/mockup-cache:/app/api/.cache/mockups
+      - /srv/teebravo/shared/admin-storage:/app/admin/storage
+      - /srv/teebravo/shared/php:/run/teebravo-php
+    mem_limit: 1024m
+    cpus: 1
+    logging: *logging
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(file_exists('/run/teebravo-php/fpm.sock') ? 0 : 1);"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    depends_on:
+      db: {condition: service_healthy}
+volumes:
+  mysql-data:
