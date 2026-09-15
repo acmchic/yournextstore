@@ -26,6 +26,24 @@ class StoreController extends Controller
         return realpath($path) ?: $path;
     }
 
+    private function resolvePublicAsset(?string $path, string $root): ?string
+    {
+        if (! is_string($path) || $path === '') {
+            return null;
+        }
+
+        $candidate = str_starts_with($path, DIRECTORY_SEPARATOR)
+            ? $path
+            : $root.DIRECTORY_SEPARATOR.$path;
+        $file = realpath($candidate);
+
+        return $file !== false
+            && is_file($file)
+            && str_starts_with($file, $root.DIRECTORY_SEPARATOR)
+            ? $file
+            : null;
+    }
+
     private function runImporter(array $arguments, int $timeout = 300): string
     {
         $apiPath = $this->apiPath();
@@ -379,7 +397,11 @@ class StoreController extends Controller
         $query = $this->table('catalogs')->select('id', 'name', 'slug', 'provider', 'product_type', 'brand', 'active', 'sort_order');
         $category = $request->string('category')->toString();
         if ($category !== '') {
-            $query->whereExists(fn (Builder $q) => $q->from('catalog_taxonomy as ct')->whereColumn('ct.catalog_id', 'catalogs.id')->where('ct.department', $category));
+            $query->whereExists(fn (Builder $q) => $q
+                ->from('catalog_assets as ca')
+                ->whereColumn('ca.catalog_id', 'catalogs.id')
+                ->where('ca.status', 'active')
+                ->where('ca.local_path', 'like', 'mockup/'.$category.'/%'));
         }
         if ($filters['q'] !== '') {
             $query->where(fn (Builder $q) => $q->where('name', 'like', '%'.$filters['q'].'%')->orWhere('slug', 'like', '%'.$filters['q'].'%'));
@@ -401,12 +423,38 @@ class StoreController extends Controller
     public function catalogAssetImage(int $catalog)
     {
         $path = $this->table('catalog_assets')->where('catalog_id', $catalog)->where('status', 'active')->orderBy('id')->value('local_path');
-        abort_unless(is_string($path) && $path !== '', 404);
-        $root = realpath('/Users/changha/workspace/Teeravo/api/public');
-        $file = realpath($root.DIRECTORY_SEPARATOR.$path);
-        abort_unless($root !== false && $file !== false && str_starts_with($file, $root.DIRECTORY_SEPARATOR), 404);
+        $root = realpath($this->apiPath().'/public');
+        $file = $root === false ? null : $this->resolvePublicAsset($path, $root);
 
-        return response()->file($file);
+        if ($file === null && $root !== false) {
+            $templatePath = $this->table('mockup_templates')
+                ->where('catalog_id', $catalog)
+                ->where('active', true)
+                ->orderBy('id')
+                ->value('base_source');
+            $file = $this->resolvePublicAsset($templatePath, $root);
+        }
+
+        if ($file === null && $root !== false) {
+            $catalogRecord = $this->table('catalogs')->find($catalog, ['slug', 'product_type']);
+            $fallbacks = array_filter([
+                $catalogRecord?->slug === null ? null : 'mockup/'.$catalogRecord->slug.'/avatar-1.png',
+                $catalogRecord?->product_type === 'apparel'
+                    ? 'mockup/lightweight-t-shirt-980/avatar-1.png'
+                    : 'mockup/classic-t-shirt/avatar-1.png',
+            ]);
+
+            foreach ($fallbacks as $fallback) {
+                $file = $this->resolvePublicAsset($fallback, $root);
+                if ($file !== null) {
+                    break;
+                }
+            }
+        }
+
+        abort_unless($file !== null, 404);
+
+        return response()->file($file, ['Cache-Control' => 'private, max-age=3600']);
     }
 
     public function catalogForm(?int $catalog = null): Response

@@ -35,6 +35,19 @@ next.config.mjs       # Next.js config
 hooks/                # Custom React hooks
 ```
 
+## Global UI component rule
+
+This rule applies to every user-facing module in the repository, including the storefront and `admin/`. Use `components/ui/` for the storefront and `admin/resources/js/components/ui/` for admin.
+
+- Before writing UI, inspect the module's shared components and reuse an existing primitive whenever one exists.
+- Existing components are mandatory. Do not recreate a shared control with raw HTML, one-off Tailwind classes, a second spinner, or a different local implementation.
+- Reuse the component's existing variant and interaction states for the same intent. For example, a "New" action must use the same `Button` variant as the canonical Catalog create action unless a deliberate design change is requested.
+- If a needed primitive does not exist, create one shadcn-compatible shared component in that module's shared UI directory, export it, and use it everywhere that primitive is needed.
+- Loading indicators must use the module's shared `Spinner`; do not add `LoaderCircle`, inline SVG loaders, or ad-hoc `animate-spin` implementations.
+- Repeated patterns such as master-detail lists, resource pickers, filters, empty states, dialogs, and form fields must be shared rather than rebuilt per page.
+- When a shared component needs a visual change, change it in one place and let all consumers inherit the change. Do not override it locally just to make one page look different.
+- Before finishing UI work, search for duplicate native controls and one-off loading indicators, then verify selected, hover, focus-visible, disabled, loading, empty, error, light-mode, dark-mode, and keyboard states.
+
 ## Project Patterns
 
 - Use `safe-try` for error handling: `const [error, result] = await safe(...)`
