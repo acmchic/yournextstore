@@ -36,11 +36,25 @@ def test_blank_media_url_uses_the_original_base_view() -> None:
 
 def test_catalog_mockup_url_uses_short_color_path() -> None:
     url = urlparse(build_catalog_mockup_url(
-        product_ref="acacac2", catalog_slug="premium-guys-tee", color_slug="black"
+        product_ref="acacac2", catalog_slug="premium-guys-tee", color_slug="black", style="men"
     ))
     assert url.path == "/acacac2/premium-guys-tee_color-black.webp"
     assert parse_qs(url.query)['placement'] == ['front']
+    assert parse_qs(url.query)['style'] == ['men']
+    assert parse_qs(url.query)['v'] == ['12']
     assert int(parse_qs(url.query)['v'][0]) > 0
+
+
+def test_catalog_mockup_url_accepts_template_version_for_cache_busting() -> None:
+    url = urlparse(build_catalog_mockup_url(
+        product_ref="acacac2",
+        catalog_slug="premium-guys-tee",
+        color_slug="black",
+        style="women",
+        version="ai-model-v1:template-area-hash",
+    ))
+
+    assert parse_qs(url.query)['v'] == ['ai-model-v1:template-area-hash']
 
 
 def test_register_design_manifest_uses_paths_relative_to_design_directory(tmp_path) -> None:

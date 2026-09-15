@@ -64,6 +64,15 @@ next-env.d.ts
 !api/mysql/init/009_catalog_material_json.sql
 !api/mysql/init/010_checkout_stripe_shipping.sql
 !api/mysql/init/011_pdp_delivery_estimate.sql
+!api/mysql/init/012_catalog_model_mockups.sql
+!api/mysql/init/013_expand_model_renderer_version.sql
+!api/mysql/init/014_catalog_code.sql
 api/catalog-import.cache.json
 api/catalog-cache/
-api/public/mockup
+# Provider source assets and rendered caches are generated locally. Keep only
+# approved, reusable AI model templates under version control.
+api/public/mockup/**
+!api/public/mockup/
+!api/public/mockup/**/
+!api/public/mockup/**/men_black_front.png
+!api/public/mockup/**/women_black_front.png

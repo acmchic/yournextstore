@@ -5,6 +5,7 @@ from urllib.parse import quote
 
 MockupStyle = Literal["flat", "men", "women"]
 Placement = Literal["front", "chest", "left-chest", "back"]
+CatalogPlacement = Literal["front", "chest", "back"]
 
 
 def build_media_url(
@@ -28,11 +29,21 @@ def build_blank_media_url(
 
 
 def build_catalog_mockup_url(
-    *, product_ref: str, catalog_slug: str, color_slug: str, placement: Placement = "front"
+    *,
+    product_ref: str,
+    catalog_slug: str,
+    color_slug: str,
+    placement: Placement = "front",
+    style: MockupStyle = "flat",
+    version: str | None = None,
 ) -> str:
+    resolved_placement: CatalogPlacement = "chest" if placement == "left-chest" else placement
     return "/{}/{}_color-{}.webp".format(
         quote(product_ref, safe=""), quote(catalog_slug, safe=""), quote(color_slug, safe="")
-    ) + f"?placement={quote(placement, safe='')}&v=10"
+    ) + (
+        f"?placement={quote(resolved_placement, safe='')}&style={quote(style, safe='')}"
+        f"&v={quote(version or '12', safe='')}"
+    )
 
 
 def build_catalog_blank_url(*, product_ref: str, catalog_slug: str, color_slug: str, placement: Placement) -> str:

@@ -102,6 +102,8 @@ Storefront read requests trong `lib/own-commerce.ts` có timeout và retry giớ
 
 Renderer kết hợp artwork với ảnh catalog, màu và vị trí in theo dữ liệu mockup. Asset gốc nằm trong `api/public/design/` và `api/public/mockup/`; ảnh kết quả được cache qua `api/app/cache.py`. Không cần dựng sẵn toàn bộ tích design × catalog × màu × size.
 
+Catalog có thể lưu một prompt tạo model mockup dùng lại. Admin tạo asset model offline một lần bằng prompt kèm ảnh reference của catalog, duyệt thủ công rồi upload vào `mockup_templates` với style `men` hoặc `women`, màu và vùng in chuẩn hóa. Asset được lưu tại `api/public/mockup/{catalog-group}/{catalog-slug}/{style}_{color}_{placement}.{ext}`. API chỉ render artwork bằng code lên template đã duyệt, không gọi AI/VTON trong request của khách. Các model templates là ảnh bổ sung và chỉ hiện cho đúng màu có template; ảnh chính vẫn phải phản ánh đúng variant theo checklist Merchant Center.
+
 `api/scripts/analyze_catalog_mockups.py` chuẩn bị vùng in offline. Guideline từ provider là vùng an toàn mặc định; analyzer còn nhận diện các vùng sản phẩm lặp lại trong một mockup (ví dụ hai tumbler) và lưu tọa độ chuẩn hóa vào `catalog_mockup_metadata`. Lúc phục vụ request, renderer chỉ đọc metadata và đặt một bản artwork theo chế độ `contain` vào từng vùng, không chạy computer vision. Artwork RGB/JPEG cũng được loại nền gần trắng nối với mép ảnh trước khi ghép, nhưng giữ lại chi tiết trắng nằm kín bên trong design.
 
 Các HTTP contract đang tồn tại trong `api/app/main.py`:
@@ -117,7 +119,7 @@ Các HTTP contract đang tồn tại trong `api/app/main.py`:
 
 `admin/routes/web.php` dùng middleware `auth` + `verified`; controller chính là `admin/app/Http/Controllers/Store/StoreController.php`. Admin dùng `DB::connection('store')` đọc/ghi trực tiếp DB nghiệp vụ, không đi qua FastAPI cho mọi thao tác CRUD. Connection `store` trong `admin/config/database.php` sao chép connection mặc định và bỏ table prefix; cấu hình deployment phải trỏ nó vào cùng DB mà API sử dụng.
 
-Admin gọi Python CLI trong `api/` để import folder design, import Gearment catalog và phân tích mockup. `runImporter()` chạy `bootstrap-db.sh` trước CLI; đường dẫn dùng `POD_API_PATH` hoặc mặc định là thư mục `api` cạnh thư mục `admin`, nên không phụ thuộc workspace local. Audit nghiệp vụ ghi vào `activity_logs` trên cùng connection.
+Admin gọi Python CLI trong `api/` để import folder design, import Gearment catalog và phân tích mockup. `runImporter()` chạy `bootstrap-db.sh` trước CLI; đường dẫn dùng `POD_API_PATH` hoặc mặc định là thư mục `api` cạnh thư mục `admin`, nên không phụ thuộc workspace local. Audit nghiệp vụ ghi vào `activity_logs` trên connection Laravel mặc định; dữ liệu commerce ghi vào connection `store`.
 
 Admin `/operations` cung cấp allowlist cho các tác vụ vận hành: import product theo folder design, phân tích vùng in mockup, import catalog Gearment theo chế độ không truncate, cập nhật size chart và tạo showcase assignment. Không nhận command hoặc argument tùy ý từ trình duyệt; folder import product được kiểm tra phải nằm trong `api/public/design`.
 
@@ -171,3 +173,10 @@ Schema SQL hiện tại là nguồn quan trọng hơn phần giới thiệu lega
 - Setup tạo secrets một lần, không thay file env hiện có. Build Next staging/cache, symlink release và rollback khi restart/HTTP health lỗi vẫn giữ; backend migrations chưa có rollback tự động.
 - VPS disk đang dùng 95%; script kiểm tra free space và giới hạn container logs, không prune chung. Native PHP/systemd backend templates cũ đã được thay bằng Docker, không dùng song song.
 - `INERTIA_SSR_ENABLED=false` production; ba SQL nền đã bỏ ignore để clone sạch đủ bootstrap input. Runbook: `docs/vps-deployment.md`. Chưa build Docker/integration test thực vì workspace không có Docker và chưa truy cập VPS.
+
+## Chuẩn hóa Gearment catalog (2026-09-15)
+
+- Migration `014_catalog_code.sql` bổ sung `catalogs.code` cho mã style như `5000`, `6004`, `64V00`, `3001Y`; mã chỉ lấy từ tên/slug nguồn, không đoán từ provider ID. `provider_product_id` và `source_page_slug` giữ nguyên để đối chiếu Gearment.
+- Import giải mã HTML entity, bỏ possessive khỏi slug và tách mã cuối: `women39;s-slim-fit-tee-6004` → `women-slim-fit-tee`, code `6004`. Tên hiển thị giữ dạng dễ đọc, không chứa mã cuối. Slug trùng catalog khác báo lỗi để tránh ghi đè.
+- `sync-gearment-catalog --apply` mặc định upsert, giữ ID và assignment. Chỉ `--truncate` mới yêu cầu reset. Chạy bootstrap DB trước import trên môi trường mới.
+- Asset front/back lưu theo placement (`front.png`, `back.png`, giữ extension thật); ảnh cùng placement bổ sung có hậu tố số, URL ảnh trùng được gộp. Khi sync catalog cũ, importer sao chép asset sang đường dẫn chuẩn rồi cập nhật DB và tham chiếu model/metadata. File nguồn cũ được giữ để rollback và tránh làm hỏng request ảnh đang chạy.

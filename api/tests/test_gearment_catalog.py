@@ -162,3 +162,103 @@ def test_taxonomy_from_category_url() -> None:
         "home-living",
         "mugs",
     )
+
+
+@pytest.mark.parametrize(
+    ("source", "name", "slug", "code"),
+    [
+        (
+            "women39;s-slim-fit-tee-6004",
+            "BELLA + CANVAS - Women's Slim Fit Tee - 6004",
+            "women-slim-fit-tee",
+            "6004",
+        ),
+        (
+            "women&amp;#39;s-slim-fit-tee-6004",
+            "Women's Slim Fit Tee - 6004",
+            "women-slim-fit-tee",
+            "6004",
+        ),
+        ("sweatshirt", "Gildan - Heavy Blend Crewneck Sweatshirt - 18000", "sweatshirt", "18000"),
+        ("v-neck-unisex", "Gildan - Softstyle V-Neck T-Shirt - 64V00", "v-neck-unisex", "64V00"),
+        (
+            "youth-unisex-jersey-tee-3001y",
+            "BELLA + CANVAS - Youth Unisex Jersey Tee - 3001Y",
+            "youth-unisex-jersey-tee",
+            "3001Y",
+        ),
+        ("12oz-ss-tumbler", "12oz Stainless Steel Tumbler - Half Print", "12oz-ss-tumbler", None),
+    ],
+)
+def test_catalog_identity(source, name, slug, code):
+    from app.gearment.sync import catalog_identity
+
+    actual_slug, actual_name, actual_code = catalog_identity(source, name)
+    assert actual_slug == slug
+    assert actual_code == code
+    assert not actual_name.endswith(f" {code}") if code else actual_name == name
+
+
+def test_asset_placement_and_names():
+    from app.gearment.sync import asset_filename, asset_placement
+
+    used = {}
+    assert [asset_placement({"url": "https://example.com/image.png"}, i, []) for i in range(4)] == [
+        "avatar",
+        "front",
+        "back",
+        "gallery",
+    ]
+    assert asset_placement({"url": "https://example.com/image.png", "tag": "back"}, 0, []) == "back"
+    assert asset_filename("front", 1, used) == "front"
+    assert asset_filename("back", 2, used) == "back"
+    assert asset_filename("front", 3, used) == "front-2"
+
+
+def test_relocate_keeps_source_and_updates_references(tmp_path):
+    import asyncio
+
+    from app.gearment.sync import relocate_catalog_assets
+
+    old = tmp_path / "mockup/women/women39;s-slim-fit-tee-6004"
+    old.mkdir(parents=True)
+    Image.new("RGB", (4, 3), "white").save(old / "gallery-2.png")
+    Image.new("RGB", (4, 3), "black").save(old / "gallery-3.png")
+    Image.new("RGB", (4, 3), "red").save(old / "women_black_front.png")
+
+    class Cursor:
+        def __init__(self):
+            self.updates = []
+
+        async def execute(self, sql, params):
+            self.updates.append((sql, params))
+
+        async def fetchall(self):
+            return [
+                {
+                    "id": 1,
+                    "local_path": "mockup/women/women39;s-slim-fit-tee-6004/gallery-2.png",
+                    "placement": "front",
+                },
+                {
+                    "id": 2,
+                    "local_path": "mockup/women/women39;s-slim-fit-tee-6004/gallery-3.png",
+                    "placement": "gallery",
+                },
+            ]
+
+    cursor = Cursor()
+    asyncio.run(
+        relocate_catalog_assets(cursor, {"id": 141}, "women-slim-fit-tee", "women", tmp_path)
+    )
+    new = tmp_path / "mockup/women/women-slim-fit-tee"
+    assert (new / "front.png").read_bytes() == (old / "gallery-2.png").read_bytes()
+    assert (new / "back.png").read_bytes() == (old / "gallery-3.png").read_bytes()
+    assert (new / "women_black_front.png").is_file()
+    asset_updates = [
+        params for sql, params in cursor.updates if sql.startswith("update catalog_assets")
+    ]
+    assert asset_updates == [
+        ("mockup/women/women-slim-fit-tee/front.png", "front", 1),
+        ("mockup/women/women-slim-fit-tee/back.png", "back", 2),
+    ]

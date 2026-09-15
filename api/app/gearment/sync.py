@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import re
+import shutil
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -43,6 +45,7 @@ def slugify(value: str) -> str:
 
 def catalog_display_name(value: str) -> str:
     """Remove provider style/variant numbers from the human-facing name."""
+    value = decode_catalog_text(value)
     parts = [part.strip() for part in value.split(" - ") if part.strip()]
     if len(parts) >= 3 and re.search(r"\d", parts[-1]):
         value = " - ".join(parts[1:-1])
@@ -50,6 +53,97 @@ def catalog_display_name(value: str) -> str:
         value = parts[0]
     cleaned = re.sub(r"(?:[\s_-]+\d{3,}[A-Za-z]*)+$", "", value.strip()).strip(" -_")
     return re.sub(r"\s+", " ", cleaned) or value.strip()
+
+
+def decode_catalog_text(value: str) -> str:
+    # Some provider slugs have already lost the &# prefix of &#39;.
+    value = urllib.parse.unquote(value)
+    for _ in range(3):
+        value = html.unescape(value)
+    return re.sub(r"(?i)(?:39;|8217;|apos;|rsquo;)", "'", value)
+
+
+def catalog_identity(source_slug: str, source_name: str) -> tuple[str, str, str | None]:
+    source_slug = decode_catalog_text(source_slug)
+    source_name = decode_catalog_text(source_name)
+    pattern = r"(?:[\s_-]+)([A-Za-z]*\d[A-Za-z\d]*)$"
+    name_code = re.search(pattern, source_name.strip())
+    slug_code = re.search(pattern, source_slug.strip())
+    code = name_code or slug_code
+    clean_slug = re.sub(pattern, "", source_slug.strip())
+    clean_slug = re.sub(r"['’]s\b", "", clean_slug, flags=re.IGNORECASE)
+    slug = slugify(clean_slug)
+    if not slug:
+        raise ValueError("Catalog slug is empty after normalization")
+    return slug, catalog_display_name(source_name), code.group(1).upper() if code else None
+
+
+def asset_filename(placement: str, index: int, used: dict[str, int]) -> str:
+    if placement not in {"front", "back"}:
+        return f"{'avatar' if placement == 'avatar' else 'gallery'}-{index + 1}"
+    used[placement] = used.get(placement, 0) + 1
+    return placement if used[placement] == 1 else f"{placement}-{used[placement]}"
+
+
+async def relocate_catalog_assets(
+    cursor: Any, catalog: dict[str, Any], slug: str, category: str, asset_root: Path
+) -> None:
+    """Copy before changing DB references; old files remain valid on rollback."""
+    await cursor.execute(
+        "select id,local_path,placement from catalog_assets where catalog_id=%s order by id",
+        (catalog["id"],),
+    )
+    assets = await cursor.fetchall()
+    replacements: dict[str, str] = {}
+    for asset in assets:
+        old = Path(asset["local_path"])
+        parent = Path("mockup") / category / slug
+        stem = {"gallery-2": "front", "gallery-3": "back"}.get(old.stem, old.stem)
+        new = parent / f"{stem}{old.suffix}"
+        if old == new:
+            continue
+        source = asset_root / old
+        target = asset_root / new
+        if not source.is_file():
+            raise FileNotFoundError(f"Cannot relocate missing catalog asset: {source}")
+        # Preserve model templates and auxiliary files alongside imported assets.
+        if old.parent != parent and old.parent.as_posix() + "/" not in replacements:
+            shutil.copytree(source.parent, target.parent, dirs_exist_ok=True)
+            replacements[old.parent.as_posix() + "/"] = parent.as_posix() + "/"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if source != target:
+            shutil.copy2(source, target)
+        placement = {"gallery-2": "front", "gallery-3": "back"}.get(old.stem, asset["placement"])
+        await cursor.execute(
+            "update catalog_assets set local_path=%s,placement=%s where id=%s",
+            (new.as_posix(), placement, asset["id"]),
+        )
+        # Exact filenames first; then directory prefixes for model/auxiliary files.
+        for table, columns in (
+            ("mockup_templates", ("base_source",)),
+            (
+                "catalog_mockup_metadata",
+                ("garment_mask_path", "displacement_path", "shadow_path", "highlight_path"),
+            ),
+        ):
+            for column in columns:
+                await cursor.execute(
+                    f"update {table} set {column}=%s where catalog_id=%s and {column}=%s",
+                    (new.as_posix(), catalog["id"], old.as_posix()),
+                )
+    for old, new in replacements.items():
+        for table, columns in (
+            ("mockup_templates", ("base_source",)),
+            (
+                "catalog_mockup_metadata",
+                ("garment_mask_path", "displacement_path", "shadow_path", "highlight_path"),
+            ),
+        ):
+            for column in columns:
+                await cursor.execute(
+                    f"update {table} set {column}=concat(%s,substring({column},%s)) where catalog_id=%s and left({column},%s)=%s",
+                    (new, len(old) + 1, catalog["id"], len(old), old),
+                )
 
 
 def catalog_asset_category(taxonomy: list[dict[str, Any]]) -> str:
@@ -165,7 +259,7 @@ def asset_placement(
 ) -> str:
     tag = str(image_row.get("tag") or image_row.get("type") or "").lower()
     url = str(image_row.get("url") or "").lower()
-    if "avatar" in tag or "model" in tag or index == 0:
+    if "avatar" in tag or "model" in tag:
         return "avatar"
     for placement in ("front", "back"):
         if placement in tag or placement in url:
@@ -183,7 +277,7 @@ def asset_placement(
             or str(kit.get("locationModelUrl") or "").lower() == url
         ):
             return placement
-    return "front" if index == 1 else "gallery"
+    return {0: "avatar", 1: "front", 2: "back"}.get(index, "gallery")
 
 
 def _local_asset(url: str, target_stem: Path) -> dict[str, Any] | None:
@@ -279,10 +373,12 @@ async def sync_catalog(
         raise ValueError(
             f"API product {provider_id} does not match website {website['product_id']}"
         )
-    name = catalog_display_name(
-        str(api_record.get("product_name") or api_record.get("productName") or website["name"])
+    source_name = str(
+        api_record.get("product_name") or api_record.get("productName") or website["name"]
     )
-    slug = str(manifest_entry.get("slug") or slugify(website["page_slug"] or name))
+    slug, name, code = catalog_identity(
+        str(manifest_entry.get("slug") or website["page_slug"] or source_name), source_name
+    )
     raw_variants = api_record.get("variants") or website["raw"].get("variants") or []
     variants = [normalize_variant(row) for row in raw_variants if isinstance(row, dict)]
     for row in variants:
@@ -300,6 +396,7 @@ async def sync_catalog(
     avatar = api_record.get("product_avatar_url") or api_record.get("productAvatarUrl")
     if avatar and not any(item.get("url") == avatar for item in image_rows):
         image_rows = [{"url": avatar, "tag": "avatar"}, *image_rows]
+    image_rows = list({str(row["url"]): row for row in image_rows}.values())
     warnings: list[str] = []
     if dry_run:
         return SyncResult(
@@ -308,14 +405,25 @@ async def sync_catalog(
 
     async with database.transaction() as cursor:
         await cursor.execute(
+            "select id,slug from catalogs where provider='gearment' and provider_product_id=%s",
+            (provider_id,),
+        )
+        existing = await cursor.fetchone()
+        await cursor.execute("select id from catalogs where slug=%s", (slug,))
+        collision = await cursor.fetchone()
+        if collision and (not existing or collision["id"] != existing["id"]):
+            raise ValueError(f"Normalized catalog slug already belongs to another catalog: {slug}")
+        if existing:
+            await relocate_catalog_assets(cursor, existing, slug, asset_category, asset_root)
+        await cursor.execute(
             """
             insert into catalogs(provider, provider_product_id, provider_legacy_product_id,
-              public_id, slug, name, product_type, material, brand, source_page_url,
+              public_id, slug, name, code, product_type, material, brand, source_page_url,
               source_page_slug, provider_description, provider_material_json,
               provider_size_chart_json, artwork_guideline_json, active)
-            values ('gearment',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,true)
+            values ('gearment',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,true)
             on duplicate key update provider_legacy_product_id=values(provider_legacy_product_id),
-              name=values(name), source_page_url=values(source_page_url),
+              slug=values(slug), code=values(code), name=values(name), source_page_url=values(source_page_url),
               source_page_slug=values(source_page_slug),
               provider_description=values(provider_description),
               provider_material_json=values(provider_material_json),
@@ -328,6 +436,7 @@ async def sync_catalog(
                 f"cat_{uuid.uuid4().hex[:22]}",
                 slug,
                 name,
+                code,
                 str(manifest_entry.get("product_type") or "other"),
                 manifest_entry.get("material"),
                 manifest_entry.get("brand") or website.get("brand"),
@@ -484,15 +593,29 @@ async def sync_catalog(
             )
 
     asset_count = 0
+    used_placements: dict[str, int] = {}
     for index, image_row in enumerate(image_rows):
         try:
             placement = asset_placement(image_row, index, design_kits)
             kind = "avatar" if placement == "avatar" else "gallery"
-            asset = download_asset(
-                str(image_row["url"]),
-                asset_root / "mockup" / asset_category / slug / f"{kind}-{index + 1}",
-                refresh_assets,
+            target_stem = (
+                asset_root
+                / "mockup"
+                / asset_category
+                / slug
+                / asset_filename(placement, index, used_placements)
             )
+            if not refresh_assets and not _local_asset(str(image_row["url"]), target_stem):
+                previous = await database.fetch_one(
+                    "select local_path from catalog_assets where catalog_id=%s and source_hash=%s order by id limit 1",
+                    (catalog_id, hashlib.sha256(str(image_row["url"]).encode()).hexdigest()),
+                )
+                if previous:
+                    source = asset_root / previous["local_path"]
+                    if source.is_file():
+                        target_stem.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(source, target_stem.with_suffix(source.suffix))
+            asset = download_asset(str(image_row["url"]), target_stem, refresh_assets)
             relative_path = Path(asset["local_path"]).relative_to(asset_root).as_posix()
             await database.execute(
                 """

@@ -403,6 +403,7 @@ async def render_catalog_product_mockup(
     color: Annotated[str, Query(alias="Color", min_length=1)],
     size: Annotated[str | None, Query(alias="Size")] = None,
     placement: Annotated[str, Query(alias="Placement", pattern="^(front|chest|back)$")] = "front",
+    style: Literal["flat", "men", "women"] = "flat",
     width: Annotated[int, Query(ge=120)] = 1500,
     format: ImageFormat = "webp",
     refresh: bool = False,
@@ -415,6 +416,7 @@ async def render_catalog_product_mockup(
             color=color,
             size=size,
             placement=placement,
+            style=style,
         )
     except Exception as error:
         raise HTTPException(status_code=503, detail=f"MySQL unavailable: {error}") from error
@@ -723,6 +725,7 @@ async def render_simple_product_image(
     catalog_slug: str,
     color: str,
     placement: str = "front",
+    style: Literal["flat", "men", "women"] = "flat",
     blank: bool = False,
     repo: CatalogRepository = Depends(get_repository),  # noqa: B008
 ):
@@ -750,6 +753,7 @@ async def render_simple_product_image(
         color=color,
         size=None,
         placement="chest" if placement.lower() == "chest" else resolved_placement,
+        style=style,
         width=min(1500, settings.max_width),
         format="webp",
         refresh=False,

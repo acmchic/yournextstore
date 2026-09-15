@@ -49,4 +49,18 @@ describe("selectGalleryImages", () => {
 	test("selects only the requested color", () => {
 		assert.deepEqual(selectGalleryImages(images, "White", "back"), [images[11], images[10]]);
 	});
+
+	test("keeps the flat image first when model style comes from a render URL", () => {
+		const renderedImages = [
+			"/yorkshire-terrier/sweatshirt_color-black.webp?placement=front&style=men",
+			"/yorkshire-terrier/sweatshirt_color-black.webp?placement=front&style=flat",
+			"/yorkshire-terrier/sweatshirt_color-black.webp?placement=front&style=women",
+		];
+
+		assert.deepEqual(selectGalleryImages(renderedImages, "Black", "front"), [
+			renderedImages[1],
+			renderedImages[2],
+			renderedImages[0],
+		]);
+	});
 });

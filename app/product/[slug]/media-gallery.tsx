@@ -67,6 +67,7 @@ function describeGalleryImage(image: string | undefined, color: string): Gallery
 	const dynamicPlacement = (
 		dynamicParams?.get("Placement") ?? dynamicParams?.get("placement")
 	)?.toLowerCase();
+	const dynamicStyle = dynamicParams?.get("style")?.toLowerCase();
 	const placement =
 		dynamicPlacement === "back"
 			? "back"
@@ -88,7 +89,12 @@ function describeGalleryImage(image: string | undefined, color: string): Gallery
 		url: image,
 		blank: normalized.includes("/img/blank/") || dynamicParams?.get("blank") === "1",
 		placement,
-		style: normalized.includes("-women-") ? "women" : normalized.includes("-men-") ? "men" : "flat",
+		style:
+			dynamicStyle === "women" || normalized.includes("-women-")
+				? "women"
+				: dynamicStyle === "men" || normalized.includes("-men-")
+					? "men"
+					: "flat",
 	};
 }
 

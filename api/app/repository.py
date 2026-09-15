@@ -4,7 +4,7 @@ import hashlib
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 from app.catalog import resolve_design_path
 from app.catalog_assignment import stable_variant_id
@@ -72,6 +72,13 @@ def _guideline_percent(value: Any, default: float) -> float:
         return default
     parsed = float(value)
     return parsed * 100 if 0 < parsed <= 1 else parsed
+
+
+def _normalized_ratio(value: Any, default: float) -> float:
+    if value is None:
+        return default
+    parsed = float(value)
+    return parsed / 100 if parsed > 1 else parsed
 
 
 class CatalogRepository:
@@ -405,7 +412,7 @@ class CatalogRepository:
         templates = (
             await self._database.fetch_all(
                 """
-            select ca.slug catalog, cc.slug color, mt.style, mt.placement
+            select ca.slug catalog, cc.slug color, mt.style, mt.placement, mt.renderer_version
             from catalogs ca
             join mockup_templates mt on mt.catalog_id=ca.id and mt.active=true
             join catalog_colors cc on cc.id=mt.color_id
@@ -418,7 +425,7 @@ class CatalogRepository:
             if catalog_slug
             else await self._database.fetch_all(
                 """
-            select ca.slug catalog, cc.slug color, mt.style, mt.placement
+            select ca.slug catalog, cc.slug color, mt.style, mt.placement, mt.renderer_version
             from product_catalogs pc
             join catalogs ca on ca.id=pc.catalog_id and ca.active=true
             join mockup_templates mt on mt.catalog_id=ca.id and mt.active=true
@@ -434,18 +441,33 @@ class CatalogRepository:
             {
                 **template,
                 "width": 1500,
-                "url": build_media_url(
-                    design_slug=product["design_slug"],
-                    catalog_slug=template["catalog"],
-                    color_slug=template["color"],
-                    style=template["style"],
-                    placement=template["placement"],
+                "url": (
+                    build_catalog_mockup_url(
+                        product_ref=product["slug"],
+                        catalog_slug=template["catalog"],
+                        color_slug=template["color"],
+                        placement=template["placement"],
+                        style=template["style"],
+                        version=str(template["renderer_version"]),
+                    )
+                    if str(template["renderer_version"]).startswith("ai-model-v1:")
+                    else build_media_url(
+                        design_slug=product["design_slug"],
+                        catalog_slug=template["catalog"],
+                        color_slug=template["color"],
+                        style=template["style"],
+                        placement=template["placement"],
+                    )
                 ),
-                "blank_url": build_blank_media_url(
-                    catalog_slug=template["catalog"],
-                    color_slug=template["color"],
-                    style=template["style"],
-                    placement=template["placement"],
+                "blank_url": (
+                    ""
+                    if str(template["renderer_version"]).startswith("ai-model-v1:")
+                    else build_blank_media_url(
+                        catalog_slug=template["catalog"],
+                        color_slug=template["color"],
+                        style=template["style"],
+                        placement=template["placement"],
+                    )
                 ),
             }
             for template in templates
@@ -582,6 +604,7 @@ class CatalogRepository:
         color: str,
         size: str | None,
         placement: str,
+        style: Literal["flat", "men", "women"] = "flat",
     ) -> RenderJob | None:
         variant = await self._database.fetch_one(
             """
@@ -608,6 +631,13 @@ class CatalogRepository:
         variant["variant_id"] = stable_variant_id(
             variant["product_id"], variant["catalog_variant_public_id"]
         )
+
+        if style != "flat":
+            return await self._get_catalog_model_render_job(
+                variant=variant,
+                placement=placement,
+                style=style,
+            )
 
         guideline = variant["artwork_guideline_json"] or {}
         if isinstance(guideline, str):
@@ -771,6 +801,94 @@ class CatalogRepository:
                 "catalog": catalog_slug,
                 "placement": resolved_placement,
                 "template_source": "catalog-asset",
+            },
+        )
+
+    async def _get_catalog_model_render_job(
+        self,
+        *,
+        variant: dict[str, Any],
+        placement: str,
+        style: Literal["men", "women"],
+    ) -> RenderJob | None:
+        template_placement = (
+            "back" if placement == "back" else ("left-chest" if placement == "chest" else "front")
+        )
+        template = await self._database.fetch_one(
+            """
+            select mt.public_id, mt.base_source, mt.print_area_json, mt.template_width,
+              mt.template_height, mt.renderer_version
+            from mockup_templates mt
+            where mt.catalog_id=%s and mt.color_id=%s and mt.style=%s and mt.active=true
+              and mt.placement in (%s, 'front')
+            order by mt.placement=%s desc, mt.id
+            limit 1
+            """,
+            (
+                variant["catalog_id"],
+                variant["color_id"],
+                style,
+                template_placement,
+                template_placement,
+            ),
+        )
+        if not template:
+            return None
+
+        area = template["print_area_json"] or {}
+        if isinstance(area, str):
+            area = json.loads(area)
+        if not isinstance(area, dict):
+            return None
+        source_width = int(template["template_width"] or 0)
+        source_height = int(template["template_height"] or 0)
+        if source_width < 1 or source_height < 1:
+            return None
+        try:
+            left_ratio = _normalized_ratio(area.get("x"), 0.30)
+            top_ratio = _normalized_ratio(area.get("y"), 0.25)
+            width_ratio = _normalized_ratio(area.get("width"), 0.40)
+            height_ratio = _normalized_ratio(area.get("height"), 0.40)
+        except (TypeError, ValueError):
+            return None
+        if (
+            left_ratio < 0
+            or top_ratio < 0
+            or width_ratio <= 0
+            or height_ratio <= 0
+            or left_ratio + width_ratio > 1
+            or top_ratio + height_ratio > 1
+        ):
+            return None
+
+        left = left_ratio * source_width
+        top = top_ratio * source_height
+        width = width_ratio * source_width
+        height = height_ratio * source_height
+        return RenderJob(
+            product_id=variant["product_id"],
+            artwork_id=variant["artwork_id"],
+            template_id=template["public_id"],
+            variant_id=variant["variant_id"],
+            base_source=template["base_source"],
+            artwork_source=f"design/{resolve_design_path(variant['artwork_slug'], settings)}",
+            print_area=PrintArea(
+                dst_quad=[
+                    (left, top),
+                    (left + width, top),
+                    (left + width, top + height),
+                    (left, top + height),
+                ],
+                displacement_strength=2.0,
+                shadow_opacity=0.30,
+                highlight_opacity=0.10,
+                surface_mode="auto",
+            ),
+            version=f"{template['renderer_version']}:{variant['artwork_checksum']}",
+            metadata={
+                "catalog": variant["catalog_id"],
+                "placement": placement,
+                "template_source": "ai-model-template",
             },
         )
 

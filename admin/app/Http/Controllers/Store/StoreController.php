@@ -102,6 +102,31 @@ class StoreController extends Controller
         return $this->apiPath().'/public/design';
     }
 
+    private function modelMockupRoot(): string
+    {
+        return $this->apiPath().'/public/mockup';
+    }
+
+    private function modelMockupCategory(int $catalog): string
+    {
+        $departments = $this->table('catalog_taxonomy')
+            ->where('catalog_id', $catalog)
+            ->pluck('department')
+            ->map(fn ($department): string => strtolower((string) $department));
+
+        if ($departments->contains('men') && $departments->contains('women')) {
+            return 'unisex';
+        }
+
+        return match (true) {
+            $departments->contains('women') => 'women',
+            $departments->contains('kids') => 'kids',
+            $departments->contains('accessories') => 'accessories',
+            $departments->contains('home-living') => 'home-living',
+            default => 'other',
+        };
+    }
+
     public function importProducts(Request $request): RedirectResponse
     {
         $data = $request->validate(['folder' => 'required|string|max:500']);
@@ -156,8 +181,8 @@ class StoreController extends Controller
      */
     private function audit(Request $request, string $entity, int $id, array $before, array $after): void
     {
-        // Same connection as the business write, so both commit or roll back together.
-        $this->table('activity_logs')->insert([
+        // Admin audit records live on the default Laravel connection; commerce data uses `store`.
+        DB::table('activity_logs')->insert([
             'admin_user_id' => $request->user()?->getAuthIdentifier(),
             'entity_type' => $entity,
             'entity_id' => $id,
@@ -460,10 +485,19 @@ class StoreController extends Controller
     public function catalogForm(?int $catalog = null): Response
     {
         return Inertia::render('catalog/form', [
-            'catalog' => $catalog === null ? null : $this->table('catalogs')->select('id', 'name', 'slug', 'product_type', 'brand', 'material', 'active', 'sort_order', 'description_override', 'provider')->find($catalog) ?? abort(404),
+            'catalog' => $catalog === null ? null : $this->table('catalogs')->select('id', 'name', 'slug', 'product_type', 'brand', 'material', 'active', 'sort_order', 'description_override', 'model_mockup_prompt', 'provider')->find($catalog) ?? abort(404),
             'variants' => $catalog === null ? [] : $this->table('catalog_variants as v')
                 ->join('catalog_colors as c', 'c.id', '=', 'v.color_id')->join('catalog_sizes as s', 's.id', '=', 'v.size_id')
                 ->where('v.catalog_id', $catalog)->select('v.id', 'v.sku', 'v.default_price_minor', 'v.currency', 'v.stock_policy', 'v.stock_quantity', 'v.active', 'c.name as color', 's.label as size')->orderBy('c.name')->orderBy('s.sort_order')->get(),
+            'colors' => $catalog === null ? [] : $this->table('catalog_colors')
+                ->where('catalog_id', $catalog)->where('active', true)
+                ->select('id', 'slug', 'name')->orderBy('sort_order')->get(),
+            'modelMockups' => $catalog === null ? [] : $this->table('mockup_templates as template')
+                ->join('catalog_colors as color', 'color.id', '=', 'template.color_id')
+                ->where('template.catalog_id', $catalog)
+                ->where('template.renderer_version', 'like', 'ai-model-v1:%')
+                ->select('template.id', 'template.style', 'template.placement', 'template.base_source', 'template.template_width', 'template.template_height', 'color.name as color_name')
+                ->orderBy('color.sort_order')->orderBy('template.style')->orderBy('template.placement')->get(),
         ]);
     }
 
@@ -476,7 +510,8 @@ class StoreController extends Controller
             'name' => 'required|string|max:190',
             'slug' => ['required', 'string', 'max:190', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', Rule::unique('store.catalogs', 'slug')->ignore($catalog)],
             'product_type' => 'required|string|max:100', 'brand' => 'nullable|string|max:190', 'material' => 'nullable|string|max:190',
-            'description_override' => 'nullable|string|max:60000', 'active' => 'required|boolean', 'sort_order' => 'required|integer|min:0|max:2147483647',
+            'description_override' => 'nullable|string|max:60000', 'model_mockup_prompt' => 'nullable|string|max:20000',
+            'active' => 'required|boolean', 'sort_order' => 'required|integer|min:0|max:2147483647',
         ]);
         $id = $this->db()->transaction(function () use ($request, $catalog, $data): int {
             $before = $catalog === null ? null : $this->table('catalogs')->where('id', $catalog)->lockForUpdate()->first();
@@ -495,6 +530,104 @@ class StoreController extends Controller
         });
 
         return to_route('catalog.edit', $id)->with('success', 'Catalog saved.');
+    }
+
+    public function storeCatalogModelMockup(Request $request, int $catalog): RedirectResponse
+    {
+        $catalogRecord = $this->find('catalogs', $catalog);
+        $data = $request->validate([
+            'color_id' => [
+                'required',
+                'integer',
+                Rule::exists('store.catalog_colors', 'id')->where(
+                    fn (Builder $query): Builder => $query->where('catalog_id', $catalog)->where('active', true)
+                ),
+            ],
+            'style' => ['required', Rule::in(['men', 'women'])],
+            'placement' => ['required', Rule::in(['front', 'left-chest', 'back'])],
+            'asset' => 'required|file|mimes:jpg,jpeg,png,webp|max:20480',
+            'print_area_x' => 'required|numeric|min:0|max:100',
+            'print_area_y' => 'required|numeric|min:0|max:100',
+            'print_area_width' => 'required|numeric|min:1|max:100',
+            'print_area_height' => 'required|numeric|min:1|max:100',
+        ]);
+        if ($data['print_area_x'] + $data['print_area_width'] > 100 || $data['print_area_y'] + $data['print_area_height'] > 100) {
+            throw ValidationException::withMessages(['asset' => 'Print area must stay within the image bounds.']);
+        }
+
+        $color = $this->table('catalog_colors')->where('id', $data['color_id'])->where('catalog_id', $catalog)->first(['id', 'slug']);
+        abort_unless($color !== null, 404);
+        $asset = $request->file('asset');
+        $image = $asset === null ? false : getimagesize($asset->getRealPath());
+        if ($image === false || $image[0] < 500 || $image[1] < 500) {
+            throw ValidationException::withMessages(['asset' => 'Upload a model mockup that is at least 500 by 500 pixels.']);
+        }
+
+        $extension = strtolower($asset->extension() ?: $asset->getClientOriginalExtension());
+        $filename = implode('_', [
+            $data['style'],
+            $color->slug,
+            str_replace('-', '_', $data['placement']),
+        ]).'.'.$extension;
+        $category = $this->modelMockupCategory($catalog);
+        $directory = $this->modelMockupRoot().DIRECTORY_SEPARATOR.$category.DIRECTORY_SEPARATOR.$catalogRecord->slug;
+        File::ensureDirectoryExists($directory);
+        $asset->move($directory, $filename);
+
+        $baseSource = 'mockup/'.$category.'/'.$catalogRecord->slug.'/'.$filename;
+        $printAreaJson = json_encode([
+            'x' => (float) $data['print_area_x'] / 100,
+            'y' => (float) $data['print_area_y'] / 100,
+            'width' => (float) $data['print_area_width'] / 100,
+            'height' => (float) $data['print_area_height'] / 100,
+        ], JSON_THROW_ON_ERROR);
+        $templatePayload = [
+            'base_source' => $baseSource,
+            'print_area_json' => $printAreaJson,
+            'template_width' => $image[0],
+            'template_height' => $image[1],
+            'renderer_version' => 'ai-model-v1:'.hash(
+                'sha256',
+                hash_file('sha256', $directory.DIRECTORY_SEPARATOR.$filename).':'.$printAreaJson
+            ),
+            'active' => true,
+        ];
+
+        $this->db()->transaction(function () use ($request, $catalog, $color, $data, $templatePayload): void {
+            $existing = $this->table('mockup_templates')
+                ->where('catalog_id', $catalog)->where('color_id', $color->id)
+                ->where('style', $data['style'])->where('placement', $data['placement'])
+                ->lockForUpdate()->first();
+            if ($existing === null) {
+                $templateId = $this->table('mockup_templates')->insertGetId([
+                    'public_id' => (string) Str::uuid(),
+                    'catalog_id' => $catalog,
+                    'color_id' => $color->id,
+                    'style' => $data['style'],
+                    'placement' => $data['placement'],
+                    ...$templatePayload,
+                ]);
+            } else {
+                $templateId = $existing->id;
+                $this->table('mockup_templates')->where('id', $templateId)->update($templatePayload);
+            }
+            $this->audit($request, 'catalog-model-mockup', $templateId, (array) $existing, $templatePayload);
+        });
+
+        return to_route('catalog.edit', $catalog)->with('success', 'Model mockup template saved.');
+    }
+
+    public function catalogModelMockupImage(int $catalog, int $template)
+    {
+        $source = $this->table('mockup_templates')
+            ->where('id', $template)->where('catalog_id', $catalog)
+            ->where('renderer_version', 'like', 'ai-model-v1:%')
+            ->value('base_source');
+        $root = realpath($this->apiPath().'/public');
+        $file = $root === false ? null : $this->resolvePublicAsset($source, $root);
+        abort_unless($file !== null, 404);
+
+        return response()->file($file, ['Cache-Control' => 'private, max-age=3600']);
     }
 
     public function saveCatalogVariant(Request $request, int $catalog, int $variant): RedirectResponse

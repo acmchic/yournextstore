@@ -152,7 +152,7 @@ async def run_gearment_sync(args: argparse.Namespace) -> None:
             if api_by_id.get(str(entry["product_id"]))
             and website_by_id.get(str(entry["product_id"]))
         ]
-        if args.apply and not args.no_truncate:
+        if args.apply and args.truncate and not args.no_truncate:
             # Reset only the catalogs in this batch. Local mockups are kept so
             # the following import can reuse them without a provider request.
             await truncate_catalogs(

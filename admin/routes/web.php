@@ -34,6 +34,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('catalog/{catalog}/edit', [StoreController::class, 'catalogForm'])->whereNumber('catalog')->name('catalog.edit');
     Route::get('catalog/{catalog}/asset', [StoreController::class, 'catalogAssetImage'])->whereNumber('catalog')->name('catalog.asset');
     Route::put('catalog/{catalog}', [StoreController::class, 'saveCatalog'])->whereNumber('catalog')->name('catalog.update');
+    Route::post('catalog/{catalog}/model-mockups', [StoreController::class, 'storeCatalogModelMockup'])->whereNumber('catalog')->name('catalog.model-mockups.store');
+    Route::get('catalog/{catalog}/model-mockups/{template}/asset', [StoreController::class, 'catalogModelMockupImage'])->whereNumber(['catalog', 'template'])->name('catalog.model-mockups.asset');
     Route::put('catalog/{catalog}/variants/{variant}', [StoreController::class, 'saveCatalogVariant'])->whereNumber(['catalog', 'variant'])->name('catalog.variants.update');
     Route::get('orders', [StoreController::class, 'orders'])->name('orders.index');
     Route::get('orders/{order}', [StoreController::class, 'order'])->whereNumber('order')->name('orders.show');
