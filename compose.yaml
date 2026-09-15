@@ -71,6 +71,7 @@ services:
       context: .
       args:
         STORE_API_URL: http://api:8000
+        NEXT_PUBLIC_URL: ${NEXT_PUBLIC_URL:-https://teebravo.com}
     restart: unless-stopped
     depends_on:
       api:

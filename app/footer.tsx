@@ -74,20 +74,27 @@ async function FooterLegalPages() {
 	const pages = await commerce.legalPageBrowse().catch(() => ({ data: [] }));
 	return (
 		<FooterColumn title="Legal">
-			{pages.data.length > 0 ? (
-				pages.data.map((page) => (
-					<FooterLink key={page.href} href={`/legal${page.href}`}>
-						{page.label}
-					</FooterLink>
-				))
-			) : (
-				<>
-					<FooterLink href="/legal/terms">Terms of Service</FooterLink>
-					<FooterLink href="/legal/privacy">Privacy Policy</FooterLink>
-				</>
-			)}
+			{pages.data.map((page) => (
+				<FooterLink key={page.href} href={getLegalHref(page.href)}>
+					{page.label}
+				</FooterLink>
+			))}
 		</FooterColumn>
 	);
+}
+
+function getLegalHref(href: string) {
+	if (href === "/about") {
+		return "/about";
+	}
+
+	const slug = href.replace(/^\/legal\//, "").replace(/^\//, "");
+	return slug === "shipping-policy" ||
+		slug === "return-policy" ||
+		slug === "privacy-policy" ||
+		slug === "terms-of-service"
+		? `/${slug}`
+		: `/faq-policy`;
 }
 
 function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
@@ -148,9 +155,9 @@ export function Footer() {
 					<FooterColumn title="Support">
 						<FooterLink href="/about">About Us</FooterLink>
 						<FooterLink href="/faq">FAQ</FooterLink>
-						<FooterLink href="/faq#shipping">Shipping</FooterLink>
-						<FooterLink href="/faq#returns">Returns</FooterLink>
-						<FooterLink href="/faq#care">Garment Care</FooterLink>
+						<FooterLink href="/shipping-policy">Shipping</FooterLink>
+						<FooterLink href="/return-policy">Returns</FooterLink>
+						<FooterLink href="/faq">Garment Care</FooterLink>
 						<FooterContactLink />
 						<FooterBlogLink />
 					</FooterColumn>

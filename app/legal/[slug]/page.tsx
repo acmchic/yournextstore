@@ -5,6 +5,10 @@ import { commerce } from "@/lib/commerce";
 import { JsonLdScript } from "@/lib/json-ld";
 import { storefront } from "@/lib/storefront-config";
 
+// Legal pages are CMS-backed and may change independently of the storefront build.
+// Allow the request to resolve the published page instead of forcing prerendering.
+export const unstable_instant = false;
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
 	"use cache";
 	cacheLife({ stale: 0, revalidate: 30, expire: 60 });

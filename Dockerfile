@@ -8,6 +8,8 @@ WORKDIR /app
 COPY . .
 ARG STORE_API_URL=http://api:8000
 ENV STORE_API_URL=$STORE_API_URL
+ARG NEXT_PUBLIC_URL=https://teebravo.com
+ENV NEXT_PUBLIC_URL=$NEXT_PUBLIC_URL
 RUN bun run build
 
 FROM oven/bun:1.2-slim AS runner

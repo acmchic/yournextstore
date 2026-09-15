@@ -21,6 +21,7 @@ RUN sed -i \
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --timeout 120 --retries 5 -r requirements.txt
 COPY app ./app
+COPY policies.json ./policies.json
 
 EXPOSE 8000
 

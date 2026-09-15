@@ -2,6 +2,7 @@
 
 import json
 
+from app.settings import settings
 
 DELIVERY_KEYS = (
     "processing_min_business_days",
@@ -48,6 +49,7 @@ def policy_values(config):
         config.get("express_transit_min_business_days"),
         config.get("express_transit_max_business_days"),
     )
+    values["storefront_url"] = settings.storefront_public_url
     return values
 
 

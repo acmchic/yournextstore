@@ -1,0 +1,69 @@
+{
+	"version": 1,
+	"details": {
+		"business_name": "TeeBravo",
+		"business_address": "",
+		"support_email": "support@teebravo.com",
+		"about_story": "",
+		"restrictions": "Orders ship to US addresses supported by the carrier. PO boxes, military addresses and other address restrictions depend on the selected product and carrier; contact support before ordering if you are unsure.",
+		"returns_eligibility": "",
+		"returns_window": "",
+		"returns_method": "",
+		"returns_fees": "",
+		"refund_timing": "",
+		"privacy_details": "",
+		"terms_conditions": ""
+	},
+	"delivery": {
+		"processing_min_business_days": 1,
+		"processing_max_business_days": 3,
+		"standard_transit_min_business_days": 2,
+		"standard_transit_max_business_days": 5,
+		"express_transit_min_business_days": null,
+		"express_transit_max_business_days": null
+	},
+	"pages": [
+		{
+			"slug": "about",
+			"title": "About TeeBravo",
+			"content": "TeeBravo offers graphic clothing for customers in the United States.\n\nOur story\n{{about_story}}\n\nContact\n{{business_name}}\n{{business_address}}\n{{support_email}}\nWebsite: {{storefront_url}}",
+			"published": false
+		},
+		{
+			"slug": "contact",
+			"title": "Contact Us",
+			"content": "For product questions, order support, shipping questions, returns or privacy requests, email {{support_email}}. For an existing order, include your order reference and a description of your request. Do not email payment card details.\n\nReturns must follow the instructions in our Returns & Refunds policy. Contact us before sending merchandise; our business address is not automatically a return address.\n\nContact\n{{business_name}}\n{{business_address}}\n{{support_email}}\nWebsite: {{storefront_url}}",
+			"published": false
+		},
+		{
+			"slug": "shipping-policy",
+			"title": "Shipping Policy",
+			"content": "Shipping destinations\nWe ship to the United States. Destination and delivery restrictions: {{restrictions}}\n\nOrder processing\nProcessing takes {{processing_time}} before shipment.\n\nShipping methods and charges (USD)\nStandard: {{standard_first}} for the first item plus {{standard_additional}} for each additional item in the same order.\nExpress: {{express_first}} for the first item plus {{express_additional}} for each additional item in the same order.\n\nEstimated transit after processing\nStandard: {{standard_transit}}.\nExpress: {{express_transit}}.\nTotal estimated delivery time includes processing plus transit. These are estimates, not guaranteed arrival dates.\n\nCosts before payment\nThe selected shipping charge, item subtotal and applicable taxes are shown at checkout before payment.\n\nDelivery help\nFor a delayed, missing or damaged shipment, contact us with your order reference. See Returns & Refunds for the applicable request window and resolution terms.\n\nContact: {{support_email}}\nWebsite: {{storefront_url}}",
+			"published": true
+		},
+		{
+			"slug": "return-policy",
+			"title": "Returns & Refunds",
+			"content": "Eligibility\nThe following terms cover defective, damaged or incorrect items as well as change of mind and incorrect size selections:\n{{returns_eligibility}}\n\nRequest window\n{{returns_window}}\n\nHow to request a return\n{{returns_method}}\nContact us with your order reference and the reason for your request. Follow the approved return instructions before sending an item.\n\nReturn shipping and fees\n{{returns_fees}}\n\nRefunds\n{{refund_timing}}\n\nContact\n{{business_name}}\n{{business_address}}\n{{support_email}}\nWebsite: {{storefront_url}}",
+			"published": false
+		},
+		{
+			"slug": "privacy-policy",
+			"title": "Privacy Policy",
+			"content": "Information used to fulfil orders\nWe collect order information including your name, email, delivery address and purchased items to process payment, fulfil orders and provide support. We retain an order address snapshot with each order. Information you send to support is used to handle your request.\n\nPayments\nStripe collects payment information on its hosted checkout page. Payment status and transaction identifiers are used to reconcile your order. Do not send card information by email.\n\nCookies and preferences\nThe storefront uses an HttpOnly cart cookie to associate your browser with a shopping cart. It also stores a display theme preference when you choose one.\n\nData handling and your choices\nThe following describes service providers, retention, any additional cookies or analytics, disclosures, rights and how to submit privacy requests:\n{{privacy_details}}\n\nContact\n{{business_name}}\n{{business_address}}\n{{support_email}}\nWebsite: {{storefront_url}}",
+			"published": false
+		},
+		{
+			"slug": "terms-of-service",
+			"title": "Terms of Service",
+			"content": "Shopping with TeeBravo\nThese terms apply to purchases through {{storefront_url}}. Review the selected product, color, size and quantity before placing your order.\n\nPrices and payment\nPrices are in US dollars. Item charges, shipping and applicable taxes are presented before payment. Payment is processed through Stripe hosted checkout.\n\nShipping and returns\nOur Shipping Policy and Returns & Refunds policy describe processing, transit estimates, delivery restrictions, return eligibility, fees and refund timing. Read them before purchasing.\n\nAdditional purchase terms\nThe following covers order acceptance, cancellation or changes, errors, product use, intellectual property, liability and applicable dispute terms:\n{{terms_conditions}}\n\nContact\n{{business_name}}\n{{business_address}}\n{{support_email}}\nWebsite: {{storefront_url}}",
+			"published": false
+		},
+		{
+			"slug": "faq",
+			"title": "Frequently Asked Questions",
+			"content": "Where do you ship?\nWe ship to the United States. Restrictions: {{restrictions}}\n\nHow much is shipping?\nStandard is {{standard_first}} for the first item plus {{standard_additional}} per additional item. Express is {{express_first}} for the first item plus {{express_additional}} per additional item. Charges are in USD and shown before payment.\n\nWhen will my order arrive?\nProcessing: {{processing_time}}. After processing, estimated Standard transit is {{standard_transit}}; Express transit is {{express_transit}}.\n\nCan I return an item?\n{{returns_eligibility}}\nRequest window: {{returns_window}}. Read Returns & Refunds for the procedure, fees and refund timing.\n\nHow do I choose a size?\nReview the size guide for the selected product and catalog before ordering.\n\nHow do I get help?\nEmail {{support_email}} with your order reference. Never include card details.\n\nContact\n{{business_name}}\n{{business_address}}\n{{support_email}}\nWebsite: {{storefront_url}}",
+			"published": false
+		}
+	]
+}

@@ -27,6 +27,8 @@ class CheckoutSettingsController extends Controller
         $values['standard_transit'] = self::businessDayRange($settings->standard_transit_min_business_days, $settings->standard_transit_max_business_days);
         $values['express_transit'] = self::businessDayRange($settings->express_transit_min_business_days, $settings->express_transit_max_business_days);
 
+        $values['storefront_url'] = rtrim(config('services.storefront.url'), '/');
+
         return $values;
     }
 

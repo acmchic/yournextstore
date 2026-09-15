@@ -12,6 +12,16 @@ const nextConfig: NextConfig = {
 	devIndicators: false,
 	reactCompiler: true,
 	cacheComponents: true,
+	async rewrites() {
+		return [
+			{ source: "/shipping-policy", destination: "/legal/shipping-policy" },
+			{ source: "/return-policy", destination: "/legal/return-policy" },
+			{ source: "/privacy-policy", destination: "/legal/privacy-policy" },
+			{ source: "/terms-of-service", destination: "/legal/terms-of-service" },
+			{ source: "/contact-policy", destination: "/legal/contact" },
+			{ source: "/faq-policy", destination: "/legal/faq" },
+		];
+	},
 	experimental: {
 		typedEnv: true,
 		serverComponentsHmrCache: false,

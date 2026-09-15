@@ -2,7 +2,7 @@
 
 ## Cập nhật cart / checkout / policies ngày 2026-09-10
 
-- Cart được lưu trong MySQL qua cookie HttpOnly chứa cart ID. Trang `/cart`, cart drawer và checkout đều đọc cùng cart; API từ chối sửa cart trong lúc một Stripe Checkout Session đang mở.
+- Cart được lưu trong MySQL qua cookie HttpOnly chứa cart ID. Trang `/cart`, cart drawer và checkout đều đọc cùng cart. Khi người dùng sửa cart trong lúc một Stripe Checkout Session đang mở, storefront hủy session đó rồi thử lại thao tác một lần để snapshot thanh toán không lệch với cart.
 - `/checkout` tạo Stripe-hosted Checkout Session cho USD/US. `card` là payment-method type duy nhất trong code; Apple Pay và Google Pay được Stripe hiển thị trong Checkout khi domain, Dashboard, browser và thiết bị đủ điều kiện. Không có form billing tự xây.
 - Checkout giữ snapshot bất biến của item, giá, shipping và cấu hình thuế; giữ stock cho đến khi thanh toán hoặc Session hết hạn. Chỉ webhook Stripe đã xác minh chữ ký hoặc reconciliation trực tiếp với Stripe mới tạo order `paid`. Endpoint tạo order chưa thanh toán cũ trả `410`.
 - Thông tin tên, email và địa chỉ giao hàng US được lưu vào `customers` và bản sao theo đơn trong `order_addresses`. Admin xem được carts, checkout attempts, shipping, tax và Stripe identifiers trên order.

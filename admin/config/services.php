@@ -14,6 +14,10 @@ return [
     |
     */
 
+    'storefront' => [
+        'url' => env('STOREFRONT_PUBLIC_URL', 'https://teebravo.com'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

@@ -82,9 +82,11 @@ class Settings:
         os.getenv("STOREFRONT_PUBLIC_URL") or "https://teebravo.com"
     ).rstrip("/")
     checkout_success_url: str = os.getenv("CHECKOUT_SUCCESS_URL") or (
-        "https://teebravo.com/checkout/success?session_id={CHECKOUT_SESSION_ID}"
+        storefront_public_url + "/checkout/success?session_id={CHECKOUT_SESSION_ID}"
     )
-    checkout_cancel_url: str = os.getenv("CHECKOUT_CANCEL_URL") or "https://teebravo.com/checkout"
+    checkout_cancel_url: str = (
+        os.getenv("CHECKOUT_CANCEL_URL") or storefront_public_url + "/checkout"
+    )
 
 
 settings = Settings()
