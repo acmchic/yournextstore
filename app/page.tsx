@@ -1,27 +1,49 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
-import { CatalogShowcase } from "@/components/sections/catalog-showcase";
 import { Hero } from "@/components/sections/hero";
 import { HomeCollections } from "@/components/sections/home-collections";
+import { storefront } from "@/lib/storefront-config";
+
+export const metadata: Metadata = {
+	title: { absolute: "Graphic Tees, Hoodies & Sweatshirts | TeeBravo" },
+	description: storefront.description,
+	alternates: { canonical: "/" },
+	openGraph: {
+		type: "website",
+		title: "Graphic Tees, Hoodies & Sweatshirts | TeeBravo",
+		description: storefront.description,
+		url: "/",
+	},
+};
 
 function ProductGridSkeleton() {
 	return (
-		<section className="relative pt-28 pb-16">
-			<div className="max-w-[1132px] mx-auto px-4">
-				<div className="text-center mb-12">
-					<div className="h-12 w-72 bg-secondary rounded animate-pulse mx-auto mb-4" />
-					<div className="h-5 w-96 bg-secondary rounded animate-pulse mx-auto" />
+		<section className="border-b border-border" aria-busy="true" aria-label="Loading TeeBravo homepage">
+			<div className="grid grid-cols-3 border-b border-border">
+				{Array.from({ length: 3 }).map((_, i) => (
+					<div
+						key={`buying-skeleton-${i}`}
+						className="h-28 border-r border-border bg-secondary/60 last:border-r-0"
+					/>
+				))}
+			</div>
+			<div className="border-b border-border px-6 py-12 md:px-10">
+				<div className="h-3 w-24 animate-pulse bg-secondary" />
+				<div className="mt-4 h-10 max-w-md animate-pulse bg-secondary" />
+				<div className="mt-8 grid grid-cols-2 gap-px bg-border md:grid-cols-4">
+					{Array.from({ length: 4 }).map((_, i) => (
+						<div key={`style-skeleton-${i}`} className="h-36 animate-pulse bg-background" />
+					))}
 				</div>
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-					{Array.from({ length: 6 }).map((_, i) => (
-						<div
-							key={`skeleton-${i}`}
-							className="border border-gray-600 border-b-[3px] border-b-hy-pink bg-card rounded overflow-hidden"
-						>
-							<div className="aspect-square bg-secondary animate-pulse" />
-							<div className="p-6 space-y-3">
-								<div className="h-5 w-3/4 bg-secondary rounded animate-pulse" />
-								<div className="h-6 w-1/3 bg-secondary rounded animate-pulse" />
-							</div>
+			</div>
+			<div className="px-4 py-12 md:px-8">
+				<div className="mb-8 h-8 w-48 animate-pulse bg-secondary" />
+				<div className="grid grid-cols-2 gap-x-3 gap-y-8 md:grid-cols-4 md:gap-x-6">
+					{Array.from({ length: 4 }).map((_, i) => (
+						<div key={`product-skeleton-${i}`}>
+							<div className="aspect-[3/4] animate-pulse bg-secondary" />
+							<div className="mt-4 h-4 w-3/4 animate-pulse bg-secondary" />
+							<div className="mt-2 h-4 w-1/3 animate-pulse bg-secondary" />
 						</div>
 					))}
 				</div>
@@ -34,9 +56,6 @@ export default function Home() {
 	return (
 		<>
 			<Hero />
-			<Suspense fallback={<ProductGridSkeleton />}>
-				<CatalogShowcase />
-			</Suspense>
 			<Suspense fallback={<ProductGridSkeleton />}>
 				<HomeCollections />
 			</Suspense>

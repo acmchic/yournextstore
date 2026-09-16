@@ -93,7 +93,7 @@ function getLegalHref(href: string) {
 		slug === "return-policy" ||
 		slug === "privacy-policy" ||
 		slug === "terms-of-service"
-		? `/${slug}`
+		? `/legal/${slug}`
 		: `/faq-policy`;
 }
 
@@ -157,7 +157,6 @@ export function Footer() {
 						<FooterLink href="/faq">FAQ</FooterLink>
 						<FooterLink href="/shipping-policy">Shipping</FooterLink>
 						<FooterLink href="/return-policy">Returns</FooterLink>
-						<FooterLink href="/faq">Garment Care</FooterLink>
 						<FooterContactLink />
 						<FooterBlogLink />
 					</FooterColumn>

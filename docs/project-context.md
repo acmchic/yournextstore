@@ -104,6 +104,8 @@ Renderer kết hợp artwork với ảnh catalog, màu và vị trí in theo d�
 
 Catalog có thể lưu một prompt tạo model mockup dùng lại. Admin tạo asset model offline một lần bằng prompt kèm ảnh reference của catalog, duyệt thủ công rồi upload vào `mockup_templates` với style `men` hoặc `women`, màu và vùng in chuẩn hóa. Asset được lưu tại `api/public/mockup/{catalog-group}/{catalog-slug}/{style}_{color}_{placement}.{ext}`. API chỉ render artwork bằng code lên template đã duyệt, không gọi AI/VTON trong request của khách. Các model templates là ảnh bổ sung và chỉ hiện cho đúng màu có template; ảnh chính vẫn phải phản ánh đúng variant theo checklist Merchant Center.
 
+Với các model mockup đã được kiểm duyệt và đưa trực tiếp vào repository nhưng chưa có dòng `mockup_templates`, API dùng fallback file theo cùng quy ước `{style}_{color}_front.{ext}` và ghép artwork bằng pipeline thường với vùng in an toàn. Template được lưu từ admin luôn được ưu tiên, vì chứa vùng in đã hiệu chỉnh chính xác cho catalog đó.
+
 `api/scripts/analyze_catalog_mockups.py` chuẩn bị vùng in offline. Guideline từ provider là vùng an toàn mặc định; analyzer còn nhận diện các vùng sản phẩm lặp lại trong một mockup (ví dụ hai tumbler) và lưu tọa độ chuẩn hóa vào `catalog_mockup_metadata`. Lúc phục vụ request, renderer chỉ đọc metadata và đặt một bản artwork theo chế độ `contain` vào từng vùng, không chạy computer vision. Artwork RGB/JPEG cũng được loại nền gần trắng nối với mép ảnh trước khi ghép, nhưng giữ lại chi tiết trắng nằm kín bên trong design.
 
 Các HTTP contract đang tồn tại trong `api/app/main.py`:

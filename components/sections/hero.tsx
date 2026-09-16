@@ -1,53 +1,50 @@
 import Image from "next/image";
 import Link from "next/link";
-import menImage from "@/public/mockup-samples/black-front-men.webp";
-import womenImage from "@/public/mockup-samples/black-front-women.webp";
+import { Button } from "@/components/ui/button";
+import heroImage from "@/public/mockup-samples/black-front.webp";
 
 export function Hero() {
 	return (
 		<section aria-label="Graphic clothing" className="border-b border-border">
-			<div className="grid grid-cols-2">
-				<Link
-					href="/shop/women"
-					className="group relative block h-[58svh] min-h-[340px] overflow-hidden border-r border-border bg-secondary md:h-[72svh]"
-					aria-label="Shop women"
-				>
-					<Image
-						src={womenImage}
-						alt="Women's graphic tee styling"
-						fill
-						priority
-						sizes="50vw"
-						className="object-cover object-top transition-transform duration-700 group-hover:scale-[1.02] motion-reduce:transition-none"
-					/>
-				</Link>
-				<Link
-					href="/shop/unisex"
-					className="group relative block h-[58svh] min-h-[340px] overflow-hidden bg-secondary md:h-[72svh]"
-					aria-label="Shop unisex"
-				>
-					<Image
-						src={menImage}
-						alt="Men's graphic tee styling"
-						fill
-						priority
-						sizes="50vw"
-						className="object-cover object-top transition-transform duration-700 group-hover:scale-[1.02] motion-reduce:transition-none"
-					/>
-				</Link>
-			</div>
-			<div className="px-6 py-10 text-center md:py-12">
-				<p className="text-[10px] uppercase tracking-[0.2em]">TeeBravo / Graphic clothing</p>
-				<h1 className="mt-3 text-2xl font-semibold uppercase tracking-tight md:text-4xl">
-					An everyday point of view.
-				</h1>
-				<div className="mt-6 flex justify-center gap-8 text-xs uppercase">
-					<Link href="/shop/women" className="py-2 underline underline-offset-4">
-						Shop women
-					</Link>
-					<Link href="/shop/unisex" className="py-2 underline underline-offset-4">
-						Shop unisex
-					</Link>
+			<div className="relative isolate h-[min(680px,calc(100svh-7rem))] min-h-[560px] overflow-hidden bg-secondary">
+				<Image
+					src={heroImage}
+					alt="Black graphic tee with a colorful front print"
+					fill
+					priority
+					sizes="100vw"
+					className="object-cover object-center transition-transform duration-700 hover:scale-[1.015] motion-reduce:transition-none md:object-[center_42%]"
+				/>
+				<div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+				<div className="relative mx-auto flex h-full max-w-[1400px] items-end px-5 pb-8 sm:px-8 sm:pb-12 lg:px-10 lg:pb-16">
+					<div className="max-w-xl text-white">
+						<p className="text-[10px] uppercase tracking-[0.24em] text-white/75">
+							TeeBravo / Graphic clothing
+						</p>
+						<h1 className="mt-4 max-w-lg font-display text-4xl leading-[0.95] tracking-[-0.03em] sm:text-6xl lg:text-7xl">
+							Graphic tees for your everyday.
+						</h1>
+						<p className="mt-5 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
+							Start with a design you want to wear. Choose the tee, hoodie or layer that fits your rotation.
+						</p>
+						<div className="mt-7 flex flex-wrap gap-3">
+							<Button
+								asChild
+								size="lg"
+								className="h-11 rounded-none bg-white px-6 text-black hover:bg-white/90"
+							>
+								<Link href="/shop/unisex?type=t-shirts">Shop graphic tees</Link>
+							</Button>
+							<Button
+								asChild
+								variant="outline"
+								size="lg"
+								className="h-11 rounded-none border-white/70 bg-black/10 px-6 text-white hover:bg-white hover:text-black"
+							>
+								<Link href="/products">Explore new arrivals</Link>
+							</Button>
+						</div>
+					</div>
 				</div>
 			</div>
 		</section>

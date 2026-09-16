@@ -114,40 +114,43 @@ export function ProductCard({
 						/>
 					))}
 			</div>
-			<div className="flex min-w-0 items-center justify-between gap-2 border-t border-border pt-3">
-				<h3 className="min-w-0 truncate text-xs font-medium text-foreground sm:text-sm" title={product.name}>
+			<div className="min-w-0 border-t border-border pt-3">
+				<h3
+					className="line-clamp-2 min-h-10 text-xs font-medium leading-5 text-foreground sm:text-sm"
+					title={product.name}
+				>
 					{product.name}
 				</h3>
-				<p className="shrink-0 whitespace-nowrap font-display text-xs text-foreground sm:text-sm">
-					{priceDisplay}
-				</p>
-			</div>
-			{showCatalogMeta && (catalogName || availableColors.length > 0) && (
-				<div className="mt-3 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-					{catalogName && <span className="truncate">{catalogName}</span>}
-					{availableColors.length > 0 && <span className="shrink-0">{availableColors.length} colors</span>}
-				</div>
-			)}
-			{showCatalogMeta && availableColors.length > 0 && (
-				<div className="mt-2 flex items-center gap-1.5">
-					<span className="sr-only">
-						Available colors: {availableColors.map((color) => color.name).join(", ")}
-					</span>
-					{availableColors.slice(0, 8).map((color) => (
-						<span
-							key={color.name}
-							className="size-4 rounded-full border border-foreground/20 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.3)]"
-							style={{ backgroundColor: color.hex ?? "#e5e7eb" }}
-							title={color.name}
-						/>
-					))}
-					{availableColors.length > 8 && (
-						<span className="ml-0.5 text-[10px] font-medium text-muted-foreground">
-							+{availableColors.length - 8}
+				{showCatalogMeta && (catalogName || availableColors.length > 0) && (
+					<div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+						{catalogName && <span className="truncate">{catalogName}</span>}
+						{availableColors.length > 0 && <span className="shrink-0">{availableColors.length} colors</span>}
+					</div>
+				)}
+				{showCatalogMeta && availableColors.length > 0 && (
+					<div className="mt-2 flex items-center gap-1.5">
+						<span className="sr-only">
+							Available colors: {availableColors.map((color) => color.name).join(", ")}
 						</span>
-					)}
+						{availableColors.slice(0, 8).map((color) => (
+							<span
+								key={color.name}
+								className="size-4 rounded-full border border-foreground/20 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.3)]"
+								style={{ backgroundColor: color.hex ?? "#e5e7eb" }}
+								title={color.name}
+							/>
+						))}
+						{availableColors.length > 8 && (
+							<span className="ml-0.5 text-[10px] font-medium text-muted-foreground">
+								+{availableColors.length - 8}
+							</span>
+						)}
+					</div>
+				)}
+				<div className="mt-3 flex items-center justify-between gap-2">
+					<p className="whitespace-nowrap font-display text-xs text-foreground sm:text-sm">{priceDisplay}</p>
 				</div>
-			)}
+			</div>
 		</StoreLink>
 	);
 }

@@ -106,8 +106,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 function CartButtonFallback() {
 	return (
-		<div className="w-5 h-5 opacity-20">
-			<ShoppingBag className="w-5 h-5" />
+		<div className="flex min-h-11 min-w-11 items-center justify-center opacity-20">
+			<ShoppingBag className="h-5 w-5" />
 		</div>
 	);
 }
@@ -152,9 +152,12 @@ async function CartProviderWrapper({ children }: { children: React.ReactNode }) 
 		<CartProvider initialCart={cart} initialCartId={cartId}>
 			<div className="flex min-h-screen flex-col bg-background">
 				<div className="border-b border-border bg-foreground text-background">
-					<div className="mx-auto flex h-8 max-w-[1400px] items-center justify-center px-4 sm:px-6 lg:px-10">
-						<p className="font-sans text-[10px] font-medium uppercase tracking-[0.25em]">
-							Complimentary shipping on orders over $300 — United States
+					<div className="mx-auto flex min-h-8 max-w-[1400px] items-center justify-center px-4 py-1.5 sm:px-6 lg:px-10">
+						<p className="text-center font-sans text-[10px] font-medium uppercase tracking-[0.2em]">
+							United States shipping <span aria-hidden>·</span>{" "}
+							<Link href="/shipping-policy" className="underline underline-offset-2">
+								View shipping details
+							</Link>
 						</p>
 					</div>
 				</div>

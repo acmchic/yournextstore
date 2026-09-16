@@ -62,46 +62,6 @@ function selectDiverseCatalogs(groups: CatalogGroup[], limit: number) {
 	return [...new Map(candidates.map((catalog) => [catalog.id, catalog])).values()].slice(0, limit);
 }
 
-function CatalogSidebar({ groups }: { groups: CatalogGroup[] }) {
-	return (
-		<aside className="border-r border-border pr-6" aria-label="Product catalog">
-			<div className="sticky top-24">
-				<h2 className="border-b border-border pb-4 text-lg font-bold tracking-tight">Catalog</h2>
-				<nav className="mt-5 space-y-7">
-					{groups.map((group) => (
-						<section key={group.department}>
-							<h3 className="text-sm font-bold text-foreground">{group.label}</h3>
-							<div className="mt-3 space-y-3">
-								{group.types.map((type) => (
-									<details key={type.slug} className="group/type">
-										<summary className="cursor-pointer list-none text-sm text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
-											<span>{type.label}</span>
-											<span className="ml-2 font-mono text-[11px] text-muted-foreground/70">
-												{type.catalogs.length}
-											</span>
-										</summary>
-										<div className="mt-2 space-y-2 border-l border-border pl-3">
-											{type.catalogs.map((catalog) => (
-												<Link
-													key={catalog.id}
-													href={`/category/${catalog.slug}`}
-													className="block text-xs leading-5 text-muted-foreground transition-colors hover:text-foreground"
-												>
-													{catalog.name}
-												</Link>
-											))}
-										</div>
-									</details>
-								))}
-							</div>
-						</section>
-					))}
-				</nav>
-			</div>
-		</aside>
-	);
-}
-
 export async function CatalogShowcase() {
 	"use cache";
 	cacheLife("seconds");
@@ -162,46 +122,25 @@ export async function CatalogShowcase() {
 				</p>
 			</div>
 
-			<div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-8">
-				<div className="hidden lg:block">
-					<CatalogSidebar groups={groups} />
-				</div>
-				<div>
-					<div className="mb-8 flex gap-2 overflow-x-auto pb-2 lg:hidden">
-						{groups.map((group) => {
-							const catalog = group.types[0]?.catalogs[0];
-							return catalog ? (
-								<Link
-									key={group.department}
-									href={`/shop/${group.department}`}
-									className="shrink-0 border border-border px-4 py-2 text-sm font-semibold active:translate-y-px"
-								>
-									{group.label}
-								</Link>
-							) : null;
-						})}
-					</div>
-					<div className="grid grid-cols-1 gap-x-4 gap-y-12 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-6">
-						{products.map((product, index) => (
-							<ProductCard
-								key={`${product.id}-${product.category?.slug ?? index}`}
-								product={product}
-								priority={index < 3}
-							/>
-						))}
-					</div>
-					<div className="mt-12 flex items-center justify-between border-t border-border pt-5">
-						<span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-							New bodies added continuously
-						</span>
-						<Link
-							href="/products"
-							className="text-xs font-bold uppercase tracking-[0.14em] underline-offset-4 hover:underline"
-						>
-							View all pieces
-						</Link>
-					</div>
-				</div>
+			<div className="grid grid-cols-1 gap-x-4 gap-y-12 sm:grid-cols-2 lg:grid-cols-4 lg:gap-x-6">
+				{products.map((product, index) => (
+					<ProductCard
+						key={`${product.id}-${product.category?.slug ?? index}`}
+						product={product}
+						priority={index < 4}
+					/>
+				))}
+			</div>
+			<div className="mt-12 flex items-center justify-between border-t border-border pt-5">
+				<span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+					New pieces added continuously
+				</span>
+				<Link
+					href="/products"
+					className="text-xs font-bold uppercase tracking-[0.14em] underline-offset-4 hover:underline"
+				>
+					View all pieces
+				</Link>
 			</div>
 		</section>
 	);

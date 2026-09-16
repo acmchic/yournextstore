@@ -10,7 +10,7 @@ export function CartButton() {
 		<button
 			type="button"
 			onClick={openCart}
-			className="hover:text-primary transition-colors relative"
+			className="relative inline-flex min-h-11 min-w-11 items-center justify-center transition-colors hover:text-primary"
 			aria-label="Shopping cart"
 		>
 			<ShoppingBag className="w-5 h-5" />

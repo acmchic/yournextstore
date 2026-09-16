@@ -22,7 +22,7 @@ export const faqCategories: FAQCategory[] = [
 			{
 				question: "How long does order processing take?",
 				answer:
-					"Most orders are processed within 1-3 business days. Processing times may vary depending on product availability and order volume. You'll receive a confirmation email once your order has shipped.",
+					"Processing and transit are separate parts of delivery. Check the current Shipping Policy and checkout for the latest estimates before ordering.",
 			},
 			{
 				question: "Can I request an invoice for my order?",
@@ -32,7 +32,7 @@ export const faqCategories: FAQCategory[] = [
 			{
 				question: "Can I add special instructions to my order?",
 				answer:
-					"If available, you can add notes or special instructions during the checkout process. Look for the order notes field before completing your purchase.",
+					"We do not currently advertise an order-notes field. Contact us before purchase if you have a question about an item or order.",
 			},
 		],
 	},
@@ -43,7 +43,7 @@ export const faqCategories: FAQCategory[] = [
 			{
 				question: "What payment methods do you accept?",
 				answer:
-					"We accept all major credit and debit cards, as well as other payment methods available through our secure payment provider. Available options are displayed at checkout.",
+					"Checkout accepts card payments. Apple Pay or Google Pay may appear when Stripe and your device or browser support them; available options are shown at checkout.",
 			},
 			{
 				question: "Is my payment information secure?",
@@ -58,7 +58,7 @@ export const faqCategories: FAQCategory[] = [
 			{
 				question: "When will I be charged?",
 				answer:
-					"Your payment is processed at the time of purchase. For pre-order items, you may be charged at the time of ordering or when the item ships, depending on the product.",
+					"Payment is handled by Stripe Checkout when you complete your purchase. Your order confirmation is sent to the email used at checkout.",
 			},
 		],
 	},
@@ -74,7 +74,7 @@ export const faqCategories: FAQCategory[] = [
 			{
 				question: "Do you ship internationally?",
 				answer:
-					"Yes, we ship to many countries worldwide. International shipping options and costs are calculated at checkout based on your delivery address.",
+					"We currently ship to addresses in the United States. Available service coverage and shipping methods are confirmed at checkout.",
 			},
 			{
 				question: "How can I track my order?",
@@ -89,7 +89,7 @@ export const faqCategories: FAQCategory[] = [
 			{
 				question: "Can I combine multiple orders to save on shipping?",
 				answer:
-					"Unfortunately, we're unable to combine separate orders into a single shipment. To take advantage of any free shipping thresholds, make sure to add all items to a single order before checking out.",
+					"Separate orders are processed separately. Add the items you want to one cart so the current shipping cost is calculated together at checkout.",
 			},
 		],
 	},
@@ -100,7 +100,7 @@ export const faqCategories: FAQCategory[] = [
 			{
 				question: "What is your return policy?",
 				answer:
-					"We accept returns within 14 days of delivery. Items must be unused, in their original packaging, and in the same condition as received. Please refer to our returns policy page for full details.",
+					"Return eligibility, steps, fees, and refund timing are set out in the published Returns & Refunds policy. Please check that policy before ordering.",
 			},
 			{
 				question: "How do I initiate a return?",
@@ -110,33 +110,12 @@ export const faqCategories: FAQCategory[] = [
 			{
 				question: "How do exchanges work?",
 				answer:
-					"Exchanges are handled as a return followed by a new order. Simply return the original item and place a new order for the item you'd like instead.",
+					"Exchange options depend on the current Returns & Refunds policy. Contact support with your order number before sending anything back.",
 			},
 			{
 				question: "How long does it take to receive a refund?",
 				answer:
-					"Once we receive and inspect your returned item, refunds are typically processed within 5-10 business days. The refund will be credited to your original payment method.",
-			},
-		],
-	},
-	{
-		id: "discounts",
-		title: "Discounts & Promotions",
-		questions: [
-			{
-				question: "Do you offer discounts for new customers?",
-				answer:
-					"Yes! New customers can subscribe to our newsletter to receive a welcome discount. Look for the signup form on our homepage.",
-			},
-			{
-				question: "How do I apply a discount code?",
-				answer:
-					"During checkout, you'll find a field to enter your discount code. Enter the code and the discount will be automatically applied to your order total.",
-			},
-			{
-				question: "Can I use multiple discount codes on one order?",
-				answer:
-					"Only one discount code can be applied per order. The system will automatically use the code that provides the best value if multiple are entered.",
+					"The current refund timing and method are described in the Returns & Refunds policy for your order. Contact support if you need help with a refund already in progress.",
 			},
 		],
 	},

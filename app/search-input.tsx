@@ -266,7 +266,7 @@ export function SearchInput() {
 			<Popover open={iconOpen} onOpenChange={setIconOpen}>
 				<PopoverTrigger
 					aria-label="Search"
-					className="hidden lg:inline-flex xl:hidden rounded-full p-2 transition-colors hover:bg-secondary"
+					className="hidden min-h-11 min-w-11 items-center justify-center rounded-full transition-colors hover:bg-secondary lg:inline-flex xl:hidden"
 				>
 					<Search className="h-6 w-6" strokeWidth={1.75} />
 				</PopoverTrigger>

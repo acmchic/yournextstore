@@ -147,6 +147,7 @@ type ApiCollection = {
 	description: string | null;
 	image_url: string | null;
 	indexable: boolean;
+	selection_rule?: "manual" | "newest" | "tees" | string | null;
 	created_at: string;
 	updated_at: string;
 	products?: ApiProduct[];

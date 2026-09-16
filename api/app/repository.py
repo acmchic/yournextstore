@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, Literal
+
+from PIL import Image
 
 from app.catalog import resolve_design_path
 from app.catalog_assignment import stable_variant_id
@@ -64,6 +68,33 @@ def _rotate_listing_color(product: dict[str, Any], position: int) -> dict[str, A
 def _listing_catalog_at(catalogs: list[dict[str, Any]], position: int) -> str:
     """Cycle through any eligible catalog without coupling collections to catalog names."""
     return catalogs[position % len(catalogs)]["slug"]
+
+
+def _catalog_mockup_category(departments: set[str]) -> str | None:
+    if {"men", "women"}.issubset(departments):
+        return "unisex"
+    if "women" in departments:
+        return "women"
+    if "men" in departments:
+        return "unisex"
+    if "kids" in departments:
+        return "kids"
+    if "accessories" in departments:
+        return "accessories"
+    if "home-living" in departments:
+        return "home-living"
+    return None
+
+
+def _local_model_mockup_path(category: str, catalog: str, style: str, color: str) -> Path | None:
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", color):
+        return None
+    directory = settings.asset_root / "mockup" / category / catalog
+    for extension in (".png", ".webp", ".jpg", ".jpeg"):
+        candidate = directory / f"{style}_{color}_front{extension}"
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def _guideline_percent(value: Any, default: float) -> float:
@@ -138,6 +169,25 @@ class CatalogRepository:
                order by asset.id limit 1""",
             (catalog_slug,),
         )
+
+    async def get_local_model_mockup_asset(
+        self, catalog_slug: str, style: Literal["men", "women"], color_slug: str
+    ) -> dict[str, str] | None:
+        """Return a convention-based local model mockup when the catalog provides one."""
+        taxonomy_rows = await self._database.fetch_all(
+            """select c.slug catalog, ct.department
+               from catalogs c left join catalog_taxonomy ct on ct.catalog_id=c.id
+               where c.slug=%s and c.active=true""",
+            (catalog_slug,),
+        )
+        departments = {row["department"] for row in taxonomy_rows if row["department"]}
+        category = _catalog_mockup_category(departments)
+        if not category:
+            return None
+        asset_path = _local_model_mockup_path(category, catalog_slug, style, color_slug)
+        if not asset_path:
+            return None
+        return {"local_path": asset_path.relative_to(settings.asset_root).as_posix()}
 
     async def get_product_by_slug(self, slug: str) -> ProductSummary | None:
         row = await self._database.fetch_one(
@@ -477,6 +527,9 @@ class CatalogRepository:
             for variant in variants
             if variant["provider"] == "gearment"
         }
+        model_media_keys = {
+            (variant["catalog"], variant["color"], variant["color_name"]) for variant in variants
+        }
         catalog_ids = {catalog for catalog, _color, _name in dynamic_media_keys}
         # Keep supporting catalogs imported before migration 005 normalized gallery-3 to back.
         back_catalogs = (
@@ -522,6 +575,42 @@ class CatalogRepository:
                 ("front", "chest", "back") if catalog in back_catalogs else ("front", "chest")
             )
         )
+        if model_media_keys:
+            catalog_slugs = sorted({catalog for catalog, _color, _name in model_media_keys})
+            taxonomy_rows = await self._database.fetch_all(
+                f"""select c.slug catalog, ct.department
+                from catalogs c
+                left join catalog_taxonomy ct on ct.catalog_id=c.id
+                where c.slug in ({",".join(["%s"] * len(catalog_slugs))})""",
+                tuple(catalog_slugs),
+            )
+            departments_by_catalog: dict[str, set[str]] = {}
+            for row in taxonomy_rows:
+                if row["department"]:
+                    departments_by_catalog.setdefault(row["catalog"], set()).add(row["department"])
+            media.extend(
+                {
+                    "catalog": catalog,
+                    "color": color,
+                    "style": style,
+                    "placement": "front",
+                    "width": 1500,
+                    "url": build_catalog_mockup_url(
+                        product_ref=product["slug"],
+                        catalog_slug=catalog,
+                        color_slug=color,
+                        style=style,
+                    ),
+                    "blank_url": "",
+                }
+                for catalog, color, _color_name in sorted(model_media_keys)
+                for category in [
+                    _catalog_mockup_category(departments_by_catalog.get(catalog, set()))
+                ]
+                if category
+                for style in ("men", "women")
+                if _local_model_mockup_path(category, catalog, style, color)
+            )
         media.extend(
             {
                 "catalog": catalog,
@@ -610,7 +699,7 @@ class CatalogRepository:
             """
             select p.public_id product_id, p.slug product_slug, d.public_id artwork_id,
               d.slug artwork_slug, d.checksum artwork_checksum,
-              cv.public_id catalog_variant_public_id, ca.id catalog_id,
+              cv.public_id catalog_variant_public_id, ca.id catalog_id, ca.slug catalog_slug,
               ca.artwork_guideline_json, ca.product_type,
               cc.id color_id, cc.slug color_slug, cc.hex garment_color
             from products p
@@ -846,7 +935,11 @@ class CatalogRepository:
             ),
         )
         if not template:
-            return None
+            return await self._get_local_catalog_model_render_job(
+                variant=variant,
+                placement=placement,
+                style=style,
+            )
 
         area = template["print_area_json"] or {}
         if isinstance(area, str):
@@ -902,6 +995,79 @@ class CatalogRepository:
                 "catalog": variant["catalog_id"],
                 "placement": placement,
                 "template_source": "ai-model-template",
+            },
+        )
+
+    async def _get_local_catalog_model_render_job(
+        self,
+        *,
+        variant: dict[str, Any],
+        placement: str,
+        style: Literal["men", "women"],
+    ) -> RenderJob | None:
+        """Render checked-in model files when they have not yet been registered in admin."""
+        if placement == "back":
+            return None
+        taxonomy_rows = await self._database.fetch_all(
+            "select department from catalog_taxonomy where catalog_id=%s",
+            (variant["catalog_id"],),
+        )
+        category = _catalog_mockup_category(
+            {row["department"] for row in taxonomy_rows if row["department"]}
+        )
+        if not category:
+            return None
+        asset_path = _local_model_mockup_path(
+            category, variant["catalog_slug"], style, variant["color_slug"]
+        )
+        if not asset_path:
+            return None
+        try:
+            with Image.open(asset_path) as image:
+                source_width, source_height = image.size
+        except OSError:
+            return None
+        if source_width < 1 or source_height < 1:
+            return None
+
+        is_hoodie = str(variant.get("product_type") or "").lower() in {
+            "hoodie",
+            "hoodies",
+            "sweatshirt",
+        }
+        left_ratio, top_ratio, width_ratio, height_ratio = (
+            (0.30, 0.31, 0.40, 0.26) if is_hoodie else (0.30, 0.25, 0.40, 0.36)
+        )
+        relative_path = asset_path.relative_to(settings.asset_root).as_posix()
+        source_checksum = hashlib.sha256(asset_path.read_bytes()).hexdigest()[:12]
+        left = left_ratio * source_width
+        top = top_ratio * source_height
+        width = width_ratio * source_width
+        height = height_ratio * source_height
+        return RenderJob(
+            product_id=variant["product_id"],
+            artwork_id=variant["artwork_id"],
+            template_id=f"local-{variant['catalog_slug']}-{style}-{variant['color_slug']}",
+            variant_id=variant["variant_id"],
+            base_source=relative_path,
+            artwork_source=f"design/{resolve_design_path(variant['artwork_slug'], settings)}",
+            print_area=PrintArea(
+                dst_quad=[
+                    (left, top),
+                    (left + width, top),
+                    (left + width, top + height),
+                    (left, top + height),
+                ],
+                displacement_strength=2.0,
+                shadow_opacity=0.30,
+                highlight_opacity=0.10,
+                surface_mode="auto",
+            ),
+            version=f"local-model-v1:{source_checksum}:{variant['artwork_checksum']}",
+            metadata={
+                "catalog": variant["catalog_id"],
+                "placement": placement,
+                "template_source": "local-model-file",
             },
         )
 

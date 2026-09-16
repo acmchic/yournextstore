@@ -51,7 +51,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 					<button
 						type="button"
 						aria-label="Open menu"
-						className="-order-1 cursor-pointer rounded-full p-2 transition-colors hover:bg-secondary lg:hidden"
+						className="-order-1 flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-secondary lg:hidden"
 					>
 						<Menu className="h-6 w-6" />
 					</button>

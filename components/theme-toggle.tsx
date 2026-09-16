@@ -13,7 +13,7 @@ export function ThemeToggle() {
 	}, []);
 
 	if (!mounted) {
-		return <span className="block size-9" aria-hidden />;
+		return <span className="block size-11" aria-hidden />;
 	}
 	const nextTheme = resolvedTheme === "dark" ? "light" : "dark";
 
@@ -21,7 +21,7 @@ export function ThemeToggle() {
 		<button
 			type="button"
 			onClick={() => setTheme(nextTheme)}
-			className="inline-flex size-9 items-center justify-center rounded-sm border border-transparent text-current transition-colors hover:border-current hover:bg-foreground/5"
+			className="inline-flex size-11 items-center justify-center rounded-sm border border-transparent text-current transition-colors hover:border-current hover:bg-foreground/5"
 			aria-label={`Switch to ${nextTheme} mode`}
 			title={`Switch to ${nextTheme} mode`}
 		>
