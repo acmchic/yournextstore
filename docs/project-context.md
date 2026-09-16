@@ -108,7 +108,7 @@ Catalog có thể lưu một prompt tạo model mockup dùng lại. Admin tạo 
 
 Các HTTP contract đang tồn tại trong `api/app/main.py`:
 
-- `/{product_slug}/{catalog_slug}_color-{color}.webp`: ảnh sản phẩm theo catalog/màu.
+- `/{product_slug}/{catalog_slug}/{color}.webp`: ảnh flat/front theo product, catalog và màu. Thêm `/{view}` trước `.webp` cho `men`, `women`, `back`, `chest`, `men-back`, `women-chest` hoặc `blank-back`. Route `_{color}` cũ chỉ còn compatibility.
 - `/v1/products/{product_slug}/catalogs/{catalog_slug}/mockup`: render theo lựa chọn, gồm placement.
 - `/img/{design_and_catalog:path}` và `/img/blank/{filename}`: render theo asset/file và ảnh áo nền.
 - `/v1/mockups/render`, `/m`, `/m/{product_ref}`: các đường render/reference khác còn được hỗ trợ.

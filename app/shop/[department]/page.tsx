@@ -112,7 +112,7 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
 				</aside>
 				<section>
 					<p className="mb-6 text-xs uppercase tracking-wide">{products.meta.count} pieces</p>
-					<div className="grid grid-cols-2 gap-x-3 gap-y-10 xl:grid-cols-3">
+					<div className="grid grid-cols-2 gap-x-3 gap-y-10 lg:grid-cols-3 xl:grid-cols-4">
 						{products.data.map((product, index) => (
 							<ProductCard
 								key={`${product.id}:${product.category?.slug}`}

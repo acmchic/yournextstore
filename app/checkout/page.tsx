@@ -1,5 +1,6 @@
 import { editCheckoutCart } from "@/app/checkout/actions";
 import { ShippingSelector } from "@/app/checkout/shipping-selector";
+import { parseCatalogMockupUrl } from "@/lib/catalog-mockup-url";
 import { type CheckoutCart, checkoutFetch } from "@/lib/checkout";
 import { commerce } from "@/lib/commerce";
 import { getCartCookieJson } from "@/lib/cookies";
@@ -13,8 +14,10 @@ const money = (amount: number) => formatMoney({ amount: String(amount), currency
 const checkoutImage = (item: CheckoutCart["items"][number]) => {
 	const source = item.image ?? item.image_url;
 	if (!source) return null;
-	if (/^\/[^/]+\/[^/]+_color-[^/]+\.webp(?:\?.*)?$/.test(source)) {
-		const query = new URLSearchParams({ Color: item.color, Size: item.size, Placement: "front" });
+	const mockup = parseCatalogMockupUrl(source);
+	if (mockup && !mockup.blank) {
+		const query = new URLSearchParams({ Color: item.color, Size: item.size, Placement: mockup.placement });
+		if (mockup.style !== "flat") query.set("style", mockup.style);
 		return `/api/catalog-mockup/${encodeURIComponent(item.product_slug)}/${encodeURIComponent(item.catalog)}?${query}`;
 	}
 	return source;

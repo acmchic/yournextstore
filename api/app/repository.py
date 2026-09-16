@@ -773,6 +773,16 @@ class CatalogRepository:
             ]
             for region in analyzed_regions
         ]
+        print_area_signature = hashlib.sha256(
+            json.dumps(
+                {
+                    "area": [left, top, width, height],
+                    "regions": analyzed_regions,
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()[:12]
         return RenderJob(
             product_id=variant["product_id"],
             artwork_id=variant["artwork_id"],
@@ -794,9 +804,12 @@ class CatalogRepository:
                 highlight_opacity=0,
                 surface_mode="none",
             ),
-            # Bump this when catalog artwork resolution/fallback logic changes;
-            # old blank renders must never survive in the immutable image cache.
-            version=f"gearment-v9-safe-regions:{variant['artwork_checksum']}:{asset['checksum']}:{variant['garment_color']}",
+            # Print-area changes must not reuse an immutable render made with an
+            # earlier placement.
+            version=(
+                f"gearment-v10-print-area:{variant['artwork_checksum']}:"
+                f"{asset['checksum']}:{variant['garment_color']}:{print_area_signature}"
+            ),
             metadata={
                 "catalog": catalog_slug,
                 "placement": resolved_placement,

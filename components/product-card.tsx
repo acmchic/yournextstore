@@ -3,6 +3,7 @@ import type {
 	APIProductGetByIdResult,
 	APIProductsBrowseResult,
 } from "commerce-kit";
+import { isCatalogMockupUrl } from "@/lib/catalog-mockup-url";
 import { CURRENCY, LOCALE } from "@/lib/constants";
 import { formatMoney } from "@/lib/money";
 import { StoreMedia } from "@/lib/store-media";
@@ -102,16 +103,24 @@ export function ProductCard({
 							src={primaryImage}
 							alt={product.name}
 							fill
-							quality={primaryImage.includes("/api/catalog-mockup/") ? 90 : undefined}
+							quality={
+								isCatalogMockupUrl(primaryImage) || primaryImage.includes("/api/catalog-mockup/")
+									? 90
+									: undefined
+							}
 							sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
 							className="bg-cream object-cover transition-transform duration-500 ease-out group-hover:scale-[1.01] motion-reduce:transition-none"
 							priority={priority}
 						/>
 					))}
 			</div>
-			<div className="flex items-start justify-between gap-4 border-t border-border pt-3">
-				<h3 className="text-base font-medium text-foreground">{product.name}</h3>
-				<p className="whitespace-nowrap font-display text-sm text-foreground">{priceDisplay}</p>
+			<div className="flex min-w-0 items-center justify-between gap-2 border-t border-border pt-3">
+				<h3 className="min-w-0 truncate text-xs font-medium text-foreground sm:text-sm" title={product.name}>
+					{product.name}
+				</h3>
+				<p className="shrink-0 whitespace-nowrap font-display text-xs text-foreground sm:text-sm">
+					{priceDisplay}
+				</p>
 			</div>
 			{showCatalogMeta && (catalogName || availableColors.length > 0) && (
 				<div className="mt-3 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">

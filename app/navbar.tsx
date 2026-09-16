@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StoreLink } from "@/components/store-link";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { MobileSearchInput } from "./search-input";
@@ -21,6 +21,28 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 	const [open, setOpen] = useState(false);
 	const [active, setActive] = useState<string | null>(null);
 	const triggers = useRef<Record<string, HTMLAnchorElement | null>>({});
+	const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const cancelScheduledClose = () => {
+		if (closeTimer.current !== null) {
+			clearTimeout(closeTimer.current);
+			closeTimer.current = null;
+		}
+	};
+
+	const scheduleClose = () => {
+		cancelScheduledClose();
+		closeTimer.current = setTimeout(() => {
+			setActive(null);
+			closeTimer.current = null;
+		}, 150);
+	};
+
+	useEffect(() => {
+		return () => {
+			if (closeTimer.current !== null) clearTimeout(closeTimer.current);
+		};
+	}, []);
 
 	return (
 		<>
@@ -81,13 +103,20 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 				<div
 					key={group.href}
 					className="hidden h-full items-center lg:flex"
-					onMouseEnter={() => setActive(group.href)}
-					onMouseLeave={() => setActive(null)}
+					onMouseEnter={() => {
+						cancelScheduledClose();
+						setActive(group.href);
+					}}
+					onMouseLeave={scheduleClose}
 					onBlur={(event) => {
-						if (!event.currentTarget.contains(event.relatedTarget)) setActive(null);
+						if (!event.currentTarget.contains(event.relatedTarget)) {
+							cancelScheduledClose();
+							setActive(null);
+						}
 					}}
 					onKeyDown={(event) => {
 						if (event.key === "Escape") {
+							cancelScheduledClose();
 							setActive(null);
 							triggers.current[group.href]?.focus();
 						}
@@ -108,7 +137,7 @@ export function Navbar({ links, groups = [] }: { links: NavLink[]; groups?: NavG
 					<div
 						id={`shop-menu-${group.label}`}
 						hidden={active !== group.href}
-						className="absolute inset-x-0 top-full border-y border-border bg-background text-foreground shadow-[0_16px_24px_-20px_rgba(0,0,0,0.35)]"
+						className="absolute inset-x-0 top-[calc(100%-1px)] border-y border-border bg-background text-foreground shadow-[0_16px_24px_-20px_rgba(0,0,0,0.35)]"
 					>
 						<div className="mx-auto grid max-w-[1600px] grid-cols-[1fr_2fr_1fr] gap-12 px-10 py-12">
 							<div>

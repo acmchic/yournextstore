@@ -10,6 +10,7 @@ import type {
 	APIProductsBrowseResult,
 	Commerce,
 } from "commerce-kit";
+import { isCatalogMockupUrl } from "@/lib/catalog-mockup-url";
 import { productDisplayName } from "@/lib/merchant";
 import { storefront } from "@/lib/storefront-config";
 
@@ -21,7 +22,7 @@ function resolveMediaUrl(url: string): string {
 	if (url.startsWith("/v1/products/") || url.startsWith("/v1/catalogs/")) {
 		return `${MEDIA_URL}${url}`;
 	}
-	if (url.startsWith("/") && /^\/[^/]+\/[^/]+_color-[^/]+\.webp(?:\?.*)?$/.test(url)) {
+	if (url.startsWith("/") && isCatalogMockupUrl(url)) {
 		return `${MEDIA_URL}${url}`;
 	}
 	return url;

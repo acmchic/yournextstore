@@ -52,9 +52,9 @@ describe("selectGalleryImages", () => {
 
 	test("keeps the flat image first when model style comes from a render URL", () => {
 		const renderedImages = [
-			"/yorkshire-terrier/sweatshirt_color-black.webp?placement=front&style=men",
-			"/yorkshire-terrier/sweatshirt_color-black.webp?placement=front&style=flat",
-			"/yorkshire-terrier/sweatshirt_color-black.webp?placement=front&style=women",
+			"/yorkshire-terrier/sweatshirt/black/men.webp",
+			"/yorkshire-terrier/sweatshirt/black.webp",
+			"/yorkshire-terrier/sweatshirt/black/women.webp",
 		];
 
 		assert.deepEqual(selectGalleryImages(renderedImages, "Black", "front"), [

@@ -3,6 +3,7 @@
 import useEmblaCarousel from "embla-carousel-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { parseCatalogMockupUrl } from "@/lib/catalog-mockup-url";
 import { StoreMedia } from "@/lib/store-media";
 import { cn } from "@/lib/utils";
 
@@ -53,9 +54,11 @@ function colorSlug(value: string): string {
 
 function describeGalleryImage(image: string | undefined, color: string): GalleryImage | null {
 	if (!image) return null;
+	const catalogMockup = parseCatalogMockupUrl(image);
+	if (catalogMockup) {
+		return colorSlug(catalogMockup.color) === colorSlug(color) ? { url: image, ...catalogMockup } : null;
+	}
 	const normalized = image.toLowerCase();
-	const legacyMockupUrl = normalized.includes("/api/catalog-mockup/");
-	const simpleMockupUrl = /\/[^/]+\/[^/]+_color-[^/?]+\.webp(?:\?|$)/.test(normalized);
 	const dynamicParams = /\?/.test(image) ? new URL(image, "http://local").searchParams : null;
 	const selectedColorSlug = colorSlug(color);
 	const colorPattern = new RegExp(`_color-${selectedColorSlug}(?:\\.webp|[-_])`, "i");
@@ -75,15 +78,13 @@ function describeGalleryImage(image: string | undefined, color: string): Gallery
 				? "front"
 				: dynamicPlacement === "chest" || dynamicPlacement === "left-chest"
 					? "chest"
-					: simpleMockupUrl
-						? "front"
-						: normalized.endsWith(placementSuffix.chest)
-							? "chest"
-							: normalized.endsWith(placementSuffix.back)
-								? "back"
-								: normalized.endsWith(placementSuffix.front)
-									? "front"
-									: null;
+					: normalized.endsWith(placementSuffix.chest)
+						? "chest"
+						: normalized.endsWith(placementSuffix.back)
+							? "back"
+							: normalized.endsWith(placementSuffix.front)
+								? "front"
+								: null;
 	if (!placement) return null;
 	return {
 		url: image,
@@ -193,7 +194,7 @@ export function MediaGallery({ images, productName, variants, avatarImage }: Med
 										alt={`${productName} - View ${index + 1}`}
 										fill
 										quality={
-											image.includes("/api/catalog-mockup/") || image.includes("_color-") ? 90 : undefined
+											parseCatalogMockupUrl(image) || image.includes("/api/catalog-mockup/") ? 90 : undefined
 										}
 										sizes="100vw"
 										className="object-contain"
@@ -237,7 +238,7 @@ export function MediaGallery({ images, productName, variants, avatarImage }: Med
 							src={image}
 							alt={`${productName} - View ${index + 1}`}
 							fill
-							quality={image.includes("_color-") ? 90 : undefined}
+							quality={parseCatalogMockupUrl(image) ? 90 : undefined}
 							sizes="(max-width: 1024px) 100vw, 58vw"
 							className="object-contain"
 							priority={index === 0}

@@ -24,6 +24,7 @@ from app.catalog import (
 from app.checkout import CheckoutService
 from app.db import Database
 from app.models import CartItemUpsert, ImageFormat, OrderCreate, ProductSummary
+from app.product_media import parse_catalog_mockup_view
 from app.public_ref import build_product_ref, parse_product_ref, product_public_id
 from app.rendering.pipeline import render_blank_mockup, render_design_preview, render_mockup
 from app.repository import CatalogRepository
@@ -719,16 +720,24 @@ def _write_cached_image(path: Path, data: bytes) -> None:
             temporary_path.unlink(missing_ok=True)
 
 
-@app.get("/{product_slug}/{catalog_slug}_color-{color}.webp")
+@app.get("/{product_slug}/{catalog_slug}/{color}.webp")
+@app.get("/{product_slug}/{catalog_slug}/{color}/{view}.webp")
+@app.get("/{product_slug}/{catalog_slug}_color-{color}.webp", include_in_schema=False)
 async def render_simple_product_image(
     product_slug: str,
     catalog_slug: str,
     color: str,
+    view: str | None = None,
     placement: str = "front",
     style: Literal["flat", "men", "women"] = "flat",
     blank: bool = False,
     repo: CatalogRepository = Depends(get_repository),  # noqa: B008
 ):
+    if view is not None:
+        try:
+            style, placement, blank = parse_catalog_mockup_view(view)
+        except ValueError as error:
+            raise HTTPException(status_code=404, detail="Mockup view not found") from error
     resolved_placement = "back" if placement.lower() == "back" else "front"
     if blank:
         asset = await repo.get_blank_catalog_asset(catalog_slug, color, resolved_placement)

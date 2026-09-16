@@ -1,8 +1,14 @@
 import json
+from hashlib import sha256
 from urllib.parse import parse_qs, urlparse
 
 from app.importer import register_design_manifest, slugify
-from app.product_media import build_blank_media_url, build_catalog_mockup_url, build_media_url
+from app.product_media import (
+    build_blank_media_url,
+    build_catalog_mockup_url,
+    build_media_url,
+    parse_catalog_mockup_view,
+)
 
 
 def test_build_media_url_uses_stable_semantic_path() -> None:
@@ -38,11 +44,8 @@ def test_catalog_mockup_url_uses_short_color_path() -> None:
     url = urlparse(build_catalog_mockup_url(
         product_ref="acacac2", catalog_slug="premium-guys-tee", color_slug="black", style="men"
     ))
-    assert url.path == "/acacac2/premium-guys-tee_color-black.webp"
-    assert parse_qs(url.query)['placement'] == ['front']
-    assert parse_qs(url.query)['style'] == ['men']
-    assert parse_qs(url.query)['v'] == ['12']
-    assert int(parse_qs(url.query)['v'][0]) > 0
+    assert url.path == "/acacac2/premium-guys-tee/black/men.webp"
+    assert parse_qs(url.query) == {}
 
 
 def test_catalog_mockup_url_accepts_template_version_for_cache_busting() -> None:
@@ -54,7 +57,15 @@ def test_catalog_mockup_url_accepts_template_version_for_cache_busting() -> None
         version="ai-model-v1:template-area-hash",
     ))
 
-    assert parse_qs(url.query)['v'] == ['ai-model-v1:template-area-hash']
+    assert url.path == "/acacac2/premium-guys-tee/black/women.webp"
+    assert parse_qs(url.query)['v'] == [sha256(b"ai-model-v1:template-area-hash").hexdigest()[:12]]
+
+
+def test_catalog_mockup_view_supports_models_positions_and_blank_assets() -> None:
+    assert parse_catalog_mockup_view("men") == ("men", "front", False)
+    assert parse_catalog_mockup_view("women-chest") == ("women", "chest", False)
+    assert parse_catalog_mockup_view("back") == ("flat", "back", False)
+    assert parse_catalog_mockup_view("blank-back") == ("flat", "back", True)
 
 
 def test_register_design_manifest_uses_paths_relative_to_design_directory(tmp_path) -> None:

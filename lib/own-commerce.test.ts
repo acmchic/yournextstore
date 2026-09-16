@@ -91,9 +91,9 @@ test("store metadata falls back to the configured storefront when the API is una
 
 test("catalog media keeps blank placement images alongside variant images", async () => {
 	const originalFetch = globalThis.fetch;
-	const front = "/design/classic-t-shirt_color-navy.webp?placement=front&v=10";
-	const back = "/design/classic-t-shirt_color-navy.webp?placement=back&v=10";
-	const blankBack = "/design/classic-t-shirt_color-navy.webp?placement=back&blank=1&v=11";
+	const front = "/design/classic-t-shirt/navy.webp";
+	const back = "/design/classic-t-shirt/navy/back.webp";
+	const blankBack = "/design/classic-t-shirt/navy/blank-back.webp";
 	globalThis.fetch = (async () =>
 		Response.json({
 			id: "product-1",
