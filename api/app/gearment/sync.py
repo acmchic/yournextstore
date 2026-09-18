@@ -123,7 +123,7 @@ async def relocate_catalog_assets(
             ("mockup_templates", ("base_source",)),
             (
                 "catalog_mockup_metadata",
-                ("garment_mask_path", "displacement_path", "shadow_path", "highlight_path"),
+                ("source_path", "garment_mask_path", "displacement_path", "shadow_path", "highlight_path"),
             ),
         ):
             for column in columns:
@@ -136,7 +136,7 @@ async def relocate_catalog_assets(
             ("mockup_templates", ("base_source",)),
             (
                 "catalog_mockup_metadata",
-                ("garment_mask_path", "displacement_path", "shadow_path", "highlight_path"),
+                ("source_path", "garment_mask_path", "displacement_path", "shadow_path", "highlight_path"),
             ),
         ):
             for column in columns:

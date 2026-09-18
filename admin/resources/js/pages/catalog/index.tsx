@@ -1,15 +1,13 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Check } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -24,6 +22,15 @@ type CatalogPrintArea = PrintAreaRect & {
     regions: PrintAreaRect[];
     template_width: number;
     template_height: number;
+    assets?: CatalogMockup[];
+};
+
+type CatalogMockup = CatalogPrintArea & {
+    metadata_id: number;
+    asset_id: number | null;
+    placement: string;
+    source_path: string;
+    image_url: string;
 };
 
 type Catalog = {
@@ -45,7 +52,12 @@ type CatalogProps = {
 };
 
 function getDisplayPrintAreas(catalog: Catalog): PrintAreaRect[] {
-    const printArea = catalog.print_area;
+    return getDisplayPrintAreasFromArea(catalog.print_area);
+}
+
+function getDisplayPrintAreasFromArea(
+    printArea: CatalogPrintArea | null,
+): PrintAreaRect[] {
     if (!printArea) return [];
 
     const regions =
@@ -118,12 +130,16 @@ function CatalogMockupImage({
     catalog,
     printAreaPlaceholderUrl,
     printAreas,
+    imageUrl,
+    area,
 }: {
     catalog: Catalog;
     printAreaPlaceholderUrl: string;
     printAreas: PrintAreaRect[];
+    imageUrl?: string;
+    area?: CatalogPrintArea | null;
 }) {
-    const printArea = catalog.print_area;
+    const printArea = area ?? catalog.print_area;
     const templateRatio =
         printArea?.template_width && printArea.template_height
             ? printArea.template_width / printArea.template_height
@@ -143,7 +159,7 @@ function CatalogMockupImage({
         <div className="flex h-full w-full items-center justify-center">
             <div className="relative" style={imageFrameStyle}>
                 <img
-                    src={catalog.thumbnail_url}
+                    src={imageUrl ?? catalog.thumbnail_url}
                     alt={`Black ${catalog.name} mockup`}
                     className="h-full w-full object-contain"
                 />
@@ -206,242 +222,364 @@ function PrintAreaEditor({
     printAreaPlaceholderUrl: string;
     onOpenChange: (open: boolean) => void;
 }) {
-    const [coordinates, setCoordinates] = useState({ x: '', y: '' });
+    const [coordinates, setCoordinates] = useState({
+        x: '',
+        y: '',
+        width: '',
+    });
+    const [assetIndex, setAssetIndex] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
     const [requestError, setRequestError] = useState('');
 
+    const assets = useMemo(() => {
+        if (!catalog?.print_area) return [];
+        if ((catalog.print_area.assets?.length ?? 0) > 0) {
+            return catalog.print_area.assets ?? [];
+        }
+        return [
+            {
+                ...catalog.print_area,
+                metadata_id: 0,
+                asset_id: null,
+                placement: 'front',
+                source_path: '',
+                image_url: catalog.thumbnail_url,
+            },
+        ];
+    }, [catalog]);
+    const selectedAsset = assets[assetIndex] ?? assets[0] ?? null;
+    const selectedImageUrl = selectedAsset?.source_path.endsWith('/front.png')
+        ? catalog?.thumbnail_url
+        : selectedAsset?.image_url;
+
     useEffect(() => {
-        if (!catalog?.print_area) {
-            setCoordinates({ x: '', y: '' });
+        setAssetIndex(0);
+    }, [catalog]);
+
+    useEffect(() => {
+        if (!selectedAsset) {
+            setCoordinates({ x: '', y: '', width: '' });
             setRequestError('');
             return;
         }
 
         setCoordinates({
-            x: formatPercentage(catalog.print_area.x),
-            y: formatPercentage(catalog.print_area.y),
+            x: formatPercentage(selectedAsset.x),
+            y: formatPercentage(selectedAsset.y),
+            width: formatPercentage(selectedAsset.width),
         });
         setRequestError('');
-    }, [catalog]);
+    }, [selectedAsset]);
 
     const draft = useMemo(() => {
-        if (!catalog?.print_area) return null;
+        if (!selectedAsset) return null;
 
         const x = parsePercentage(coordinates.x);
         const y = parsePercentage(coordinates.y);
-        if (x === null || y === null) return null;
+        const width = parsePercentage(coordinates.width);
+        if (x === null || y === null || width === null) return null;
+
+        const height =
+            (width * selectedAsset.template_width * 6) /
+            (selectedAsset.template_height * 5);
 
         return {
             x,
             y,
-            width: catalog.print_area.width,
-            height: catalog.print_area.height,
+            width,
+            height,
         };
-    }, [catalog, coordinates]);
+    }, [coordinates, selectedAsset]);
 
     const canSave = isPrintAreaWithinTemplate(draft);
     const printAreas =
-        canSave && draft && catalog
-            ? [draft, ...getDisplayPrintAreas(catalog).slice(1)]
-            : catalog
-              ? getDisplayPrintAreas(catalog)
+        canSave && draft && selectedAsset
+            ? [draft, ...getDisplayPrintAreasFromArea(selectedAsset).slice(1)]
+            : selectedAsset
+              ? getDisplayPrintAreasFromArea(selectedAsset)
               : [];
     const validationMessage =
-        catalog?.print_area && !canSave
-            ? 'X and Y must keep the entire print area inside the mockup.'
+        selectedAsset && !canSave
+            ? 'X, Y and width must keep the entire 5:6 print area inside the mockup.'
             : '';
 
     const savePrintArea = () => {
-        if (!catalog || !draft || !canSave || isSaving) return;
+        if (!catalog || !selectedAsset || !draft || !canSave || isSaving)
+            return;
 
         setIsSaving(true);
         setRequestError('');
-        router.put(`/catalog/${catalog.id}/print-area`, draft, {
-            preserveScroll: true,
-            preserveState: true,
-            only: ['catalogs'],
-            onSuccess: () => onOpenChange(false),
-            onError: (errors) =>
-                setRequestError(
-                    errors.x ??
-                        errors.y ??
-                        errors.width ??
-                        errors.height ??
-                        errors.print_area ??
-                        "We couldn't update this print area. Try again.",
-                ),
-            onFinish: () => setIsSaving(false),
-        });
+        router.put(
+            `/catalog/${catalog.id}/print-area`,
+            { metadata_id: selectedAsset.metadata_id, ...draft },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                only: ['catalogs'],
+                onSuccess: () => onOpenChange(false),
+                onError: (errors) =>
+                    setRequestError(
+                        errors.x ??
+                            errors.y ??
+                            errors.width ??
+                            errors.height ??
+                            errors.print_area ??
+                            "We couldn't update this print area. Try again.",
+                    ),
+                onFinish: () => setIsSaving(false),
+            },
+        );
     };
 
     return (
-        <Dialog
+        <Sheet
             open={catalog !== null}
             onOpenChange={(open) => {
                 if (!open && !isSaving) onOpenChange(false);
             }}
         >
             {catalog && (
-                <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-4xl">
-                    <DialogHeader>
-                        <DialogTitle>Print area — {catalog.name}</DialogTitle>
-                        <DialogDescription>
-                            Preview the black storefront mockup while
-                            positioning its print area. X and Y are percentages
-                            from the top-left corner.
-                        </DialogDescription>
-                    </DialogHeader>
-                    {catalog.print_area ? (
+                <SheetContent
+                    side="right"
+                    className="w-full max-w-none gap-0 p-0 sm:w-[min(100vw,72rem)] sm:max-w-none"
+                >
+                    <SheetHeader className="border-b px-5 py-4 pr-12 sm:px-6">
+                        <SheetTitle>Print area - {catalog.name}</SheetTitle>
+                    </SheetHeader>
+                    {catalog.print_area && selectedAsset ? (
                         <form
-                            className="space-y-5"
+                            className="grid min-h-0 flex-1 grid-rows-[auto_minmax(30rem,1fr)] overflow-y-auto lg:grid-cols-[minmax(20rem,0.85fr)_minmax(0,1.15fr)] lg:grid-rows-1 lg:overflow-hidden"
                             onSubmit={(event) => {
                                 event.preventDefault();
                                 savePrintArea();
                             }}
                         >
-                            <div className="bg-muted/30 mx-auto aspect-square w-full max-w-[34rem] overflow-hidden rounded-xl border p-5 sm:p-8">
-                                <CatalogMockupImage
-                                    catalog={catalog}
-                                    printAreaPlaceholderUrl={
-                                        printAreaPlaceholderUrl
-                                    }
-                                    printAreas={printAreas}
-                                />
-                            </div>
-                            <div className="space-y-3 border-t pt-4">
-                                <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1">
-                                    <div>
+                            <section className="flex min-h-0 flex-col gap-5 p-5 sm:p-6">
+                                <div className="space-y-3">
+                                    <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1">
                                         <h3 className="font-medium">
                                             Position
                                         </h3>
-                                        <p className="text-muted-foreground text-sm">
-                                            The 42 × 48 print proportion stays
-                                            locked while you move it.
+                                        <p className="text-muted-foreground text-sm tabular-nums">
+                                            {`${Math.round(selectedAsset.template_width)} × ${Math.round(selectedAsset.template_height)} px template`}
                                         </p>
                                     </div>
-                                    <p className="text-muted-foreground text-sm tabular-nums">
-                                        {`${Math.round(catalog.print_area.template_width)} × ${Math.round(catalog.print_area.template_height)} px template`}
-                                    </p>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <label
+                                            className="grid gap-1.5"
+                                            htmlFor="print-area-x"
+                                        >
+                                            <span className="text-sm font-medium">
+                                                X position (%)
+                                            </span>
+                                            <Input
+                                                id="print-area-x"
+                                                type="number"
+                                                inputMode="decimal"
+                                                min="0"
+                                                max="100"
+                                                step="0.1"
+                                                value={coordinates.x}
+                                                aria-invalid={
+                                                    validationMessage !== ''
+                                                }
+                                                onChange={(event) => {
+                                                    setCoordinates(
+                                                        (current) => ({
+                                                            ...current,
+                                                            x: event.target
+                                                                .value,
+                                                        }),
+                                                    );
+                                                    setRequestError('');
+                                                }}
+                                            />
+                                        </label>
+                                        <label
+                                            className="grid gap-1.5"
+                                            htmlFor="print-area-y"
+                                        >
+                                            <span className="text-sm font-medium">
+                                                Y position (%)
+                                            </span>
+                                            <Input
+                                                id="print-area-y"
+                                                type="number"
+                                                inputMode="decimal"
+                                                min="0"
+                                                max="100"
+                                                step="0.1"
+                                                value={coordinates.y}
+                                                aria-invalid={
+                                                    validationMessage !== ''
+                                                }
+                                                onChange={(event) => {
+                                                    setCoordinates(
+                                                        (current) => ({
+                                                            ...current,
+                                                            y: event.target
+                                                                .value,
+                                                        }),
+                                                    );
+                                                    setRequestError('');
+                                                }}
+                                            />
+                                        </label>
+                                        <label
+                                            className="grid gap-1.5"
+                                            htmlFor="print-area-width"
+                                        >
+                                            <span className="text-sm font-medium">
+                                                Width (%)
+                                            </span>
+                                            <Input
+                                                id="print-area-width"
+                                                type="number"
+                                                inputMode="decimal"
+                                                min="0"
+                                                max="100"
+                                                step="0.1"
+                                                value={coordinates.width}
+                                                aria-invalid={
+                                                    validationMessage !== ''
+                                                }
+                                                onChange={(event) => {
+                                                    setCoordinates(
+                                                        (current) => ({
+                                                            ...current,
+                                                            width: event.target
+                                                                .value,
+                                                        }),
+                                                    );
+                                                    setRequestError('');
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                    <div className="bg-muted/50 grid gap-3 rounded-lg p-3 text-sm sm:grid-cols-2">
+                                        <p>
+                                            <span className="text-muted-foreground block text-xs tracking-wide uppercase">
+                                                Width
+                                            </span>
+                                            <span className="font-medium tabular-nums">
+                                                {formatPercentage(
+                                                    draft?.width ??
+                                                        selectedAsset.width,
+                                                )}
+                                                %
+                                            </span>
+                                        </p>
+                                        <p>
+                                            <span className="text-muted-foreground block text-xs tracking-wide uppercase">
+                                                Height (auto)
+                                            </span>
+                                            <span className="font-medium tabular-nums">
+                                                {formatPercentage(
+                                                    draft?.height ??
+                                                        selectedAsset.height,
+                                                )}
+                                                %
+                                            </span>
+                                        </p>
+                                    </div>
+                                    {(validationMessage !== '' ||
+                                        requestError !== '') && (
+                                        <p
+                                            className="text-destructive text-sm"
+                                            role="alert"
+                                        >
+                                            {requestError || validationMessage}
+                                        </p>
+                                    )}
                                 </div>
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    <label
-                                        className="grid gap-1.5"
-                                        htmlFor="print-area-x"
+                                <div className="mt-auto flex justify-end gap-2 border-t pt-4">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={isSaving}
+                                        onClick={() => onOpenChange(false)}
                                     >
-                                        <span className="text-sm font-medium">
-                                            X position (%)
-                                        </span>
-                                        <Input
-                                            id="print-area-x"
-                                            type="number"
-                                            inputMode="decimal"
-                                            min="0"
-                                            max="100"
-                                            step="0.1"
-                                            value={coordinates.x}
-                                            aria-invalid={
-                                                validationMessage !== ''
-                                            }
-                                            onChange={(event) => {
-                                                setCoordinates((current) => ({
-                                                    ...current,
-                                                    x: event.target.value,
-                                                }));
-                                                setRequestError('');
-                                            }}
-                                        />
-                                    </label>
-                                    <label
-                                        className="grid gap-1.5"
-                                        htmlFor="print-area-y"
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        disabled={!canSave || isSaving}
                                     >
-                                        <span className="text-sm font-medium">
-                                            Y position (%)
-                                        </span>
-                                        <Input
-                                            id="print-area-y"
-                                            type="number"
-                                            inputMode="decimal"
-                                            min="0"
-                                            max="100"
-                                            step="0.1"
-                                            value={coordinates.y}
-                                            aria-invalid={
-                                                validationMessage !== ''
-                                            }
-                                            onChange={(event) => {
-                                                setCoordinates((current) => ({
-                                                    ...current,
-                                                    y: event.target.value,
-                                                }));
-                                                setRequestError('');
-                                            }}
-                                        />
-                                    </label>
+                                        {isSaving && <Spinner />}
+                                        {isSaving
+                                            ? 'Saving position...'
+                                            : 'Save position'}
+                                    </Button>
                                 </div>
-                                <div className="bg-muted/50 grid gap-3 rounded-lg p-3 text-sm sm:grid-cols-2">
-                                    <p>
-                                        <span className="text-muted-foreground block text-xs tracking-wide uppercase">
-                                            Width
-                                        </span>
-                                        <span className="font-medium tabular-nums">
-                                            {formatPercentage(
-                                                catalog.print_area.width,
-                                            )}
-                                            %
-                                        </span>
-                                    </p>
-                                    <p>
-                                        <span className="text-muted-foreground block text-xs tracking-wide uppercase">
-                                            Height
-                                        </span>
-                                        <span className="font-medium tabular-nums">
-                                            {formatPercentage(
-                                                catalog.print_area.height,
-                                            )}
-                                            %
-                                        </span>
-                                    </p>
+                            </section>
+                            <section className="bg-muted/30 flex min-h-0 min-w-0 flex-col gap-4 border-t p-4 lg:border-t-0 lg:border-l lg:p-6">
+                                <div className="bg-background min-h-0 flex-1 overflow-hidden rounded-xl border p-2">
+                                    <CatalogMockupImage
+                                        catalog={catalog}
+                                        area={selectedAsset}
+                                        imageUrl={selectedImageUrl}
+                                        printAreaPlaceholderUrl={
+                                            printAreaPlaceholderUrl
+                                        }
+                                        printAreas={printAreas}
+                                    />
                                 </div>
-                                {(validationMessage !== '' ||
-                                    requestError !== '') && (
-                                    <p
-                                        className="text-destructive text-sm"
-                                        role="alert"
+                                <div className="flex items-center justify-between gap-3">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={assetIndex === 0 || isSaving}
+                                        onClick={() =>
+                                            setAssetIndex((index) =>
+                                                Math.max(0, index - 1),
+                                            )
+                                        }
+                                        aria-label="Previous mockup"
                                     >
-                                        {requestError || validationMessage}
+                                        <ChevronLeft aria-hidden="true" />
+                                        Previous
+                                    </Button>
+                                    <p className="text-muted-foreground truncate text-center text-xs">
+                                        Mockup {assetIndex + 1} of{' '}
+                                        {assets.length}:{' '}
+                                        {selectedAsset.source_path
+                                            .split('/')
+                                            .pop() || selectedAsset.placement}
                                     </p>
-                                )}
-                            </div>
-                            <DialogFooter>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    disabled={isSaving}
-                                    onClick={() => onOpenChange(false)}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    disabled={!canSave || isSaving}
-                                >
-                                    {isSaving && <Spinner />}
-                                    {isSaving
-                                        ? 'Saving position...'
-                                        : 'Save position'}
-                                </Button>
-                            </DialogFooter>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={
+                                            assetIndex >= assets.length - 1 ||
+                                            isSaving
+                                        }
+                                        onClick={() =>
+                                            setAssetIndex((index) =>
+                                                Math.min(
+                                                    assets.length - 1,
+                                                    index + 1,
+                                                ),
+                                            )
+                                        }
+                                        aria-label="Next mockup"
+                                    >
+                                        Next
+                                        <ChevronRight aria-hidden="true" />
+                                    </Button>
+                                </div>
+                            </section>
                         </form>
                     ) : (
-                        <p className="text-muted-foreground text-sm">
+                        <p className="text-muted-foreground p-6 text-sm">
                             This catalog does not have a configured print area
                             yet. Run Analyze catalog mockups before editing it.
                         </p>
                     )}
-                </DialogContent>
+                </SheetContent>
             )}
-        </Dialog>
+        </Sheet>
     );
 }
 

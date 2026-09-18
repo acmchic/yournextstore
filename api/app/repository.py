@@ -153,7 +153,7 @@ class CatalogRepository:
     async def get_catalog_preview_print_areas(
         self, catalog_slugs: list[str]
     ) -> dict[str, dict[str, Any]]:
-        """Return the renderer's bounded front geometry for Admin catalog previews."""
+        """Return bounded geometry for every analyzed mockup in each catalog."""
         slugs = list(dict.fromkeys(slug.strip().lower() for slug in catalog_slugs if slug.strip()))
         if not slugs:
             return {}
@@ -162,57 +162,83 @@ class CatalogRepository:
         rows = await self._database.fetch_all(
             f"""
             select catalog.slug, catalog.product_type,
-              metadata.id metadata_id, metadata.print_area_json,
+              metadata.id metadata_id, metadata.placement, metadata.source_path,
+              metadata.print_area_json, metadata.analysis_version,
               metadata.template_width, metadata.template_height,
+              metadata.asset_id, asset.local_path asset_path,
               asset.width asset_width, asset.height asset_height
             from catalogs catalog
             left join catalog_mockup_metadata metadata
-              on metadata.catalog_id=catalog.id
-              and metadata.placement='front' and metadata.status='ready'
+              on metadata.catalog_id=catalog.id and metadata.status='ready'
             left join catalog_assets asset
               on asset.id=metadata.asset_id and asset.status='active'
             where catalog.active=true and catalog.slug in ({placeholders})
+            order by catalog.id, metadata.id
             """,
             tuple(slugs),
         )
 
         areas: dict[str, dict[str, Any]] = {}
+        rows_by_catalog: dict[str, list[dict[str, Any]]] = {}
         for row in rows:
-            # Match the same black front asset served to Admin's thumbnail.
-            preview_asset = await self.get_blank_catalog_asset(row["slug"], "black", "front")
-            template_width = int(
-                (preview_asset or {}).get("width")
-                or row.get("asset_width")
-                or row.get("template_width")
-                or 0
-            )
-            template_height = int(
-                (preview_asset or {}).get("height")
-                or row.get("asset_height")
-                or row.get("template_height")
-                or 0
-            )
-            if template_width < 1 or template_height < 1:
-                continue
+            rows_by_catalog.setdefault(row["slug"], []).append(row)
 
-            raw_area = _decode_json(row.get("print_area_json")) or {}
-            if not isinstance(raw_area, dict):
-                raw_area = {}
-            raw_regions = raw_area.get("regions")
-            area, regions = resolve_print_areas(
-                raw_area,
-                raw_regions if isinstance(raw_regions, list) else [],
-                product_type=row.get("product_type"),
-                template_width=template_width,
-                template_height=template_height,
-                fallback=default_print_area(row.get("product_type")),
+        for slug, catalog_rows in rows_by_catalog.items():
+            # Match the same black front asset served to Admin's thumbnail.
+            preview_asset = await self.get_blank_catalog_asset(slug, "black", "front")
+            image_rows: list[dict[str, Any]] = []
+            for row in catalog_rows:
+                source_path = row.get("source_path") or row.get("asset_path")
+                if not source_path or str(source_path).lower().endswith("/avatar-1.png"):
+                    continue
+                template_width = int(row.get("asset_width") or row.get("template_width") or 0)
+                template_height = int(row.get("asset_height") or row.get("template_height") or 0)
+                if template_width < 1 or template_height < 1:
+                    continue
+                raw_area = _decode_json(row.get("print_area_json")) or {}
+                if not isinstance(raw_area, dict):
+                    raw_area = {}
+                raw_regions = raw_area.get("regions")
+                geometry_product_type = (
+                    None
+                    if str(row.get("analysis_version") or "").startswith("manual-")
+                    else row.get("product_type")
+                )
+                area, regions = resolve_print_areas(
+                    raw_area,
+                    raw_regions if isinstance(raw_regions, list) else [],
+                    product_type=geometry_product_type,
+                    template_width=template_width,
+                    template_height=template_height,
+                    fallback=default_print_area(row.get("product_type")),
+                )
+                image_rows.append(
+                    {
+                        "metadata_id": row.get("metadata_id"),
+                        "asset_id": row.get("asset_id"),
+                        "placement": row.get("placement"),
+                        "source_path": source_path,
+                        **area,
+                        "regions": regions,
+                        "template_width": template_width,
+                        "template_height": template_height,
+                    }
+                )
+            if not image_rows:
+                continue
+            preview_path = (preview_asset or {}).get("local_path")
+            primary = next(
+                (
+                    item
+                    for item in image_rows
+                    if item["source_path"] == preview_path or item["placement"] == "front"
+                ),
+                image_rows[0],
             )
-            areas[row["slug"]] = {
-                **area,
-                "regions": regions,
-                "template_width": template_width,
-                "template_height": template_height,
-                "configured": row.get("metadata_id") is not None,
+            areas[slug] = {
+                **primary,
+                "assets": image_rows,
+                "configured": True,
             }
 
         return areas
@@ -552,6 +578,10 @@ class CatalogRepository:
                 (product["id"],),
             )
         )
+        registered_media_keys = {
+            (template["catalog"], template["color"], template["style"], template["placement"])
+            for template in templates
+        }
         media = [
             {
                 **template,
@@ -675,6 +705,7 @@ class CatalogRepository:
                 if category
                 for style in ("men", "women")
                 if _local_model_mockup_path(category, catalog, style, color)
+                if (catalog, color, style, "front") not in registered_media_keys
             )
         media.extend(
             {
@@ -809,7 +840,7 @@ class CatalogRepository:
             None,
         )
         metadata = await self._database.fetch_one(
-            "select print_area_json, asset_id, status from catalog_mockup_metadata where catalog_id=%s and placement=%s limit 1",
+            "select print_area_json, asset_id, source_path, analysis_version, status from catalog_mockup_metadata where catalog_id=%s and placement=%s limit 1",
             (variant["catalog_id"], asset_placement),
         )
         asset = await self._database.fetch_one(
@@ -821,6 +852,29 @@ class CatalogRepository:
             if metadata and metadata.get("asset_id")
             else (0, variant["catalog_id"]),
         )
+        if not asset and metadata and metadata.get("source_path"):
+            asset = await self._database.fetch_one(
+                """
+                select local_path, checksum, width, height from catalog_assets
+                where catalog_id=%s and local_path=%s and status='active' limit 1
+                """,
+                (variant["catalog_id"], metadata["source_path"]),
+            )
+        if not asset and metadata and metadata.get("source_path"):
+            source_path = Path(str(metadata["source_path"]))
+            asset_path = source_path if source_path.is_absolute() else settings.asset_root / source_path
+            try:
+                asset_path = asset_path.resolve()
+                asset_path.relative_to(settings.asset_root)
+                with Image.open(asset_path) as image:
+                    asset = {
+                        "local_path": asset_path.relative_to(settings.asset_root).as_posix(),
+                        "checksum": hashlib.sha256(asset_path.read_bytes()).hexdigest(),
+                        "width": image.width,
+                        "height": image.height,
+                    }
+            except (FileNotFoundError, OSError, ValueError):
+                asset = None
         if not asset:
             asset = await self._database.fetch_one(
                 """
@@ -863,10 +917,15 @@ class CatalogRepository:
             analyzed_regions = [area]
         elif analyzed_area:
             raw_regions = analyzed_area.get("regions")
+            geometry_product_type = (
+                None
+                if str(metadata.get("analysis_version") or "").startswith("manual-")
+                else variant.get("product_type")
+            )
             area, analyzed_regions = resolve_print_areas(
                 analyzed_area,
                 raw_regions if isinstance(raw_regions, list) else [],
-                product_type=variant.get("product_type"),
+                product_type=geometry_product_type,
                 template_width=asset_width,
                 template_height=asset_height,
                 fallback=default_print_area(variant.get("product_type")),
@@ -1087,6 +1146,15 @@ class CatalogRepository:
         if source_width < 1 or source_height < 1:
             return None
 
+        relative_path = asset_path.relative_to(settings.asset_root).as_posix()
+        metadata = await self._database.fetch_one(
+            """
+            select print_area_json, analysis_version, status, template_width, template_height
+            from catalog_mockup_metadata
+            where catalog_id=%s and source_path=%s limit 1
+            """,
+            (variant["catalog_id"], relative_path),
+        )
         is_hoodie = str(variant.get("product_type") or "").lower() in {
             "hoodie",
             "hoodies",
@@ -1101,23 +1169,65 @@ class CatalogRepository:
             "width": width_ratio,
             "height": height_ratio,
         }
-        resolved_area = resolve_print_area(
-            fallback_area,
-            product_type=None if placement == "chest" else variant.get("product_type"),
-            template_width=source_width,
-            template_height=source_height,
-            fallback=fallback_area,
-        )
+        analyzed_area = _decode_json(metadata.get("print_area_json")) if metadata else None
+        if metadata and metadata.get("status") == "ready" and isinstance(analyzed_area, dict):
+            raw_regions = analyzed_area.get("regions")
+            geometry_product_type = (
+                None
+                if str(metadata.get("analysis_version") or "").startswith("manual-")
+                else variant.get("product_type")
+            )
+            resolved_area, analyzed_regions = resolve_print_areas(
+                analyzed_area,
+                raw_regions if isinstance(raw_regions, list) else [],
+                product_type=geometry_product_type,
+                template_width=source_width,
+                template_height=source_height,
+                fallback=fallback_area,
+            )
+        else:
+            resolved_area = resolve_print_area(
+                fallback_area,
+                product_type=None if placement == "chest" else variant.get("product_type"),
+                template_width=source_width,
+                template_height=source_height,
+                fallback=fallback_area,
+            )
+            analyzed_regions = [resolved_area]
         left_ratio = resolved_area["x"]
         top_ratio = resolved_area["y"]
         width_ratio = resolved_area["width"]
         height_ratio = resolved_area["height"]
-        relative_path = asset_path.relative_to(settings.asset_root).as_posix()
         source_checksum = hashlib.sha256(asset_path.read_bytes()).hexdigest()[:12]
         left = left_ratio * source_width
         top = top_ratio * source_height
         width = width_ratio * source_width
         height = height_ratio * source_height
+        print_area_signature = hashlib.sha256(
+            json.dumps(
+                {"area": resolved_area, "regions": analyzed_regions},
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()[:12]
+        dst_quads = [
+            [
+                (float(region["x"]) * source_width, float(region["y"]) * source_height),
+                (
+                    (float(region["x"]) + float(region["width"])) * source_width,
+                    float(region["y"]) * source_height,
+                ),
+                (
+                    (float(region["x"]) + float(region["width"])) * source_width,
+                    (float(region["y"]) + float(region["height"])) * source_height,
+                ),
+                (
+                    float(region["x"]) * source_width,
+                    (float(region["y"]) + float(region["height"])) * source_height,
+                ),
+            ]
+            for region in analyzed_regions
+        ]
         return RenderJob(
             product_id=variant["product_id"],
             artwork_id=variant["artwork_id"],
@@ -1132,12 +1242,13 @@ class CatalogRepository:
                     (left + width, top + height),
                     (left, top + height),
                 ],
+                dst_quads=dst_quads or None,
                 displacement_strength=2.0,
                 shadow_opacity=0.30,
                 highlight_opacity=0.10,
                 surface_mode="auto",
             ),
-            version=f"local-model-v1-print-area-42x48:{source_checksum}:{variant['artwork_checksum']}",
+            version=f"local-model-v2-print-area:{source_checksum}:{variant['artwork_checksum']}:{print_area_signature}",
             metadata={
                 "catalog": variant["catalog_id"],
                 "placement": placement,

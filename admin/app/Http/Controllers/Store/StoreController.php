@@ -87,12 +87,46 @@ class StoreController extends Controller
             ->filter()
             ->values()
             ->all();
+        $assets = collect(is_array($area['assets'] ?? null) ? $area['assets'] : [])
+            ->map(function (mixed $asset): ?array {
+                if (! is_array($asset) || ! is_numeric($asset['metadata_id'] ?? null)) {
+                    return null;
+                }
+                $assetPrimary = $this->catalogPrintAreaRect($asset);
+                $assetWidth = $asset['template_width'] ?? null;
+                $assetHeight = $asset['template_height'] ?? null;
+                $sourcePath = $asset['source_path'] ?? null;
+                if ($assetPrimary === null || ! is_numeric($assetWidth) || ! is_numeric($assetHeight) || ! is_string($sourcePath) || $sourcePath === '') {
+                    return null;
+                }
+
+                $assetRegions = collect(is_array($asset['regions'] ?? null) ? $asset['regions'] : [])
+                    ->map(fn ($region) => $this->catalogPrintAreaRect($region))
+                    ->filter()
+                    ->values()
+                    ->all();
+
+                return [
+                    'metadata_id' => (int) $asset['metadata_id'],
+                    'asset_id' => isset($asset['asset_id']) && is_numeric($asset['asset_id']) ? (int) $asset['asset_id'] : null,
+                    'placement' => (string) ($asset['placement'] ?? 'mockup'),
+                    'source_path' => $sourcePath,
+                    ...$assetPrimary,
+                    'regions' => $assetRegions === [] ? [$assetPrimary] : $assetRegions,
+                    'template_width' => (int) $assetWidth,
+                    'template_height' => (int) $assetHeight,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
 
         return [
             ...$primary,
             'regions' => $regions === [] ? [$primary] : $regions,
             'template_width' => $width,
             'template_height' => $height,
+            'assets' => $assets,
         ];
     }
 
@@ -571,6 +605,18 @@ class StoreController extends Controller
                 'v' => 'black-blank-v2',
             ]);
             $catalog->print_area = $previewAreas[$catalog->slug] ?? null;
+            if (is_array($catalog->print_area)) {
+                $catalog->print_area['assets'] = collect($catalog->print_area['assets'] ?? [])
+                    ->map(fn (array $asset): array => [
+                        ...$asset,
+                        'image_url' => route('catalog.asset', [
+                            'catalog' => $catalog->id,
+                            'path' => $asset['source_path'],
+                            'v' => 'mockup-'.$asset['metadata_id'],
+                        ]),
+                    ])
+                    ->all();
+            }
 
             return $catalog;
         });
@@ -584,10 +630,26 @@ class StoreController extends Controller
         ]);
     }
 
-    public function catalogAssetImage(int $catalog)
+    public function catalogAssetImage(Request $request, int $catalog)
     {
         $root = realpath($this->apiPath().'/public');
         $catalogRecord = $this->table('catalogs')->find($catalog, ['slug', 'name', 'product_type']);
+
+        $requestedPath = $request->string('path')->toString();
+        if ($requestedPath !== '') {
+            abort_unless(
+                $catalogRecord?->slug !== null
+                    && str_starts_with($requestedPath, 'mockup/')
+                    && ! str_contains($requestedPath, '..')
+                    && ! str_ends_with(strtolower($requestedPath), '/avatar-1.png')
+                    && str_contains($requestedPath, '/'.$catalogRecord->slug.'/'),
+                404,
+            );
+            $file = $root === false ? null : $this->resolvePublicAsset($requestedPath, $root);
+            abort_unless($file !== null, 404);
+
+            return response()->file($file, ['Cache-Control' => 'private, max-age=3600']);
+        }
 
         $catalogIdentity = strtolower(implode(' ', array_filter([
             $catalogRecord?->name,
@@ -952,17 +1014,18 @@ class StoreController extends Controller
     public function updateCatalogPrintArea(Request $request, int $catalog): RedirectResponse
     {
         $data = $request->validate([
+            'metadata_id' => 'required|integer|min:1',
             'x' => 'required|numeric|min:0|max:1',
             'y' => 'required|numeric|min:0|max:1',
             'width' => 'required|numeric|gt:0|max:1',
-            'height' => 'required|numeric|gt:0|max:1',
+            'height' => 'nullable|numeric|gt:0|max:1',
         ]);
 
         $this->db()->transaction(function () use ($request, $catalog, $data): void {
             $this->table('catalogs')->where('id', $catalog)->lockForUpdate()->first() ?? abort(404);
             $metadata = $this->table('catalog_mockup_metadata')
                 ->where('catalog_id', $catalog)
-                ->where('placement', 'front')
+                ->where('id', $data['metadata_id'])
                 ->lockForUpdate()
                 ->first();
 
@@ -991,11 +1054,19 @@ class StoreController extends Controller
                 ]);
             }
 
+            $templateWidth = (int) $metadata->template_width;
+            $templateHeight = (int) $metadata->template_height;
+            if ($templateWidth < 1 || $templateHeight < 1) {
+                throw ValidationException::withMessages([
+                    'print_area' => 'This mockup has invalid template dimensions. Run Analyze catalog mockups first.',
+                ]);
+            }
+
             $area = [
                 'x' => (float) $data['x'],
                 'y' => (float) $data['y'],
                 'width' => (float) $data['width'],
-                'height' => (float) $data['height'],
+                'height' => (float) $data['width'] * $templateWidth / $templateHeight * 6 / 5,
             ];
             if ($this->catalogPrintAreaRect($area) === null) {
                 throw ValidationException::withMessages([
@@ -1030,15 +1101,17 @@ class StoreController extends Controller
                 ]);
 
             $this->audit($request, 'catalog_print_area', $catalog, [
+                'metadata_id' => (int) $metadata->id,
                 'print_area' => $this->catalogPrintAreaRect($stored),
             ], [
+                'metadata_id' => (int) $metadata->id,
                 'print_area' => $area,
             ]);
         });
 
         Inertia::flash('toast', [
             'type' => 'success',
-            'message' => 'Catalog print-area position updated.',
+            'message' => 'Catalog print-area position and size updated.',
         ]);
 
         return back();

@@ -108,6 +108,8 @@ Với các model mockup đã được kiểm duyệt và đưa trực tiếp và
 
 `api/scripts/analyze_catalog_mockups.py` chuẩn bị vùng in offline. Guideline từ provider là vùng an toàn mặc định; analyzer còn nhận diện các vùng sản phẩm lặp lại trong một mockup (ví dụ hai tumbler) và lưu tọa độ chuẩn hóa vào `catalog_mockup_metadata`. Lúc phục vụ request, renderer chỉ đọc metadata và đặt một bản artwork theo chế độ `contain` vào từng vùng, không chạy computer vision. Artwork RGB/JPEG cũng được loại nền gần trắng nối với mép ảnh trước khi ghép, nhưng giữ lại chi tiết trắng nằm kín bên trong design.
 
+Analyzer quét mọi ảnh raster trong `mockup/{catalog-group}/{catalog-slug}` (hoặc `mockup/{catalog-slug}`), bỏ qua `avatar-1.png`, và lưu metadata riêng theo `source_path`; vì vậy các ảnh model như `men_black_front.png` và `women_black_front.png` dùng được cùng vùng in an toàn. Admin Catalog hiển thị các ảnh này theo slide Previous/Next. Khi chỉnh thủ công, X/Y và width là phần trăm ảnh, còn height tự tính theo tỷ lệ in vật lý 5:6; metadata có tiền tố `manual-` được renderer giữ nguyên, không ép lại về tỷ lệ analyzer mặc định.
+
 Các HTTP contract đang tồn tại trong `api/app/main.py`:
 
 - `/{product_slug}/{catalog_slug}/{color}.webp`: ảnh flat/front theo product, catalog và màu. Thêm `/{view}` trước `.webp` cho `men`, `women`, `back`, `chest`, `men-back`, `women-chest` hoặc `blank-back`. Route `_{color}` cũ chỉ còn compatibility.
@@ -115,9 +117,9 @@ Các HTTP contract đang tồn tại trong `api/app/main.py`:
 - `/img/{design_and_catalog:path}` và `/img/blank/{filename}`: render theo asset/file và ảnh áo nền.
 - `/v1/mockups/render`, `/m`, `/m/{product_ref}`: các đường render/reference khác còn được hỗ trợ.
 
-`api/app/rendering/print_area.py` là nguồn hình học chung cho vùng in. Nó chuẩn hóa guideline provider ở dạng ratio, phần trăm hoặc pixel canvas, chỉ cho phép vùng nằm trong `[0, 1]`, và ép vùng áo về tỷ lệ vật lý 42×48. Metadata lỗi (ví dụ `width: 6`) không thể đi tới renderer; API thay bằng vùng an toàn. Admin lấy tọa độ thumbnail qua `GET /catalog-preview/print-areas?slugs=...`, trong khi ảnh áo đen lấy từ endpoint blank API, nên Admin không tự tính tỷ lệ vùng in khác storefront.
+`api/app/rendering/print_area.py` là nguồn hình học chung cho vùng in. Nó chuẩn hóa guideline provider ở dạng ratio, phần trăm hoặc pixel canvas, chỉ cho phép vùng nằm trong `[0, 1]`, và ép vùng phân tích áo về tỷ lệ vật lý 42×48. Metadata lỗi (ví dụ `width: 6`) không thể đi tới renderer; API thay bằng vùng an toàn. Metadata manual của Admin giữ tỷ lệ 5:6 đã lưu. Admin lấy tọa độ thumbnail qua `GET /catalog-preview/print-areas?slugs=...`, trong khi ảnh áo đen lấy từ endpoint blank API, nên Admin không tự tính tỷ lệ vùng in khác storefront.
 
-Click thumbnail tại Admin Catalog mở preview lớn cùng ảnh blank API và cho phép chỉnh vị trí X/Y theo phần trăm. Kích thước 42×48 giữ cố định; khi lưu, Admin cập nhật `catalog_mockup_metadata.print_area_json` cho `front` và gắn `analysis_version=manual-print-area-v1`. Analyzer giữ nguyên metadata có tiền tố `manual-`, còn API vẫn chuẩn hóa và giới hạn vùng trước khi Admin hoặc storefront render ảnh.
+Click thumbnail tại Admin Catalog mở preview lớn cùng ảnh mockup và cho phép chuyển qua từng ảnh, chỉnh vị trí X/Y và width theo phần trăm. Height tự tính theo tỷ lệ 5:6; khi lưu, Admin cập nhật đúng dòng `catalog_mockup_metadata` của ảnh và gắn `analysis_version=manual-print-area-v1`. Analyzer giữ nguyên metadata có tiền tố `manual-`, còn API vẫn giới hạn vùng trước khi Admin hoặc storefront render ảnh.
 
 Đọc `product_media.py`, `repository.py`, `rendering/pipeline.py` trước khi thay URL, placement, asset selection hoặc cache. Các đường render có quy tắc khác nhau; không suy ra một thay đổi ở một endpoint sẽ áp dụng cho tất cả endpoint. Catalog renders ưu tiên giữ đúng artwork; renderer tổng quát còn có các map mask/warp/displacement/shadow/highlight.
 

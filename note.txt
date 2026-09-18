@@ -11,10 +11,12 @@ PYTHONPATH=. .venv/bin/python -m app.cli \
 PYTHONPATH=. .venv/bin/python -m app.cli truncate-gearment-catalogs
 
 
+./.venv/bin/python -m app.cli analyze-catalog-mockups
+
 http://127.0.0.1:8000/catalog-preview/premium-guys-tee/black/blank.webp
 
 http://127.0.0.1:8000/wise-pug-lover-costume-wise-puggy/premium-guys-tee/black.webp
 http://127.0.0.1:8000/yorkshire-terrier-animals-rainbow-scare-ainime-din/hoodie/black.webp
 
 
-mysql -h <DB_HOST> -u <DB_USER> -p <DB_NAME> < /Users/changha/workspace/Teeravo/api/mysql/seed_catalog_base_prices.sql
+mysql -h 127.0.0.1 -u root -p pod_store < /Users/ac/workspace/TeeBravo/api/mysql/seed_catalog_base_prices.sql

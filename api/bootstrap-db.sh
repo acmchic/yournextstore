@@ -49,7 +49,7 @@ mysql_base=(--host="$db_host" --port="$db_port" --user="$db_user")
 
 mysql "${mysql_base[@]}" -e "create database if not exists \`$db_name\` character set utf8mb4 collate utf8mb4_unicode_ci"
 
-for migration in mysql/init/001_schema.sql mysql/init/002_seed_catalog.sql mysql/init/003_gearment_catalog.sql mysql/init/004_catalog_color_sort_order.sql mysql/init/005_catalog_asset_placement.sql mysql/init/006_teebravo_brand.sql mysql/init/007_remove_unused_catalog_payload.sql mysql/init/008_catalog_asset_categories.sql mysql/init/009_catalog_material_json.sql mysql/init/010_checkout_stripe_shipping.sql mysql/init/011_pdp_delivery_estimate.sql mysql/init/012_catalog_model_mockups.sql mysql/init/013_expand_model_renderer_version.sql mysql/init/014_catalog_code.sql mysql/init/015_catalog_base_price.sql; do
+for migration in mysql/init/001_schema.sql mysql/init/002_seed_catalog.sql mysql/init/003_gearment_catalog.sql mysql/init/004_catalog_mockup_metadata.sql mysql/init/004_catalog_color_sort_order.sql mysql/init/005_catalog_asset_placement.sql mysql/init/006_teebravo_brand.sql mysql/init/007_remove_unused_catalog_payload.sql mysql/init/008_catalog_asset_categories.sql mysql/init/009_catalog_material_json.sql mysql/init/010_checkout_stripe_shipping.sql mysql/init/011_pdp_delivery_estimate.sql mysql/init/012_catalog_model_mockups.sql mysql/init/013_expand_model_renderer_version.sql mysql/init/014_catalog_code.sql mysql/init/015_catalog_base_price.sql mysql/init/016_catalog_mockup_image_metadata.sql; do
   version="${migration##*/}"
   version="${version%.sql}"
   applied="$(mysql "${mysql_base[@]}" "$db_name" -N -e "select count(*) from schema_migrations where version='$version'" 2>/dev/null || true)"

@@ -58,6 +58,7 @@ next-env.d.ts
 !api/mysql/init/003_gearment_catalog.sql
 !api/mysql/init/004_catalog_mockup_metadata.sql
 !api/mysql/init/005_catalog_asset_placement.sql
+!api/mysql/init/016_catalog_mockup_image_metadata.sql
 !api/mysql/init/006_teebravo_brand.sql
 !api/mysql/init/007_remove_unused_catalog_payload.sql
 !api/mysql/init/008_catalog_asset_categories.sql
