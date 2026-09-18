@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Store;
 use App\Http\Controllers\Controller;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -24,6 +26,102 @@ class StoreController extends Controller
         $path = $configuredPath ?: base_path('../api');
 
         return realpath($path) ?: $path;
+    }
+
+    private function mockupApiUrl(): string
+    {
+        return rtrim(
+            (string) config('services.pod_mockup.url', 'http://127.0.0.1:8000'),
+            '/',
+        );
+    }
+
+    /** @param list<string> $catalogSlugs */
+    private function catalogPreviewAreas(array $catalogSlugs): array
+    {
+        if ($catalogSlugs === []) {
+            return [];
+        }
+
+        try {
+            $response = Http::acceptJson()->timeout(8)->get(
+                $this->mockupApiUrl().'/catalog-preview/print-areas',
+                ['slugs' => implode(',', $catalogSlugs)],
+            );
+        } catch (ConnectionException) {
+            return [];
+        }
+
+        $payload = $response->successful() ? $response->json('data') : null;
+        if (! is_array($payload)) {
+            return [];
+        }
+
+        return collect($payload)
+            ->map(fn ($area) => $this->catalogPreviewArea($area))
+            ->filter()
+            ->all();
+    }
+
+    private function catalogPreviewArea(mixed $area): ?array
+    {
+        if (! is_array($area) || ($area['configured'] ?? false) !== true) {
+            return null;
+        }
+
+        $primary = $this->catalogPrintAreaRect($area);
+        $templateWidth = $area['template_width'] ?? null;
+        $templateHeight = $area['template_height'] ?? null;
+        if ($primary === null || ! is_numeric($templateWidth) || ! is_numeric($templateHeight)) {
+            return null;
+        }
+
+        $width = (int) $templateWidth;
+        $height = (int) $templateHeight;
+        if ($width < 1 || $height < 1) {
+            return null;
+        }
+
+        $regions = collect(is_array($area['regions'] ?? null) ? $area['regions'] : [])
+            ->map(fn ($region) => $this->catalogPrintAreaRect($region))
+            ->filter()
+            ->values()
+            ->all();
+
+        return [
+            ...$primary,
+            'regions' => $regions === [] ? [$primary] : $regions,
+            'template_width' => $width,
+            'template_height' => $height,
+        ];
+    }
+
+    private function catalogPrintAreaRect(mixed $area): ?array
+    {
+        if (! is_array($area)) {
+            return null;
+        }
+
+        $keys = ['x', 'y', 'width', 'height'];
+        if (collect($keys)->contains(fn (string $key): bool => ! is_numeric($area[$key] ?? null))) {
+            return null;
+        }
+
+        $rect = [
+            'x' => (float) $area['x'],
+            'y' => (float) $area['y'],
+            'width' => (float) $area['width'],
+            'height' => (float) $area['height'],
+        ];
+
+        return $rect['x'] >= 0
+            && $rect['y'] >= 0
+            && $rect['width'] > 0
+            && $rect['height'] > 0
+            && $rect['x'] + $rect['width'] <= 1
+            && $rect['y'] + $rect['height'] <= 1
+            ? $rect
+            : null;
     }
 
     private function resolvePublicAsset(?string $path, string $root): ?string
@@ -419,7 +517,30 @@ class StoreController extends Controller
     public function catalogs(Request $request): Response
     {
         $filters = $this->filters($request);
-        $query = $this->table('catalogs')->select('id', 'name', 'slug', 'provider', 'product_type', 'brand', 'active', 'sort_order');
+        $variantPrices = $this->table('catalog_variants')
+            ->select('catalog_id')
+            ->selectRaw('MIN(default_price_minor) as price_minor')
+            ->selectRaw('MIN(base_price_minor) as base_price_minor')
+            ->selectRaw('MIN(currency) as currency')
+            ->selectRaw('COUNT(*) as variant_count')
+            ->groupBy('catalog_id');
+        $query = $this->table('catalogs')
+            ->leftJoinSub($variantPrices, 'variant_prices', fn (Builder $join) => $join
+                ->on('variant_prices.catalog_id', '=', 'catalogs.id'))
+            ->select(
+                'catalogs.id',
+                'catalogs.name',
+                'catalogs.slug',
+                'catalogs.provider',
+                'catalogs.product_type',
+                'catalogs.brand',
+                'catalogs.active',
+                'catalogs.sort_order',
+                'variant_prices.price_minor',
+                'variant_prices.base_price_minor',
+                'variant_prices.currency',
+                'variant_prices.variant_count',
+            );
         $category = $request->string('category')->toString();
         if ($category !== '') {
             $query->whereExists(fn (Builder $q) => $q
@@ -432,24 +553,86 @@ class StoreController extends Controller
             $query->where(fn (Builder $q) => $q->where('name', 'like', '%'.$filters['q'].'%')->orWhere('slug', 'like', '%'.$filters['q'].'%'));
         }
         if ($filters['status'] !== '') {
-            $query->where('active', $filters['status'] === 'active');
+            $query->where('catalogs.active', $filters['status'] === 'active');
         }
 
         $catalogs = $query->orderBy('sort_order')->orderBy('name')->paginate(20)->withQueryString();
-        $catalogs->getCollection()->transform(function (object $catalog): object {
-            $catalog->thumbnail_url = route('catalog.asset', $catalog->id);
+        $previewAreas = $this->catalogPreviewAreas(
+            $catalogs->getCollection()->pluck('slug')->filter()->values()->all(),
+        );
+
+        $catalogs->getCollection()->transform(function (object $catalog) use ($previewAreas): object {
+            $catalog->price_minor = $catalog->price_minor === null ? null : (int) $catalog->price_minor;
+            $catalog->base_price_minor = $catalog->base_price_minor === null ? null : (int) $catalog->base_price_minor;
+            $catalog->currency = $catalog->currency === null ? null : (string) $catalog->currency;
+            $catalog->variant_count = (int) $catalog->variant_count;
+            $catalog->thumbnail_url = route('catalog.asset', [
+                'catalog' => $catalog->id,
+                'v' => 'black-blank-v2',
+            ]);
+            $catalog->print_area = $previewAreas[$catalog->slug] ?? null;
 
             return $catalog;
         });
 
-        return Inertia::render('catalog/index', ['catalogs' => $catalogs, 'filters' => [...$filters, 'category' => $category]]);
+        return Inertia::render('catalog/index', [
+            'catalogs' => $catalogs,
+            'filters' => [...$filters, 'category' => $category],
+            'printAreaPlaceholderUrl' => route('catalog.print-area-placeholder', [
+                'v' => 'print-area-v4',
+            ]),
+        ]);
     }
 
     public function catalogAssetImage(int $catalog)
     {
-        $path = $this->table('catalog_assets')->where('catalog_id', $catalog)->where('status', 'active')->orderBy('id')->value('local_path');
         $root = realpath($this->apiPath().'/public');
-        $file = $root === false ? null : $this->resolvePublicAsset($path, $root);
+        $catalogRecord = $this->table('catalogs')->find($catalog, ['slug', 'name', 'product_type']);
+
+        $catalogIdentity = strtolower(implode(' ', array_filter([
+            $catalogRecord?->name,
+            $catalogRecord?->slug,
+            $catalogRecord?->product_type,
+        ])));
+        $isApparel = $catalogRecord?->product_type === 'apparel'
+            || Str::contains($catalogIdentity, ['shirt', 'tee', 'hoodie', 'sweatshirt', 'tank', 'crewneck']);
+
+        if ($catalogRecord?->slug !== null && $isApparel) {
+            $mockupPath = implode('/', [
+                'catalog-preview',
+                rawurlencode($catalogRecord->slug),
+                'black',
+                'blank.webp',
+            ]);
+
+            try {
+                $mockup = Http::accept('image/webp')
+                    ->timeout(8)
+                    ->get($this->mockupApiUrl().'/'.$mockupPath);
+
+                if (
+                    $mockup->successful()
+                    && str_starts_with((string) $mockup->header('Content-Type'), 'image/')
+                ) {
+                    return response($mockup->body(), 200, [
+                        'Content-Type' => $mockup->header('Content-Type', 'image/webp'),
+                        'Cache-Control' => 'private, max-age=3600',
+                    ]);
+                }
+            } catch (ConnectionException) {
+                // Keep the local catalog asset as a fallback while the renderer is offline.
+            }
+        }
+
+        $frontMockup = $catalogRecord?->slug === null
+            ? null
+            : 'mockup/'.$this->modelMockupCategory($catalog).'/'.$catalogRecord->slug.'/front.png';
+        $file = $root === false ? null : $this->resolvePublicAsset($frontMockup, $root);
+
+        if ($file === null && $root !== false) {
+            $path = $this->table('catalog_assets')->where('catalog_id', $catalog)->where('status', 'active')->orderBy('id')->value('local_path');
+            $file = $this->resolvePublicAsset($path, $root);
+        }
 
         if ($file === null && $root !== false) {
             $templatePath = $this->table('mockup_templates')
@@ -461,7 +644,6 @@ class StoreController extends Controller
         }
 
         if ($file === null && $root !== false) {
-            $catalogRecord = $this->table('catalogs')->find($catalog, ['slug', 'product_type']);
             $fallbacks = array_filter([
                 $catalogRecord?->slug === null ? null : 'mockup/'.$catalogRecord->slug.'/avatar-1.png',
                 $catalogRecord?->product_type === 'apparel'
@@ -480,6 +662,20 @@ class StoreController extends Controller
         abort_unless($file !== null, 404);
 
         return response()->file($file, ['Cache-Control' => 'private, max-age=3600']);
+    }
+
+    public function catalogPrintAreaPlaceholderImage()
+    {
+        $root = realpath($this->apiPath().'/public');
+        $file = $root === false
+            ? null
+            : $this->resolvePublicAsset('mockup/placeholder/print-area-white.svg', $root);
+
+        abort_unless($file !== null, 404);
+
+        return response()->file($file, [
+            'Cache-Control' => 'private, max-age=31536000, immutable',
+        ]);
     }
 
     public function catalogForm(?int $catalog = null): Response
@@ -647,6 +843,205 @@ class StoreController extends Controller
         });
 
         return back()->with('success', 'Variant saved. Selling prices updated for all linked products.');
+    }
+
+    public function updateCatalogPrice(Request $request, int $catalog): RedirectResponse
+    {
+        $data = $request->validate([
+            'price_minor' => 'required|integer|min:0|max:4294967295',
+        ]);
+
+        $this->db()->transaction(function () use ($request, $catalog, $data): void {
+            $this->table('catalogs')->where('id', $catalog)->lockForUpdate()->first() ?? abort(404);
+            $variants = $this->table('catalog_variants')
+                ->where('catalog_id', $catalog)
+                ->lockForUpdate()
+                ->get(['id', 'default_price_minor']);
+
+            if ($variants->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'price_minor' => 'This catalog has no variants, so there is no price to update.',
+                ]);
+            }
+
+            $variantIds = $variants->pluck('id')->all();
+            $before = [
+                'default_price_minor' => $variants->pluck('default_price_minor')->unique()->values()->all(),
+                'variant_count' => count($variantIds),
+            ];
+            $after = [
+                'default_price_minor' => $data['price_minor'],
+                'variant_count' => count($variantIds),
+            ];
+
+            $this->table('catalog_variants')
+                ->whereIn('id', $variantIds)
+                ->update(['default_price_minor' => $data['price_minor']]);
+            $this->table('catalog_variants')
+                ->whereIn('id', $variantIds)
+                ->where('base_price_minor', '<=', $data['price_minor'])
+                ->update(['base_price_minor' => null]);
+            $this->table('product_variants')
+                ->whereIn('catalog_variant_id', $variantIds)
+                ->update(['price_minor' => $data['price_minor']]);
+            $this->table('product_variants')
+                ->whereIn('catalog_variant_id', $variantIds)
+                ->where('compare_at_minor', '<=', $data['price_minor'])
+                ->update(['compare_at_minor' => null]);
+            $this->audit($request, 'catalog_price', $catalog, $before, $after);
+        });
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Catalog price updated for all variants.',
+        ]);
+
+        return back();
+    }
+
+    public function updateCatalogBasePrice(Request $request, int $catalog): RedirectResponse
+    {
+        $data = $request->validate([
+            'base_price_minor' => 'nullable|integer|min:0|max:4294967295',
+        ]);
+
+        $this->db()->transaction(function () use ($request, $catalog, $data): void {
+            $this->table('catalogs')->where('id', $catalog)->lockForUpdate()->first() ?? abort(404);
+            $variants = $this->table('catalog_variants')
+                ->where('catalog_id', $catalog)
+                ->lockForUpdate()
+                ->get(['id', 'default_price_minor', 'base_price_minor']);
+
+            if ($variants->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'base_price_minor' => 'This catalog has no variants, so there is no base price to update.',
+                ]);
+            }
+
+            $basePrice = $data['base_price_minor'];
+            if ($basePrice !== null && $variants->contains(fn (object $variant): bool => $basePrice <= $variant->default_price_minor)) {
+                throw ValidationException::withMessages([
+                    'base_price_minor' => 'Base price must be greater than the selling price.',
+                ]);
+            }
+
+            $variantIds = $variants->pluck('id')->all();
+            $before = [
+                'base_price_minor' => $variants->pluck('base_price_minor')->unique()->values()->all(),
+                'variant_count' => count($variantIds),
+            ];
+            $after = [
+                'base_price_minor' => $basePrice,
+                'variant_count' => count($variantIds),
+            ];
+
+            $this->table('catalog_variants')
+                ->whereIn('id', $variantIds)
+                ->update(['base_price_minor' => $basePrice]);
+            $this->audit($request, 'catalog_base_price', $catalog, $before, $after);
+        });
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Catalog base price updated for all variants.',
+        ]);
+
+        return back();
+    }
+
+    public function updateCatalogPrintArea(Request $request, int $catalog): RedirectResponse
+    {
+        $data = $request->validate([
+            'x' => 'required|numeric|min:0|max:1',
+            'y' => 'required|numeric|min:0|max:1',
+            'width' => 'required|numeric|gt:0|max:1',
+            'height' => 'required|numeric|gt:0|max:1',
+        ]);
+
+        $this->db()->transaction(function () use ($request, $catalog, $data): void {
+            $this->table('catalogs')->where('id', $catalog)->lockForUpdate()->first() ?? abort(404);
+            $metadata = $this->table('catalog_mockup_metadata')
+                ->where('catalog_id', $catalog)
+                ->where('placement', 'front')
+                ->lockForUpdate()
+                ->first();
+
+            if ($metadata === null) {
+                throw ValidationException::withMessages([
+                    'print_area' => 'Run Analyze catalog mockups before editing this catalog.',
+                ]);
+            }
+
+            try {
+                $stored = json_decode(
+                    (string) $metadata->print_area_json,
+                    true,
+                    512,
+                    JSON_THROW_ON_ERROR,
+                );
+            } catch (\JsonException) {
+                throw ValidationException::withMessages([
+                    'print_area' => 'This catalog has invalid print-area metadata. Run Analyze catalog mockups first.',
+                ]);
+            }
+
+            if (! is_array($stored)) {
+                throw ValidationException::withMessages([
+                    'print_area' => 'This catalog has invalid print-area metadata. Run Analyze catalog mockups first.',
+                ]);
+            }
+
+            $area = [
+                'x' => (float) $data['x'],
+                'y' => (float) $data['y'],
+                'width' => (float) $data['width'],
+                'height' => (float) $data['height'],
+            ];
+            if ($this->catalogPrintAreaRect($area) === null) {
+                throw ValidationException::withMessages([
+                    'print_area' => 'X and Y must keep the complete print area inside the mockup.',
+                ]);
+            }
+
+            $regions = collect(is_array($stored['regions'] ?? null) ? $stored['regions'] : [])
+                ->map(fn ($region) => $this->catalogPrintAreaRect($region))
+                ->filter()
+                ->values()
+                ->all();
+            if ($regions === []) {
+                $regions = [$area];
+            } else {
+                $regions[0] = $area;
+            }
+
+            $updated = [
+                ...$stored,
+                ...$area,
+                'regions' => $regions,
+            ];
+            $this->table('catalog_mockup_metadata')
+                ->where('id', $metadata->id)
+                ->update([
+                    'print_area_json' => json_encode($updated, JSON_THROW_ON_ERROR),
+                    'analysis_version' => 'manual-print-area-v1',
+                    'status' => 'ready',
+                    'error_message' => null,
+                    'analyzed_at' => now(),
+                ]);
+
+            $this->audit($request, 'catalog_print_area', $catalog, [
+                'print_area' => $this->catalogPrintAreaRect($stored),
+            ], [
+                'print_area' => $area,
+            ]);
+        });
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Catalog print-area position updated.',
+        ]);
+
+        return back();
     }
 
     public function orders(Request $request): Response

@@ -20,6 +20,12 @@ from app.product_media import (
     build_catalog_mockup_url,
     build_media_url,
 )
+from app.rendering.print_area import (
+    default_print_area,
+    normalize_provider_print_area,
+    resolve_print_area,
+    resolve_print_areas,
+)
 from app.settings import settings
 from app.shipping import render_policy
 
@@ -97,14 +103,6 @@ def _local_model_mockup_path(category: str, catalog: str, style: str, color: str
     return None
 
 
-def _guideline_percent(value: Any, default: float) -> float:
-    """Accept provider guidelines expressed as either 0..1 ratios or percentages."""
-    if value is None:
-        return default
-    parsed = float(value)
-    return parsed * 100 if 0 < parsed <= 1 else parsed
-
-
 def _normalized_ratio(value: Any, default: float) -> float:
     if value is None:
         return default
@@ -151,6 +149,73 @@ class CatalogRepository:
                order by (color.slug is null), asset.id limit 1""",
             (color_slug, catalog_slug, placement, placement, color_slug),
         )
+
+    async def get_catalog_preview_print_areas(
+        self, catalog_slugs: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Return the renderer's bounded front geometry for Admin catalog previews."""
+        slugs = list(dict.fromkeys(slug.strip().lower() for slug in catalog_slugs if slug.strip()))
+        if not slugs:
+            return {}
+
+        placeholders = ", ".join("%s" for _ in slugs)
+        rows = await self._database.fetch_all(
+            f"""
+            select catalog.slug, catalog.product_type,
+              metadata.id metadata_id, metadata.print_area_json,
+              metadata.template_width, metadata.template_height,
+              asset.width asset_width, asset.height asset_height
+            from catalogs catalog
+            left join catalog_mockup_metadata metadata
+              on metadata.catalog_id=catalog.id
+              and metadata.placement='front' and metadata.status='ready'
+            left join catalog_assets asset
+              on asset.id=metadata.asset_id and asset.status='active'
+            where catalog.active=true and catalog.slug in ({placeholders})
+            """,
+            tuple(slugs),
+        )
+
+        areas: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            # Match the same black front asset served to Admin's thumbnail.
+            preview_asset = await self.get_blank_catalog_asset(row["slug"], "black", "front")
+            template_width = int(
+                (preview_asset or {}).get("width")
+                or row.get("asset_width")
+                or row.get("template_width")
+                or 0
+            )
+            template_height = int(
+                (preview_asset or {}).get("height")
+                or row.get("asset_height")
+                or row.get("template_height")
+                or 0
+            )
+            if template_width < 1 or template_height < 1:
+                continue
+
+            raw_area = _decode_json(row.get("print_area_json")) or {}
+            if not isinstance(raw_area, dict):
+                raw_area = {}
+            raw_regions = raw_area.get("regions")
+            area, regions = resolve_print_areas(
+                raw_area,
+                raw_regions if isinstance(raw_regions, list) else [],
+                product_type=row.get("product_type"),
+                template_width=template_width,
+                template_height=template_height,
+                fallback=default_print_area(row.get("product_type")),
+            )
+            areas[row["slug"]] = {
+                **area,
+                "regions": regions,
+                "template_width": template_width,
+                "template_height": template_height,
+                "configured": row.get("metadata_id") is not None,
+            }
+
+        return areas
 
     async def get_product_design_asset(self, product_slug: str) -> dict[str, Any] | None:
         return await self._database.fetch_one(
@@ -400,7 +465,7 @@ class CatalogRepository:
             variants = await self._database.fetch_all(
                 """
                 select cv.public_id catalog_variant_public_id, cv.sku,
-                  cv.default_price_minor price_minor, null compare_at_minor, cv.currency,
+                  cv.default_price_minor price_minor, cv.base_price_minor compare_at_minor, cv.currency,
                   ca.slug catalog, ca.name catalog_name, ca.provider, cc.slug color,
                   cc.name color_name, cc.hex color_hex, cs.code size, cs.label size_label,
                   if(cv.stock_policy='continue', 9999, cv.stock_quantity) stock
@@ -426,7 +491,7 @@ class CatalogRepository:
         else:
             variants = await self._database.fetch_all(
                 """
-            select pv.public_id id, pv.sku, cv.default_price_minor price_minor, pv.compare_at_minor, cv.currency,
+            select pv.public_id id, pv.sku, cv.default_price_minor price_minor, cv.base_price_minor compare_at_minor, cv.currency,
               ca.slug catalog, ca.name catalog_name, ca.provider, cc.slug color,
               cc.name color_name, cc.hex color_hex,
               cs.code size, cs.label size_label,
@@ -743,34 +808,6 @@ class CatalogRepository:
             ),
             None,
         )
-        if not design_kit:
-            default_area = (
-                {
-                    "designAreaX": 30,
-                    "designAreaY": 16,
-                    "designAreaWidth": 40,
-                    "designAreaHeight": 28,
-                }
-                if str(variant.get("product_type") or "").lower()
-                in {"hoodie", "hoodies", "sweatshirt"}
-                else {
-                    "designAreaX": 30,
-                    "designAreaY": 25,
-                    "designAreaWidth": 40,
-                    "designAreaHeight": 40,
-                }
-            )
-        else:
-            default_area = {
-                "designAreaX": 30,
-                "designAreaY": 25,
-                "designAreaWidth": 40,
-                "designAreaHeight": 40,
-            }
-        if not design_kit:
-            design_kit = {
-                **default_area,
-            }
         metadata = await self._database.fetch_one(
             "select print_area_json, asset_id, status from catalog_mockup_metadata where catalog_id=%s and placement=%s limit 1",
             (variant["catalog_id"], asset_placement),
@@ -804,60 +841,71 @@ class CatalogRepository:
             )
         if not asset or not asset["width"] or not asset["height"]:
             return None
-        analyzed_area: dict[str, Any] = {}
-        if metadata and metadata["status"] == "ready":
-            analyzed_area = metadata["print_area_json"]
-            if isinstance(analyzed_area, str):
-                analyzed_area = json.loads(analyzed_area)
+
+        asset_width = int(asset["width"])
+        asset_height = int(asset["height"])
+        analyzed_area = (
+            _decode_json(metadata.get("print_area_json"))
+            if metadata and metadata.get("status") == "ready"
+            else None
+        )
+        if not isinstance(analyzed_area, dict):
+            analyzed_area = {}
+
         if resolved_placement == "chest":
-            design_kit = {
-                "designAreaX": 18,
-                "designAreaY": 25,
-                "designAreaWidth": 18,
-                "designAreaHeight": 18,
-            }
+            area = resolve_print_area(
+                {"x": 0.18, "y": 0.25, "width": 0.18, "height": 0.18},
+                product_type=None,
+                template_width=asset_width,
+                template_height=asset_height,
+                fallback={"x": 0.18, "y": 0.25, "width": 0.18, "height": 0.18},
+            )
+            analyzed_regions = [area]
         elif analyzed_area:
-            design_kit = {
-                "designAreaX": float(analyzed_area.get("x", 0.30)) * 100,
-                "designAreaY": float(analyzed_area.get("y", 0.25)) * 100,
-                "designAreaWidth": float(analyzed_area.get("width", 0.40)) * 100,
-                "designAreaHeight": float(analyzed_area.get("height", 0.40)) * 100,
-            }
-        analyzed_regions = analyzed_area.get("regions", []) if resolved_placement != "chest" else []
-        left = _guideline_percent(design_kit.get("designAreaX"), 30) * int(asset["width"]) / 100
-        top = _guideline_percent(design_kit.get("designAreaY"), 25) * int(asset["height"]) / 100
-        width = (
-            _guideline_percent(design_kit.get("designAreaWidth"), 40) * int(asset["width"]) / 100
-        )
-        height = (
-            _guideline_percent(design_kit.get("designAreaHeight"), 40) * int(asset["height"]) / 100
-        )
-        if (
-            width < asset["width"] * 0.05
-            or height < asset["height"] * 0.05
-            or left < 0
-            or top < 0
-            or left + width > asset["width"]
-            or top + height > asset["height"]
-        ):
-            left = asset["width"] * 0.30
-            top = asset["height"] * 0.25
-            width = asset["width"] * 0.40
-            height = asset["height"] * 0.40
+            raw_regions = analyzed_area.get("regions")
+            area, analyzed_regions = resolve_print_areas(
+                analyzed_area,
+                raw_regions if isinstance(raw_regions, list) else [],
+                product_type=variant.get("product_type"),
+                template_width=asset_width,
+                template_height=asset_height,
+                fallback=default_print_area(variant.get("product_type")),
+            )
+        else:
+            area = normalize_provider_print_area(
+                design_kit if isinstance(design_kit, dict) else None,
+                product_type=variant.get("product_type"),
+                template_width=asset_width,
+                template_height=asset_height,
+                fallback=default_print_area(variant.get("product_type")),
+            )
+            _, analyzed_regions = resolve_print_areas(
+                area,
+                [],
+                product_type=variant.get("product_type"),
+                template_width=asset_width,
+                template_height=asset_height,
+                fallback=default_print_area(variant.get("product_type")),
+            )
+
+        left = area["x"] * asset_width
+        top = area["y"] * asset_height
+        width = area["width"] * asset_width
+        height = area["height"] * asset_height
         dst_quads = [
             [
-                (float(region["x"]) * asset["width"], float(region["y"]) * asset["height"]),
+                (float(region["x"]) * asset_width, float(region["y"]) * asset_height),
                 (
-                    (float(region["x"]) + float(region["width"])) * asset["width"],
-                    float(region["y"]) * asset["height"],
+                    (float(region["x"]) + float(region["width"])) * asset_width,
+                    float(region["y"]) * asset_height,
                 ),
                 (
-                    (float(region["x"]) + float(region["width"])) * asset["width"],
-                    (float(region["y"]) + float(region["height"])) * asset["height"],
+                    (float(region["x"]) + float(region["width"])) * asset_width,
+                    (float(region["y"]) + float(region["height"])) * asset_height,
                 ),
                 (
-                    float(region["x"]) * asset["width"],
-                    (float(region["y"]) + float(region["height"])) * asset["height"],
+                    float(region["x"]) * asset_width,
+                    (float(region["y"]) + float(region["height"])) * asset_height,
                 ),
             ]
             for region in analyzed_regions
@@ -896,7 +944,7 @@ class CatalogRepository:
             # Print-area changes must not reuse an immutable render made with an
             # earlier placement.
             version=(
-                f"gearment-v10-print-area:{variant['artwork_checksum']}:"
+                f"gearment-v12-print-area-42x48:{variant['artwork_checksum']}:"
                 f"{asset['checksum']}:{variant['garment_color']}:{print_area_signature}"
             ),
             metadata={
@@ -951,21 +999,30 @@ class CatalogRepository:
         if source_width < 1 or source_height < 1:
             return None
         try:
-            left_ratio = _normalized_ratio(area.get("x"), 0.30)
-            top_ratio = _normalized_ratio(area.get("y"), 0.25)
-            width_ratio = _normalized_ratio(area.get("width"), 0.40)
-            height_ratio = _normalized_ratio(area.get("height"), 0.40)
+            candidate_area = {
+                "x": _normalized_ratio(area.get("x"), 0.30),
+                "y": _normalized_ratio(area.get("y"), 0.25),
+                "width": _normalized_ratio(area.get("width"), 0.40),
+                "height": _normalized_ratio(area.get("height"), 0.40),
+            }
         except (TypeError, ValueError):
-            return None
-        if (
-            left_ratio < 0
-            or top_ratio < 0
-            or width_ratio <= 0
-            or height_ratio <= 0
-            or left_ratio + width_ratio > 1
-            or top_ratio + height_ratio > 1
-        ):
-            return None
+            candidate_area = {}
+        fallback_area = (
+            {"x": 0.18, "y": 0.25, "width": 0.18, "height": 0.18}
+            if placement == "chest"
+            else default_print_area(variant.get("product_type"))
+        )
+        resolved_area = resolve_print_area(
+            candidate_area,
+            product_type=None if placement == "chest" else variant.get("product_type"),
+            template_width=source_width,
+            template_height=source_height,
+            fallback=fallback_area,
+        )
+        left_ratio = resolved_area["x"]
+        top_ratio = resolved_area["y"]
+        width_ratio = resolved_area["width"]
+        height_ratio = resolved_area["height"]
 
         left = left_ratio * source_width
         top = top_ratio * source_height
@@ -990,7 +1047,7 @@ class CatalogRepository:
                 highlight_opacity=0.10,
                 surface_mode="auto",
             ),
-            version=f"{template['renderer_version']}:{variant['artwork_checksum']}",
+            version=f"{template['renderer_version']}-print-area-42x48:{variant['artwork_checksum']}",
             metadata={
                 "catalog": variant["catalog_id"],
                 "placement": placement,
@@ -1038,6 +1095,23 @@ class CatalogRepository:
         left_ratio, top_ratio, width_ratio, height_ratio = (
             (0.30, 0.31, 0.40, 0.26) if is_hoodie else (0.30, 0.25, 0.40, 0.36)
         )
+        fallback_area = {
+            "x": left_ratio,
+            "y": top_ratio,
+            "width": width_ratio,
+            "height": height_ratio,
+        }
+        resolved_area = resolve_print_area(
+            fallback_area,
+            product_type=None if placement == "chest" else variant.get("product_type"),
+            template_width=source_width,
+            template_height=source_height,
+            fallback=fallback_area,
+        )
+        left_ratio = resolved_area["x"]
+        top_ratio = resolved_area["y"]
+        width_ratio = resolved_area["width"]
+        height_ratio = resolved_area["height"]
         relative_path = asset_path.relative_to(settings.asset_root).as_posix()
         source_checksum = hashlib.sha256(asset_path.read_bytes()).hexdigest()[:12]
         left = left_ratio * source_width
@@ -1063,7 +1137,7 @@ class CatalogRepository:
                 highlight_opacity=0.10,
                 surface_mode="auto",
             ),
-            version=f"local-model-v1:{source_checksum}:{variant['artwork_checksum']}",
+            version=f"local-model-v1-print-area-42x48:{source_checksum}:{variant['artwork_checksum']}",
             metadata={
                 "catalog": variant["catalog_id"],
                 "placement": placement,

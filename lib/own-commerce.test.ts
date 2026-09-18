@@ -113,7 +113,7 @@ test("catalog media keeps blank placement images alongside variant images", asyn
 					id: "variant-1",
 					sku: "DESIGN-NAVY-S",
 					price_minor: 2299,
-					compare_at_minor: null,
+					compare_at_minor: 3698,
 					currency: "USD",
 					catalog: "classic-t-shirt",
 					catalog_name: "Classic T-Shirt",
@@ -140,6 +140,7 @@ test("catalog media keeps blank placement images alongside variant images", asyn
 	try {
 		const product = await productGetByCatalog("design", "classic-t-shirt");
 		assert.ok(product?.variants[0]?.images.some((image) => image.endsWith(blankBack)));
+		assert.equal(product?.variants[0]?.originalPrice, "3698");
 		const mediaOrigin = process.env.STORE_MEDIA_URL || process.env.STORE_API_URL || "http://localhost:8000";
 		assert.ok(product?.variants[0]?.images.includes(`${mediaOrigin}${front}`));
 		assert.ok(product?.variants[0]?.images.includes(`${mediaOrigin}${blankBack}`));

@@ -9,3 +9,12 @@ PYTHONPATH=. .venv/bin/python -m app.cli \
 ./bootstrap-db.sh
 
 PYTHONPATH=. .venv/bin/python -m app.cli truncate-gearment-catalogs
+
+
+http://127.0.0.1:8000/catalog-preview/premium-guys-tee/black/blank.webp
+
+http://127.0.0.1:8000/wise-pug-lover-costume-wise-puggy/premium-guys-tee/black.webp
+http://127.0.0.1:8000/yorkshire-terrier-animals-rainbow-scare-ainime-din/hoodie/black.webp
+
+
+mysql -h <DB_HOST> -u <DB_USER> -p <DB_NAME> < /Users/changha/workspace/Teeravo/api/mysql/seed_catalog_base_prices.sql

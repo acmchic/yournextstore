@@ -461,6 +461,23 @@ async def render_catalog_product_mockup(
     )
 
 
+@app.get("/catalog-preview/print-areas")
+async def get_catalog_preview_print_areas(
+    slugs: Annotated[str, Query(min_length=1, max_length=5000)],
+    repo: CatalogRepository = Depends(get_repository),  # noqa: B008
+):
+    """Expose the renderer's canonical front regions for Admin thumbnails."""
+    catalog_slugs = list(
+        dict.fromkeys(slug.strip().lower() for slug in slugs.split(",") if slug.strip())
+    )
+    if not catalog_slugs or len(catalog_slugs) > 50:
+        raise HTTPException(status_code=422, detail="Provide between 1 and 50 catalog slugs")
+    try:
+        return {"data": await repo.get_catalog_preview_print_areas(catalog_slugs)}
+    except Exception as error:
+        raise HTTPException(status_code=503, detail=f"MySQL unavailable: {error}") from error
+
+
 @app.get("/v1/products/{slug}")
 async def get_product(
     slug: str,

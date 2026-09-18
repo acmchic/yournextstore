@@ -33,9 +33,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('catalog', [StoreController::class, 'saveCatalog'])->name('catalog.store');
     Route::get('catalog/{catalog}/edit', [StoreController::class, 'catalogForm'])->whereNumber('catalog')->name('catalog.edit');
     Route::get('catalog/{catalog}/asset', [StoreController::class, 'catalogAssetImage'])->whereNumber('catalog')->name('catalog.asset');
+    Route::get('catalog/print-area-placeholder', [StoreController::class, 'catalogPrintAreaPlaceholderImage'])->name('catalog.print-area-placeholder');
+    Route::put('catalog/{catalog}/print-area', [StoreController::class, 'updateCatalogPrintArea'])->whereNumber('catalog')->name('catalog.print-area.update');
     Route::put('catalog/{catalog}', [StoreController::class, 'saveCatalog'])->whereNumber('catalog')->name('catalog.update');
     Route::post('catalog/{catalog}/model-mockups', [StoreController::class, 'storeCatalogModelMockup'])->whereNumber('catalog')->name('catalog.model-mockups.store');
     Route::get('catalog/{catalog}/model-mockups/{template}/asset', [StoreController::class, 'catalogModelMockupImage'])->whereNumber(['catalog', 'template'])->name('catalog.model-mockups.asset');
+    Route::put('catalog/{catalog}/price', [StoreController::class, 'updateCatalogPrice'])->whereNumber('catalog')->name('catalog.price.update');
+    Route::put('catalog/{catalog}/base-price', [StoreController::class, 'updateCatalogBasePrice'])->whereNumber('catalog')->name('catalog.base-price.update');
     Route::put('catalog/{catalog}/variants/{variant}', [StoreController::class, 'saveCatalogVariant'])->whereNumber(['catalog', 'variant'])->name('catalog.variants.update');
     Route::get('orders', [StoreController::class, 'orders'])->name('orders.index');
     Route::get('orders/{order}', [StoreController::class, 'order'])->whereNumber('order')->name('orders.show');

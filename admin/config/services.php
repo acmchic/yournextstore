@@ -18,6 +18,10 @@ return [
         'url' => env('STOREFRONT_PUBLIC_URL', 'https://teebravo.com'),
     ],
 
+    'pod_mockup' => [
+        'url' => env('POD_MOCKUP_API_URL', 'http://127.0.0.1:8000'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

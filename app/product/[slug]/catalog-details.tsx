@@ -129,7 +129,7 @@ export function CatalogDetails({ details }: { details: Details }) {
 				</Disclosure>
 			)}
 			<Drawer direction="right" open={guideOpen} onOpenChange={setGuideOpen}>
-				<DrawerContent className="bg-white lg:!max-w-none lg:w-[min(75vw,760px)]">
+				<DrawerContent className="bg-white lg:!w-[680px] lg:!max-w-[65vw]">
 					<DrawerHeader className="border-b px-6 py-6 text-left">
 						<DrawerTitle className="text-2xl font-semibold uppercase tracking-[0.06em]">
 							Size guide

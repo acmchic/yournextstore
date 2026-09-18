@@ -51,7 +51,7 @@ Repo gồm ba phần:
 | Product | `products` | Listing bán hàng gắn với một `design_id`: title, slug, description, SEO, trạng thái |
 | Catalog | `catalogs` | Mẫu hàng nền có thể in lên; có loại sản phẩm, brand/material, thông tin provider và `provider_material_json` chứa danh sách spec chất liệu từ provider |
 | Màu / size | `catalog_colors`, `catalog_sizes` | Các lựa chọn thuộc từng catalog |
-| Catalog variant | `catalog_variants` | Catalog + màu + size, có SKU, giá/cost, currency, stock policy |
+| Catalog variant | `catalog_variants` | Catalog + màu + size, có SKU, giá bán/giá gốc/cost, currency, stock policy |
 | Product–catalog | `product_catalogs` | Quan hệ đã lưu giữa product và catalog, màu mặc định và điều chỉnh giá |
 | Product variant | `product_variants` | Product + catalog variant: biến thể áo in có thể đưa vào giỏ |
 | Mockup | `mockup_templates`, `catalog_assets` | Ảnh áo nền, placement, print area và dữ liệu phục vụ renderer |
@@ -72,7 +72,7 @@ designs ← products → product_variants → catalog_variants
 
 Mỗi product tham chiếu một design; schema không bắt buộc mỗi design chỉ có một product. Một product có thể có nhiều catalog và nhiều biến thể. Trong adapter storefront, catalog được chuyển sang shape `category` của Commerce Kit; không vì tên `category` mà coi nó là design hay collection.
 
-Giá `*_minor` là số tiền ở đơn vị nhỏ nhất (USD cents), không phải dollars. Adapter chuyển giá sang chuỗi theo contract Commerce Kit; UI dùng `formatMoney`. Store mặc định USD/en-US nếu API không cung cấp cấu hình khác.
+Giá `*_minor` là số tiền ở đơn vị nhỏ nhất (USD cents), không phải dollars. `catalog_variants.default_price_minor` là giá bán; `base_price_minor` là giá gốc tùy chọn, chỉ hiển thị sale khi lớn hơn giá bán và được cập nhật hàng loạt theo catalog từ Admin. Adapter chuyển giá sang chuỗi theo contract Commerce Kit; UI dùng `formatMoney`. Store mặc định USD/en-US nếu API không cung cấp cấu hình khác.
 
 ## 3. Điểm đặc biệt: catalog được kết hợp động
 
@@ -114,6 +114,10 @@ Các HTTP contract đang tồn tại trong `api/app/main.py`:
 - `/v1/products/{product_slug}/catalogs/{catalog_slug}/mockup`: render theo lựa chọn, gồm placement.
 - `/img/{design_and_catalog:path}` và `/img/blank/{filename}`: render theo asset/file và ảnh áo nền.
 - `/v1/mockups/render`, `/m`, `/m/{product_ref}`: các đường render/reference khác còn được hỗ trợ.
+
+`api/app/rendering/print_area.py` là nguồn hình học chung cho vùng in. Nó chuẩn hóa guideline provider ở dạng ratio, phần trăm hoặc pixel canvas, chỉ cho phép vùng nằm trong `[0, 1]`, và ép vùng áo về tỷ lệ vật lý 42×48. Metadata lỗi (ví dụ `width: 6`) không thể đi tới renderer; API thay bằng vùng an toàn. Admin lấy tọa độ thumbnail qua `GET /catalog-preview/print-areas?slugs=...`, trong khi ảnh áo đen lấy từ endpoint blank API, nên Admin không tự tính tỷ lệ vùng in khác storefront.
+
+Click thumbnail tại Admin Catalog mở preview lớn cùng ảnh blank API và cho phép chỉnh vị trí X/Y theo phần trăm. Kích thước 42×48 giữ cố định; khi lưu, Admin cập nhật `catalog_mockup_metadata.print_area_json` cho `front` và gắn `analysis_version=manual-print-area-v1`. Analyzer giữ nguyên metadata có tiền tố `manual-`, còn API vẫn chuẩn hóa và giới hạn vùng trước khi Admin hoặc storefront render ảnh.
 
 Đọc `product_media.py`, `repository.py`, `rendering/pipeline.py` trước khi thay URL, placement, asset selection hoặc cache. Các đường render có quy tắc khác nhau; không suy ra một thay đổi ở một endpoint sẽ áp dụng cho tất cả endpoint. Catalog renders ưu tiên giữ đúng artwork; renderer tổng quát còn có các map mask/warp/displacement/shadow/highlight.
 

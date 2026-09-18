@@ -285,12 +285,9 @@ const CachedProductDetails = async ({ slug, catalog }: ProductRouteParams) => {
 					{/* Title & reviews summary */}
 					<div className="mb-4 space-y-3 border-b border-border/60 pb-5">
 						<div className="flex items-start gap-3">
-							<h1 className="min-w-0 flex-1 text-left text-base font-semibold uppercase leading-[1.12] tracking-[-0.02em] text-foreground sm:text-xl">
+							<h1 className="min-w-0 flex-1 text-left text-base font-semibold leading-[1.12] tracking-[-0.02em] text-foreground sm:text-xl">
 								{displayName}
 							</h1>
-							<span className="shrink-0 pt-0.5 text-right text-base font-medium tracking-tight sm:hidden">
-								${(Number(product.variants[0]?.price ?? 0) / 100).toFixed(2)}
-							</span>
 						</div>
 						{reviewSummary && reviewSummary.reviewCount > 0 && (
 							<a

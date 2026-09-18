@@ -308,6 +308,37 @@ export default function CatalogForm({
                         </CardContent>
                     </Card>
 
+                    {catalog ? (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Catalog front mockup</CardTitle>
+                                <CardDescription>
+                                    Preview the blank front image for this
+                                    catalog. If its front.png is unavailable,
+                                    the existing catalog image is shown.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,0.65fr)] sm:items-center">
+                                <div className="bg-muted/30 flex min-h-64 items-center justify-center rounded-lg border p-3">
+                                    <img
+                                        alt={`${catalog.name} front mockup`}
+                                        className="max-h-[28rem] w-full object-contain"
+                                        src={`/catalog/${catalog.id}/asset`}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <p className="font-medium">
+                                        {catalog.name}
+                                    </p>
+                                    <p className="text-muted-foreground text-sm">
+                                        Uses the matching mockup folder for this
+                                        catalog.
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ) : null}
+
                     <Card>
                         <CardHeader>
                             <CardTitle>AI model mockup prompt</CardTitle>

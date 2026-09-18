@@ -29,14 +29,11 @@ export default defineConfig({
 		}),
 	]),
 	server: {
-		cors: true,
-		host: true,
-		origin: "https://admin.teebravo.com",
-		hmr: {
-			host: "admin.teebravo.com",
-			protocol: "wss",
-			clientPort: 443,
+		cors: {
+			origin: "https://admin.teebravo.com",
 		},
+		host: true,
+		origin: "http://localhost:5173",
 		watch: {
 			ignored: ["**/.agents/**", "**/.claude/**", "**/.cursor/**", "**/.junie/**", "**/vendor/**"],
 		},

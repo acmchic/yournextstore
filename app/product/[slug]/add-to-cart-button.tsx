@@ -115,8 +115,8 @@ export function AddToCartButton({ variants, product, volumePricingTiers = [] }: 
 		return "Add to Cart";
 	}, [selectedVariant, isOutOfStock, totalPrice]);
 
-	// Headline price. For the selected variant we show its own price (and the struck-through
-	// list price when it's on sale). Before a variant is picked we fall back to a range.
+	// Headline price. Before a variant is picked, use the catalog's lowest configured
+	// selling price rather than showing a range across its size/color variants.
 	const priceInfo = useMemo(() => {
 		const fmt = (amount: bigint) => formatMoney({ amount, currency: CURRENCY, locale: LOCALE });
 
@@ -131,13 +131,17 @@ export function AddToCartButton({ variants, product, volumePricingTiers = [] }: 
 			};
 		}
 
-		const prices = variants.map((v) => BigInt(v.price));
-		const minPrice = prices.reduce((min, p) => (p < min ? p : min), prices[0] ?? 0n);
-		const maxPrice = prices.reduce((max, p) => (p > max ? p : max), prices[0] ?? 0n);
+		const lowestPricedVariant = variants.reduce<Variant | undefined>((lowest, variant) => {
+			if (!lowest || BigInt(variant.price) < BigInt(lowest.price)) return variant;
+			return lowest;
+		}, undefined);
+		const price = BigInt(lowestPricedVariant?.price ?? 0);
+		const listPrice = BigInt(lowestPricedVariant?.originalPrice ?? price);
+		const onSale = listPrice > price;
 		return {
-			display: minPrice === maxPrice ? fmt(minPrice) : `${fmt(minPrice)} - ${fmt(maxPrice)}`,
-			compareAt: null,
-			discountPercent: null,
+			display: fmt(price),
+			compareAt: onSale ? fmt(listPrice) : null,
+			discountPercent: onSale ? Math.round((Number(listPrice - price) / Number(listPrice)) * 100) : null,
 		};
 	}, [selectedVariant, variants]);
 
@@ -234,15 +238,23 @@ export function AddToCartButton({ variants, product, volumePricingTiers = [] }: 
 	return (
 		<div className="space-y-6 sm:space-y-7">
 			{/* Price & sale */}
-			<div className="space-y-2 border-b border-border/60 pb-6 max-md:hidden">
+			<div className="space-y-2 border-b border-border/60 pb-6">
 				<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-					<span className="text-lg font-medium tracking-tight">{priceInfo.display}</span>
+					<span
+						className={
+							priceInfo.compareAt
+								? "text-2xl font-semibold tracking-tight text-red-600"
+								: "text-lg font-medium tracking-tight"
+						}
+					>
+						{priceInfo.display}
+					</span>
 					{priceInfo.compareAt && (
-						<span className="text-lg text-muted-foreground line-through">{priceInfo.compareAt}</span>
+						<span className="text-xl text-muted-foreground line-through">{priceInfo.compareAt}</span>
 					)}
 					{priceInfo.discountPercent ? (
-						<span className="bg-destructive/10 px-2.5 py-0.5 text-xs font-semibold text-destructive">
-							Save {priceInfo.discountPercent}%
+						<span className="rounded-md bg-red-600 px-2.5 py-1 text-sm font-semibold text-white">
+							{priceInfo.discountPercent}% off
 						</span>
 					) : null}
 				</div>

@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from app import main
 from app.cache import FileCache
 from app.models import PrintArea, RenderJob
-from app.rendering.pipeline import render_mockup
+from app.rendering.pipeline import _clip_to_print_area, render_mockup
 from app.settings import Settings
 
 
@@ -57,10 +57,44 @@ def test_simple_image_contract_and_shared_cache(tmp_path, monkeypatch):
                 "color": "black",
                 "size": None,
                 "placement": "front",
+                "style": "flat",
             }
             assert client.get("/acacac2/classic-t-shirt_color-missing.webp").status_code == 404
             assert client.get("/acacac2/classic-t-shirt_color-black.png").status_code == 404
             assert client.get("/health").status_code == 200
+    finally:
+        main.app.dependency_overrides.clear()
+
+
+def test_catalog_preview_print_areas_uses_the_renderer_geometry_service():
+    calls = []
+
+    class Repository:
+        async def get_catalog_preview_print_areas(self, catalog_slugs):
+            calls.append(catalog_slugs)
+            return {
+                "premium-guys-tee": {
+                    "x": 0.32,
+                    "y": 0.25,
+                    "width": 0.35,
+                    "height": 0.4,
+                    "regions": [{"x": 0.32, "y": 0.25, "width": 0.35, "height": 0.4}],
+                    "template_width": 1200,
+                    "template_height": 1400,
+                    "configured": True,
+                }
+            }
+
+    main.app.dependency_overrides[main.get_repository] = Repository
+    try:
+        with TestClient(main.app) as client:
+            response = client.get(
+                "/catalog-preview/print-areas?slugs=premium-guys-tee,classic-t-shirt"
+            )
+
+        assert response.status_code == 200
+        assert calls == [["premium-guys-tee", "classic-t-shirt"]]
+        assert response.json()["data"]["premium-guys-tee"]["configured"] is True
     finally:
         main.app.dependency_overrides.clear()
 
@@ -88,6 +122,46 @@ def test_delivery_resolution_preserves_fine_artwork(tmp_path):
     assert decoded.shape == (400, 400, 3)
     # A native-template composite reduces these alternating lines to flat gray.
     assert decoded[150:250, 150:250].std() > 100
+
+
+def test_warped_artwork_is_hard_clipped_to_print_area():
+    layer = np.full((20, 20, 4), 255, np.uint8)
+    clipped = _clip_to_print_area(layer, [[(5, 5), (14, 5), (14, 14), (5, 14)]])
+
+    assert np.all(clipped[:5, :, 3] == 0)
+    assert np.all(clipped[:, :5, 3] == 0)
+    assert np.all(clipped[5:15, 5:15, 3] == 255)
+
+
+def test_rendered_design_stays_inside_print_area(tmp_path):
+    base = np.full((100, 100, 3), 255, np.uint8)
+    art = np.full((80, 80, 4), (0, 0, 255, 255), np.uint8)
+    cv2.imwrite(str(tmp_path / "base.png"), base)
+    cv2.imwrite(str(tmp_path / "art.png"), art)
+    job = RenderJob(
+        product_id="p",
+        artwork_id="a",
+        template_id="t",
+        base_source="base.png",
+        artwork_source="art.png",
+        print_area=PrintArea(
+            dst_quad=[(25, 25), (75, 25), (75, 75), (25, 75)],
+            displacement_strength=0,
+            shadow_opacity=0,
+            highlight_opacity=0,
+            surface_mode="none",
+        ),
+    )
+
+    output = render_mockup(
+        job, width=100, image_format="png", settings=Settings(asset_root=tmp_path)
+    )
+    decoded = cv2.imdecode(np.frombuffer(output, np.uint8), cv2.IMREAD_COLOR)
+    outside_print_area = np.ones((100, 100), dtype=bool)
+    outside_print_area[25:76, 25:76] = False
+
+    assert np.all(decoded[outside_print_area] == 255)
+    assert np.any(decoded[40:60, 40:60, 2] > 0)
 
 
 def test_concurrent_misses_render_once(tmp_path, monkeypatch):

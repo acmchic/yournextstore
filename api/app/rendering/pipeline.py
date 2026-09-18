@@ -47,6 +47,8 @@ def render_mockup(
             warped, auto_maps[0], job.print_area.displacement_strength * scale
         )
 
+    warped = _clip_to_print_area(warped, dst_quads)
+
     if job.mask_source:
         mask = _decode_gray(job.mask_source, settings, (base_width, base_height))
         warped[:, :, 3] = (
@@ -246,6 +248,18 @@ def _warp_artwork(
             borderValue=(0, 0, 0, 0),
         ),
     )
+
+
+def _clip_to_print_area(
+    layer: np.ndarray, dst_quads: list[list[tuple[float, float]]]
+) -> np.ndarray:
+    """Hard-clip warped artwork so displacement cannot leak past print bounds."""
+    cv2 = _cv2()
+    clip_mask = np.zeros(layer.shape[:2], dtype=np.uint8)
+    polygons = [np.rint(quad).astype(np.int32) for quad in dst_quads]
+    cv2.fillPoly(clip_mask, polygons, 255)
+    layer[:, :, 3] = cv2.bitwise_and(layer[:, :, 3], clip_mask)
+    return layer
 
 
 def _fit_artwork(
