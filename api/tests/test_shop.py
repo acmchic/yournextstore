@@ -54,7 +54,7 @@ def test_listing_catalogs_rotate_without_named_catalog_rules():
 def test_department_pagination_filters_before_loading_details():
     db = AsyncMock()
     db.fetch_one.return_value = {"count": 45}
-    db.fetch_all.return_value = [{"slug": "design-two", "catalog": "mens-tee"}]
+    db.fetch_all.return_value = [{"slug": "design-two"}]
     repo = CatalogRepository(db)
     repo.list_catalogs = AsyncMock(
         return_value=[
@@ -70,7 +70,35 @@ def test_department_pagination_filters_before_loading_details():
     assert result["meta"] == {"count": 45, "limit": 24, "offset": 24}
     assert "pc_selected" in db.fetch_all.call_args.args[0]
     assert db.fetch_all.call_args.args[1] == ("unisex-tee", 24, 24)
-    repo.get_product_detail.assert_awaited_once_with("design-two", catalog_slug="mens-tee")
+    repo.get_product_detail.assert_awaited_once_with("design-two", catalog_slug="unisex-tee")
+
+
+def test_shop_listing_returns_each_design_once_and_rotates_catalogs():
+    db = AsyncMock()
+    db.fetch_one.return_value = {"count": 3}
+    db.fetch_all.return_value = [
+        {"slug": "design-one"},
+        {"slug": "design-two"},
+        {"slug": "design-three"},
+    ]
+    repo = CatalogRepository(db)
+    repo.list_catalogs = AsyncMock(
+        return_value=[
+            catalog("tee", "unisex", "t-shirts"),
+            catalog("hoodie", "unisex", "hoodies"),
+            catalog("sweatshirt", "unisex", "sweatshirts"),
+        ]
+    )
+    repo.get_product_detail = AsyncMock(side_effect=lambda slug, catalog_slug: {"id": slug, "catalog": catalog_slug})
+
+    result = asyncio.run(repo.browse_shop(limit=24, offset=0, department="unisex"))
+
+    assert [item["id"] for item in result["data"]] == ["design-one", "design-two", "design-three"]
+    assert "cross join catalogs" not in db.fetch_all.call_args.args[0]
+    assert "select p.slug" in db.fetch_all.call_args.args[0]
+    assert repo.get_product_detail.await_args_list[0].kwargs == {"catalog_slug": "tee"}
+    assert repo.get_product_detail.await_args_list[1].kwargs == {"catalog_slug": "hoodie"}
+    assert repo.get_product_detail.await_args_list[2].kwargs == {"catalog_slug": "sweatshirt"}
 
 
 def test_catalog_filter_selects_one_body_within_department():

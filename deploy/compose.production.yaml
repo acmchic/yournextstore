@@ -1,4 +1,4 @@
-name: teebravo-prod
+name: ${TEEBRAVO_COMPOSE_PROJECT:-teebravo-prod}
 x-logging: &logging
   driver: json-file
   options:
@@ -28,7 +28,7 @@ services:
       dockerfile: deploy/docker/backend.Dockerfile
       target: api
     restart: unless-stopped
-    ports: ["127.0.0.1:1991:8000"]
+    ports: ["127.0.0.1:${TEEBRAVO_API_PORT:-1991}:8000"]
     volumes:
       - /etc/teebravo/api.env:/app/api/.env:ro
       - /srv/teebravo/shared/assets:/app/api/public

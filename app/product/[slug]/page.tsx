@@ -7,9 +7,9 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { AddToCartButton } from "@/app/product/[slug]/add-to-cart-button";
 import { CatalogDetails } from "@/app/product/[slug]/catalog-details";
+import { CatalogProductRail } from "@/app/product/[slug]/catalog-product-rail";
 import { MediaGallery } from "@/app/product/[slug]/media-gallery";
-import { ProductAssurance, ProductDeliveryEstimate } from "@/app/product/[slug]/product-assurance";
-import { ProductFeatures } from "@/app/product/[slug]/product-features";
+import { ProductCheckoutTrust, ProductDeliveryEstimate } from "@/app/product/[slug]/product-assurance";
 import { ProductReviews } from "@/app/product/[slug]/product-reviews";
 import { RelatedProducts } from "@/app/product/[slug]/related-products";
 import { TrustBadges } from "@/app/product/[slug]/trust-badges";
@@ -28,9 +28,11 @@ import { commerce, meGetCached } from "@/lib/commerce";
 import { buildProductBreadcrumbJsonLd, buildProductJsonLd, JsonLdScript } from "@/lib/json-ld";
 import { productDisplayName } from "@/lib/merchant";
 import { catalogBrowse, productGetByCatalog } from "@/lib/own-commerce";
+import { getProductCatalogTypeOptions } from "@/lib/product-catalog-types";
 import { cn } from "@/lib/utils";
 
 export const unstable_instant = false;
+export const unstable_prefetch = "force-runtime";
 
 function StarRow({ rating }: { rating: number }) {
 	const rounded = Math.round(rating);
@@ -224,9 +226,14 @@ const CachedProductDetails = async ({ slug, catalog }: ProductRouteParams) => {
 	const reviewSummary = reviews?.summary ?? null;
 	const catalogDetails =
 		catalogs.data.find((item) => item.slug === catalog) ??
+		catalogs.data.find((item) => item.slug === product.category?.slug) ??
 		catalogs.data.find((item) => item.product_type === product.category?.slug);
+	const currentCatalogSlug = catalogDetails?.slug ?? product.category?.slug ?? catalog ?? "";
+	const catalogTypeOptions = getProductCatalogTypeOptions(catalogs.data, catalogDetails);
 	const isApparel =
-		catalogDetails?.taxonomy.some(({ department }) => ["men", "women", "kids"].includes(department)) ?? false;
+		catalogDetails?.taxonomy.some(({ department }) =>
+			["men", "unisex", "women", "kids"].includes(department),
+		) ?? false;
 	const policies = legalPages.data
 		.filter((page) => /shipping|return|refund/i.test(page.href + page.label))
 		.map((page) => ({ label: page.label, href: page.href }));
@@ -313,7 +320,9 @@ const CachedProductDetails = async ({ slug, catalog }: ProductRouteParams) => {
 							images: product.images,
 						}}
 						volumePricingTiers={product.volumePricingTiers}
+						catalogSelection={{ currentCatalogSlug, options: catalogTypeOptions }}
 					/>
+					<ProductCheckoutTrust policies={policies} inStock={inStock} />
 					{shipping && <ProductDeliveryEstimate shipping={shipping} />}
 					{shipping && <TrustBadges rates={shipping.rates} policies={policies} />}
 					<CatalogDetails
@@ -346,16 +355,11 @@ const CachedProductDetails = async ({ slug, catalog }: ProductRouteParams) => {
 			{/* Reviews Section */}
 			{reviews && <ProductReviews reviews={reviews} slug={slug} />}
 
-			{/* Features Section (full width below) */}
-			<ProductFeatures />
-			{shipping && (
-				<ProductAssurance
-					shipping={shipping}
-					policies={policies}
-					volumePricingTiers={product.volumePricingTiers}
-					inStock={inStock}
-				/>
-			)}
+			<CatalogProductRail
+				productSlug={product.slug}
+				currentCatalogSlug={currentCatalogSlug}
+				catalogs={catalogs.data}
+			/>
 
 			{/* Related Products */}
 			<RelatedProducts productId={product.id} categorySlug={product.category?.slug} />

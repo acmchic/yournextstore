@@ -19,11 +19,14 @@ export function ProductCard({
 	product,
 	priority = false,
 	showCatalogMeta = false,
+	title,
 }: {
 	product: BrowseProduct | CollectionProduct | FullProduct;
 	priority?: boolean;
 	showCatalogMeta?: boolean;
+	title?: string;
 }) {
+	const displayName = title ?? product.name;
 	const variants = "variants" in product ? product.variants : null;
 	const firstVariantPrice = variants?.[0] ? BigInt(variants[0].price) : null;
 	const { minPrice, maxPrice } =
@@ -74,7 +77,7 @@ export function ProductCard({
 
 	return (
 		<StoreLink prefetch={"eager"} href={productHref} className="group">
-			<div className="relative mb-4 aspect-[3/4] overflow-hidden bg-cream">
+			<div className="relative mb-4 aspect-[3/4] overflow-hidden bg-white">
 				{singleVariant && (
 					<QuickAddButton
 						variantId={singleVariant.id}
@@ -91,7 +94,7 @@ export function ProductCard({
 				{primaryImage &&
 					(isVideoUrl(primaryImage) ? (
 						<video
-							className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.025] motion-reduce:transition-none"
+							className="absolute inset-0 h-full w-full bg-white object-contain p-4 transition-opacity duration-200 ease-out group-hover:opacity-95 motion-reduce:transition-none sm:p-5"
 							src={primaryImage}
 							muted
 							loop
@@ -101,7 +104,7 @@ export function ProductCard({
 					) : (
 						<StoreMedia
 							src={primaryImage}
-							alt={product.name}
+							alt={displayName}
 							fill
 							quality={
 								isCatalogMockupUrl(primaryImage) || primaryImage.includes("/api/catalog-mockup/")
@@ -109,7 +112,7 @@ export function ProductCard({
 									: undefined
 							}
 							sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-							className="bg-cream object-cover transition-transform duration-500 ease-out group-hover:scale-[1.01] motion-reduce:transition-none"
+							className="bg-white object-contain p-4 transition-opacity duration-200 ease-out group-hover:opacity-95 motion-reduce:transition-none sm:p-5"
 							priority={priority}
 						/>
 					))}
@@ -117,9 +120,9 @@ export function ProductCard({
 			<div className="min-w-0 border-t border-border pt-3">
 				<h3
 					className="line-clamp-2 min-h-10 text-xs font-medium leading-5 text-foreground sm:text-sm"
-					title={product.name}
+					title={displayName}
 				>
-					{product.name}
+					{displayName}
 				</h3>
 				{showCatalogMeta && (catalogName || availableColors.length > 0) && (
 					<div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">

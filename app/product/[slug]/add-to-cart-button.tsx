@@ -8,8 +8,11 @@ import { useCart } from "@/app/cart/cart-context";
 import { PrintPlacementSelector } from "@/app/product/[slug]/print-placement-selector";
 import { VariantSelector } from "@/app/product/[slug]/variant-selector";
 import { useVolumePricing, VolumePricingDisplay, type VolumeTier } from "@/app/product/[slug]/volume-pricing";
+import { CatalogTypeSelector } from "@/components/product/catalog-type-selector";
+import { Button } from "@/components/ui/button";
 import { CURRENCY, LOCALE } from "@/lib/constants";
 import { formatMoney } from "@/lib/money";
+import type { ProductCatalogTypeOptions } from "@/lib/product-catalog-types";
 
 type Variant = {
 	id: string;
@@ -43,15 +46,24 @@ type AddToCartButtonProps = {
 		images: string[];
 	};
 	volumePricingTiers?: VolumeTier[];
+	catalogSelection?: {
+		currentCatalogSlug: string;
+		options: ProductCatalogTypeOptions;
+	};
 };
 
 const LOW_STOCK_THRESHOLD = 5;
 
-export function AddToCartButton({ variants, product, volumePricingTiers = [] }: AddToCartButtonProps) {
+export function AddToCartButton({
+	variants,
+	product,
+	volumePricingTiers = [],
+	catalogSelection,
+}: AddToCartButtonProps) {
 	const searchParams = useSearchParams();
 	const [quantity, setQuantity] = useState(1);
 	const [showStickyAdd, setShowStickyAdd] = useState(false);
-	const addButtonRef = useRef<HTMLButtonElement>(null);
+	const addButtonRef = useRef<HTMLDivElement>(null);
 	const { items, openCart, dispatch, startMutation } = useCart();
 	const optionValuesByLabel = useMemo(() => {
 		return variants
@@ -264,6 +276,14 @@ export function AddToCartButton({ variants, product, volumePricingTiers = [] }: 
 				)}
 			</div>
 
+			{catalogSelection && (
+				<CatalogTypeSelector
+					productSlug={product.slug}
+					currentCatalogSlug={catalogSelection.currentCatalogSlug}
+					catalogOptions={catalogSelection.options}
+				/>
+			)}
+
 			{variants.length > 1 && <VariantSelector variants={variants} selectedVariantId={selectedVariant?.id} />}
 
 			<PrintPlacementSelector />
@@ -271,25 +291,28 @@ export function AddToCartButton({ variants, product, volumePricingTiers = [] }: 
 			<VolumePricingDisplay tiers={resolvedTiers} quantity={effectiveQuantity} volumePrice={volumePrice} />
 
 			<form id="add-to-cart-form" className="mt-5 block sm:mt-4" onSubmit={handleSubmit}>
-				<button
-					ref={addButtonRef}
-					type="submit"
-					disabled={isOutOfStock}
-					className="h-12 w-full cursor-pointer rounded bg-foreground px-8 py-3 text-sm font-medium uppercase tracking-[0.06em] text-background transition-[box-shadow,opacity,transform] duration-150 ease-out hover:shadow-[0_0_0_2px_#aaaaac] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					{buttonText}
-				</button>
+				<div ref={addButtonRef} className="w-full">
+					<Button
+						type="submit"
+						disabled={isOutOfStock}
+						size="lg"
+						className="h-12 w-full rounded bg-foreground px-8 py-3 text-sm font-medium uppercase tracking-[0.06em] text-background transition-[box-shadow,opacity,transform] duration-150 ease-out hover:bg-foreground/90 hover:shadow-[0_0_0_2px_#aaaaac] active:translate-y-px"
+					>
+						{buttonText}
+					</Button>
+				</div>
 			</form>
 			{showStickyAdd && (
 				<div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur md:hidden">
-					<button
+					<Button
 						type="submit"
 						form="add-to-cart-form"
 						disabled={isOutOfStock}
-						className="h-12 w-full rounded bg-foreground px-8 py-3 text-sm font-medium uppercase tracking-[0.06em] text-background disabled:opacity-50"
+						size="lg"
+						className="h-12 w-full rounded bg-foreground px-8 py-3 text-sm font-medium uppercase tracking-[0.06em] text-background hover:bg-foreground/90"
 					>
 						{buttonText}
-					</button>
+					</Button>
 				</div>
 			)}
 		</div>

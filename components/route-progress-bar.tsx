@@ -10,6 +10,8 @@ const progressSteps = [
 	{ delay: 2800, value: 88 },
 ] as const;
 
+export const ROUTE_PROGRESS_START_EVENT = "teebravo:navigation-start";
+
 export function RouteProgressBar() {
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -46,6 +48,7 @@ export function RouteProgressBar() {
 	}, [clearTimers]);
 
 	useEffect(() => {
+		const handleNavigationStart = () => start();
 		const handleClick = (event: MouseEvent) => {
 			if (
 				event.defaultPrevented ||
@@ -80,9 +83,11 @@ export function RouteProgressBar() {
 		};
 
 		const handlePopState = () => start();
+		window.addEventListener(ROUTE_PROGRESS_START_EVENT, handleNavigationStart);
 		document.addEventListener("click", handleClick, true);
 		window.addEventListener("popstate", handlePopState);
 		return () => {
+			window.removeEventListener(ROUTE_PROGRESS_START_EVENT, handleNavigationStart);
 			document.removeEventListener("click", handleClick, true);
 			window.removeEventListener("popstate", handlePopState);
 			clearTimers();

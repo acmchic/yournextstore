@@ -18,6 +18,7 @@ import { CookieConsent } from "@/components/cookie-consent";
 import { ErrorOverlayRemover, NavigationReporter } from "@/components/devtools";
 import { NewsletterDialog } from "@/components/newsletter-dialog";
 import { RouteProgressBar } from "@/components/route-progress-bar";
+import { StoreLink } from "@/components/store-link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "@/components/ui/sonner";
 import { AUTH_ENABLED } from "@/lib/auth-config";
@@ -168,9 +169,13 @@ async function CartProviderWrapper({ children }: { children: React.ReactNode }) 
 								<Navbar links={navigation.links} groups={navigation.groups} />
 							</nav>
 							<div className="flex items-center justify-center">
-								<Link href="/" className="font-display text-xl tracking-[0.28em] text-foreground sm:text-2xl">
+								<StoreLink
+									prefetch="eager"
+									href="/"
+									className="font-display text-xl tracking-[0.28em] text-foreground sm:text-2xl"
+								>
 									{storefront.brandName.toUpperCase()}
-								</Link>
+								</StoreLink>
 							</div>
 							<div className="flex items-center justify-end gap-1 sm:gap-2">
 								<Suspense>

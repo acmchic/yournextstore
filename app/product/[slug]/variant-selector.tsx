@@ -1,8 +1,9 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 type VariantValue = {
@@ -51,43 +52,22 @@ function SizeSelect({
 	selectedOption?: VariantOption;
 	onSelect: (id: string) => void;
 }) {
-	const [open, setOpen] = useState(false);
-	const selected = selectedOption?.value ?? "Select Size";
 	return (
-		<div className="relative">
-			<button
-				type="button"
-				aria-haspopup="listbox"
-				aria-expanded={open}
-				onClick={() => setOpen((value) => !value)}
-				className="relative flex h-10 w-full cursor-pointer items-center justify-between rounded border border-foreground bg-white px-3 text-left text-sm font-normal leading-4 transition-shadow duration-150 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#aaaaac]"
+		<Select value={selectedOption?.id} onValueChange={onSelect}>
+			<SelectTrigger
+				aria-label="Select size"
+				className="h-10 w-full cursor-pointer rounded border-foreground bg-white px-3 text-left text-sm font-normal leading-4 shadow-none hover:bg-white focus-visible:ring-2 focus-visible:ring-[#aaaaac] dark:bg-white dark:text-slate-950"
 			>
-				<span>{selected}</span>
-				<ChevronDown className={`size-5 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
-			</button>
-			{open && (
-				<div
-					role="listbox"
-					className="absolute inset-x-0 top-[calc(100%-5px)] z-30 overflow-y-auto rounded-b border border-foreground border-t-0 bg-white pb-2 shadow-none"
-				>
-					{group.options.map((option) => (
-						<button
-							key={option.id}
-							type="button"
-							role="option"
-							aria-selected={selectedOption?.id === option.id}
-							onClick={() => {
-								onSelect(option.id);
-								setOpen(false);
-							}}
-							className="flex min-h-10 w-full cursor-pointer items-center px-3 text-left text-sm transition-colors hover:bg-foreground hover:text-background first:mt-1"
-						>
-							{option.value}
-						</button>
-					))}
-				</div>
-			)}
-		</div>
+				<SelectValue placeholder="Select Size" />
+			</SelectTrigger>
+			<SelectContent className="bg-white text-slate-950 dark:bg-white dark:text-slate-950">
+				{group.options.map((option) => (
+					<SelectItem key={option.id} value={option.id}>
+						{option.value}
+					</SelectItem>
+				))}
+			</SelectContent>
+		</Select>
 	);
 }
 
@@ -183,7 +163,7 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 	}
 
 	return (
-		<div className="space-y-12 sm:space-y-9">
+		<div className="space-y-8 sm:space-y-9">
 			{groupsWithChoices.map((group) => {
 				const selectedOptionId = selectedOptions[group.label];
 				const selectedOption = selectedOptionId
@@ -194,13 +174,13 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 					<fieldset key={group.label} className="border-0 p-0">
 						{group.type === "color" ? (
 							<>
-								<div className="mb-4 flex items-center justify-between">
+								<div className="mb-3 flex items-center justify-between">
 									<legend className="text-xs uppercase tracking-[0.06em]">{group.label}</legend>
 									{selectedOption && (
 										<span className="text-xs text-muted-foreground">{selectedOption.value}</span>
 									)}
 								</div>
-								<div className="flex flex-wrap gap-3.5">
+								<div className="flex flex-wrap gap-3" role="radiogroup" aria-label={group.label}>
 									{group.options.map((option) => {
 										const isSelected = selectedOptions[group.label] === option.id;
 										const isLightColor =
@@ -209,12 +189,16 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 											option.colorValue?.toUpperCase() === "#FFF";
 
 										return (
-											<button
+											<Button
 												key={option.id}
 												type="button"
+												variant="ghost"
+												size="icon-lg"
+												role="radio"
+												aria-checked={isSelected}
 												onClick={() => handleOptionSelect(group.label, option.id)}
 												className={cn(
-													"relative h-10 w-10 cursor-pointer rounded-full transition-all duration-200",
+													"relative h-10 w-10 rounded-full bg-transparent p-0 transition-all duration-200 hover:bg-transparent",
 													isSelected
 														? "ring-1 ring-foreground ring-offset-2 ring-offset-background"
 														: "hover:ring-1 hover:ring-muted-foreground hover:ring-offset-2 hover:ring-offset-background",
@@ -226,23 +210,25 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 												{isLightColor && (
 													<span className="absolute inset-0 rounded-full border border-border" />
 												)}
-											</button>
+											</Button>
 										);
 									})}
 								</div>
 							</>
 						) : (
 							<>
-								<div className="mb-4 flex items-center justify-between">
+								<div className="mb-3 flex items-center justify-between">
 									<legend className="text-xs uppercase tracking-[0.06em]">{group.label}</legend>
 									{group.label.toLowerCase() === "size" && (
-										<button
+										<Button
 											type="button"
+											variant="link"
+											size="sm"
 											onClick={() => window.dispatchEvent(new CustomEvent("teebravo:size-guide"))}
-											className="cursor-pointer text-xs underline underline-offset-4 transition-opacity hover:opacity-60"
+											className="h-auto rounded-none p-0 text-xs font-normal text-foreground transition-opacity hover:bg-transparent hover:opacity-60"
 										>
 											Size guide
-										</button>
+										</Button>
 									)}
 								</div>
 								<SizeSelect

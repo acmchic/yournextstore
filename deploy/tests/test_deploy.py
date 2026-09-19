@@ -19,6 +19,8 @@ if name == 'runuser':
     os.execvp(command[0], command)
 elif name in ('flock', 'curl'):
     pass
+elif name == 'ss':
+    pass
 elif name == 'realpath':
     print(pathlib.Path(args[0]).resolve())
 elif name == 'systemctl':
@@ -68,6 +70,15 @@ class DeployTests(unittest.TestCase):
         for name in ['package.json', 'bun.lock', 'public/sample.txt']:
             (self.repo / name).write_text('fixture')
         (self.root / 'etc/storefront.env').write_text('BUILD_HEAP_MB=256\n')
+        (self.root / 'etc/deploy.env').write_text(
+            'TEEBRAVO_PUBLIC_DOMAIN=teebravo.com\n'
+            'TEEBRAVO_ADMIN_DOMAIN=admin.teebravo.com\n'
+            'TEEBRAVO_API_DOMAIN=api.teebravo.com\n'
+            'TEEBRAVO_CERT_NAME=teebravo.com\n'
+            'TEEBRAVO_STOREFRONT_PORT=1990\n'
+            'TEEBRAVO_API_PORT=1991\n'
+            'TEEBRAVO_COMPOSE_PROJECT=teebravo-prod\n'
+        )
         for name in ['db', 'api', 'admin']:
             (self.root / ('etc/' + name + '.env')).write_text('FIXTURE=1\n')
         for name in ['api/pyproject.toml', 'api/bootstrap-db.sh', 'deploy/compose.production.yaml']:
@@ -78,7 +89,7 @@ class DeployTests(unittest.TestCase):
         content = content.replace('/run/lock/teebravo-deploy.lock', str(self.root / 'deploy.lock'))
         content = content.replace('export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"', f'export PATH="{self.root}/bin:/usr/bin:/bin"')
         (self.repo / 'deploy.sh').write_text(content)
-        for name in ['runuser', 'flock', 'curl', 'realpath', 'systemctl', 'bun', 'node', 'install', 'mv', 'rsync', 'docker']:
+        for name in ['runuser', 'flock', 'curl', 'realpath', 'systemctl', 'bun', 'node', 'install', 'mv', 'rsync', 'docker', 'ss']:
             shim = self.root / 'bin' / name
             shim.write_text(f'#!{sys.executable}\n' + SHIM)
             shim.chmod(0o755)

@@ -426,14 +426,13 @@ class CatalogRepository:
         params = tuple(c["slug"] for c in eligible)
         where = (
             "from products p "
-            "cross join catalogs c "
-            f"where p.status='active' and c.slug in ({placeholders}) "
-            "and ("
+            f"where p.status='active' and ("
             "exists("
             "select 1 from product_catalogs pc_selected "
+            "join catalogs c_selected on c_selected.id=pc_selected.catalog_id "
             "where pc_selected.product_id=p.id "
-            "and pc_selected.catalog_id=c.id "
-            "and pc_selected.active=true"
+            "and pc_selected.active=true "
+            f"and c_selected.slug in ({placeholders})"
             ") "
             "or not exists("
             "select 1 from product_catalogs pc_any "
@@ -446,14 +445,17 @@ class CatalogRepository:
             params += (rule["id"],)
         count = await self._database.fetch_one(f"select count(*) count {where}", params)
         rows = await self._database.fetch_all(
-            f"select p.slug, c.slug catalog {where} order by p.published_at desc, p.id desc, c.sort_order, c.id limit %s offset %s",
+            f"select p.slug {where} order by p.published_at desc, p.id desc limit %s offset %s",
             (*params, limit, offset),
         )
         data = []
         for index, row in enumerate(rows):
-            product = await self.get_product_detail(row["slug"], catalog_slug=row["catalog"])
+            position = offset + index
+            product = await self.get_product_detail(
+                row["slug"], catalog_slug=_listing_catalog_at(eligible, position)
+            )
             if product:
-                data.append(_rotate_listing_color(product, offset + index))
+                data.append(_rotate_listing_color(product, position))
         return {
             "data": data,
             "meta": {"count": int(count["count"]), "limit": limit, "offset": offset},

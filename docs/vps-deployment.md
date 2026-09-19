@@ -69,7 +69,15 @@ cd /srv/teebravo/repository
 sudo bash deploy.sh --setup
 ```
 
-Setup chỉ chuẩn bị thư mục, tạo env nếu chưa có, cài **một unit Node** và HTTP ACME vhost nếu chưa có vhost TeeBravo. Không build/start backend, không sửa PHP host, không restart Docker. Xử lý vhost cũ trùng tên TeeBravo trước (các hostname được kiểm tra chưa có trong output bạn gửi).
+Setup chỉ chuẩn bị thư mục, tạo env nếu chưa có, cài **một unit Node** và HTTP ACME vhost nếu chưa có vhost TeeBravo. Mapping production dùng `deploy/env/deploy.env.example` làm nguồn duy nhất cho `teebravo.com`, `admin.teebravo.com`, `api.teebravo.com`, port 1990/1991 và Compose project. Không build/start backend, không sửa PHP host, không restart Docker. Xử lý vhost cũ trùng tên TeeBravo trước (các hostname được kiểm tra chưa có trong output bạn gửi).
+
+Nếu muốn setup, deploy toàn bộ và cài HTTPS trong một lần sau khi DNS đã trỏ đúng, dùng:
+
+```bash
+sudo bash deploy.sh --production YOUR_REAL_EMAIL
+```
+
+Lệnh này vẫn giữ các env/secret đã có, chỉ sinh file còn thiếu và không ghi đè database hoặc env production hiện tại.
 
 ### Secrets và env
 
@@ -78,7 +86,8 @@ Setup tự sinh password DB/root, Laravel APP_KEY, signing secret và Server Act
 - `/etc/teebravo/db.env`: MySQL container, không dùng MariaDB host.
 - `/etc/teebravo/api.env`: API và Python CLI trong admin; `DB_HOST=db`.
 - `/etc/teebravo/admin.env`: Laravel, cùng DB/password với API.
-- `/etc/teebravo/storefront.env`: API loopback `http://127.0.0.1:1991`, public ảnh `https://api.teebravo.com`.
+- `/etc/teebravo/storefront.env`: API loopback và public media URL được render từ `/etc/teebravo/deploy.env`.
+- `/etc/teebravo/deploy.env`: domain/port/project mapping được sinh từ `deploy/env/deploy.env.example`; không chứa secret.
 
 Script không ghi đè file đã tồn tại; nếu bộ backend env chỉ có một phần thì dừng để tránh sinh password lệch. Nếu chuyển từ env native cũ: kiểm tra lại DB_HOST=db, asset/cache paths `/app/api/...`, URL loopback 1991 và bỏ tất cả placeholder. Không copy đè key/password lên database đã khởi tạo. MySQL image chỉ áp dụng MYSQL_PASSWORD khi tạo datadir mới; đổi env không tự đổi password trong DB.
 
@@ -123,7 +132,9 @@ sudo bash deploy.sh --ssl YOUR_REAL_EMAIL
 sudo certbot renew --dry-run
 ```
 
-`--all`: ensure MySQL khỏe → build API → bootstrap SQL → start API → build admin → migrate → start PHP → copy public assets → build/restart Node. Build backend xong mới thay container đang chạy. `--wait` kết hợp healthcheck kiểm tra API/DB; health admin chỉ kiểm tra socket, cần test `/up`/login sau HTTPS. [Compose startup/readiness](https://docs.docker.com/compose/how-tos/startup-order/).
+Hoặc thay ba bước trên bằng `sudo bash deploy.sh --production YOUR_REAL_EMAIL`.
+
+`--all`: ensure MySQL khỏe → build API → bootstrap SQL → start API → build admin → migrate → start PHP → copy public assets → build/restart Node. Build backend xong mới thay container đang chạy. `--production` chạy cùng chuỗi sau khi setup host, kiểm tra port mapping, rồi cài cert/vhost HTTPS ở cuối. `--wait` kết hợp healthcheck kiểm tra API/DB; health admin chỉ kiểm tra socket, cần test `/up`/login sau HTTPS. [Compose startup/readiness](https://docs.docker.com/compose/how-tos/startup-order/).
 
 Build đầu cần Internet để kéo image/package/font. Docker BuildKit giữ layer/cache; PHP/Python runtime chung giúp hai image chia sẻ lớp dependency. Runtime giới hạn tổng xấp xỉ 4 GiB cho ba backend container và 4 CPU quota cộng dồn; frontend riêng. **Giới hạn runtime Compose không giới hạn Docker build**: build tuần tự/lúc ít tải, quan sát RAM/CPU/disk. Build Next heap 2 GiB, nice=10. Không cam kết hoàn toàn không ảnh hưởng latency các site khác vì dùng chung VPS.
 
@@ -162,8 +173,9 @@ sudo systemctl status teebravo-storefront --no-pager
 sudo journalctl -u teebravo-storefront -n 100 --no-pager
 sudo docker compose -p teebravo-prod -f deploy/compose.production.yaml ps
 sudo docker compose -p teebravo-prod -f deploy/compose.production.yaml logs --tail=100 api admin db
-curl -f http://127.0.0.1:1991/ready
-curl -f http://127.0.0.1:1990/ -o /dev/null
+set -a; . /etc/teebravo/deploy.env; set +a
+curl -f "http://127.0.0.1:$TEEBRAVO_API_PORT/ready"
+curl -f "http://127.0.0.1:$TEEBRAVO_STOREFRONT_PORT/" -o /dev/null
 curl -f https://admin.teebravo.com/up
 sudo nginx -t
 sudo certbot renew --dry-run
@@ -194,4 +206,4 @@ Nếu đã từng chạy bộ native cũ, **không chạy hai API/FPM cùng lúc
 
 Workspace không có Docker CLI/daemon, nên chưa build/chạy image thực hoặc kiểm tra bằng `docker compose config` tại đây. YAML được parse cục bộ; Bash/helpers và tests mô phỏng kiểm tra được, nhưng không thay thế build/integration test Linux trên VPS. Chưa có truy cập SSH; chưa thay đổi server, database hoặc domain thật. Các phụ thuộc launch (SMTP, Stripe live, policy publish, quyền artwork, fulfillment, monitoring) vẫn cần hoàn tất trước mở bán.
 
-Kiểm tra bộ mới: 8 tests Python (default chỉ storefront, chỉ API không recreate DB, disk guard, rollback Node, secrets đồng bộ/idempotent và partial env), Bash syntax, YAML parse và kiểm tra port/limits đều qua. Chạy lại bằng `python3 -m unittest discover -s deploy/tests -p 'test_*.py'`. Trên VPS cần thêm `sudo docker compose -p teebravo-prod -f deploy/compose.production.yaml config --quiet` sau setup và build thực trong cửa sổ ít tải trước khi mở domain.
+Kiểm tra bộ mới: 8 tests Python (default chỉ storefront, chỉ API không recreate DB, disk guard, rollback Node, secrets/mapping đồng bộ và partial env), Bash syntax, template rendering và kiểm tra port/limits đều qua. Chạy lại bằng `python3 -m unittest discover -s deploy/tests -p 'test_*.py'`. Trên VPS cần thêm `sudo docker compose --env-file /etc/teebravo/deploy.env -p teebravo-prod -f deploy/compose.production.yaml config --quiet` sau setup và build thực trong cửa sổ ít tải trước khi mở domain.

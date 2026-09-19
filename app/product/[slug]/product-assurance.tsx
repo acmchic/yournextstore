@@ -1,84 +1,42 @@
-import { BadgeCheck, LockKeyhole, PackageCheck, ReceiptText, RotateCcw, Truck } from "lucide-react";
+import { LockKeyhole, PackageCheck, ReceiptText, RotateCcw, Truck } from "lucide-react";
 import Link from "next/link";
-import type { VolumeTier } from "@/app/product/[slug]/volume-pricing";
 import type { ShippingQuote } from "@/lib/checkout";
 import { deliveryEstimate } from "@/lib/delivery-estimate";
-import { formatMoney } from "@/lib/money";
 
 type PolicyLink = { label: string; href: string };
 
-function money(amount: number | string) {
-	return formatMoney({ amount: BigInt(amount), currency: "USD", locale: "en-US" });
-}
-
-function tierQuantity(tier: VolumeTier) {
-	return tier.maxQuantity ? `${tier.minQuantity}–${tier.maxQuantity} items` : `${tier.minQuantity}+ items`;
-}
-
-export function ProductAssurance({
-	shipping,
-	policies,
-	volumePricingTiers,
-	inStock,
-}: {
-	shipping: ShippingQuote;
-	policies: PolicyLink[];
-	volumePricingTiers: VolumeTier[];
-	inStock: boolean;
-}) {
-	const estimate = deliveryEstimate(shipping.delivery);
-	if (!estimate) return null;
-
+export function ProductCheckoutTrust({ policies, inStock }: { policies: PolicyLink[]; inStock: boolean }) {
 	const returnPolicy = policies.find((policy) => /return|refund/i.test(policy.href + policy.label));
-	const productTiers = volumePricingTiers.filter((tier) => !tier.productVariantId);
 
 	return (
-		<section className="mt-16 border-y border-border">
-			{productTiers.length > 0 && (
-				<div className="border-b border-border p-5 sm:p-8">
-					<div className="mb-5 flex items-center gap-3">
-						<BadgeCheck className="size-5" aria-hidden />
-						<h2 className="text-sm font-semibold uppercase tracking-[0.08em]">Buy more, lower unit price</h2>
-					</div>
-					<div className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
-						{productTiers.map((tier) => (
-							<div key={tier.id} className="bg-background p-4">
-								<p className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
-									{tierQuantity(tier)}
-								</p>
-								<p className="mt-2 text-lg font-semibold">{money(tier.price)}</p>
-								<p className="text-xs text-muted-foreground">per item</p>
-							</div>
-						))}
-					</div>
-				</div>
-			)}
-
-			<div className="grid divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-				<div className="flex items-center gap-3 p-5 text-xs font-medium sm:p-6">
-					<LockKeyhole className="size-4" aria-hidden /> Secure Stripe checkout
-				</div>
-				<div className="flex items-center gap-3 p-5 text-xs font-medium sm:p-6">
-					<PackageCheck className="size-4" aria-hidden />{" "}
-					{inStock ? "Available · produced to order" : "Currently unavailable"}
-				</div>
-				<div className="flex items-center gap-3 p-5 text-xs font-medium sm:p-6">
-					{returnPolicy ? (
-						<>
-							<RotateCcw className="size-4" aria-hidden />
-							<Link href={returnPolicy.href} className="underline underline-offset-4">
-								Returns & refunds
-							</Link>
-						</>
-					) : (
-						<>
-							<ReceiptText className="size-4" aria-hidden />
-							<span>Full costs shown before payment</span>
-						</>
-					)}
-				</div>
+		<div
+			className="mt-3 grid gap-2 border-y border-border/70 py-3 text-[11px] leading-relaxed text-muted-foreground sm:grid-cols-3 sm:gap-3"
+			role="group"
+			aria-label="Checkout reassurance"
+		>
+			<div className="flex items-center gap-2">
+				<LockKeyhole className="size-4" aria-hidden /> Secure Stripe checkout
 			</div>
-		</section>
+			<div className="flex items-center gap-2">
+				<PackageCheck className="size-4" aria-hidden />{" "}
+				{inStock ? "Available · produced to order" : "Currently unavailable"}
+			</div>
+			<div className="flex items-center gap-2">
+				{returnPolicy ? (
+					<>
+						<RotateCcw className="size-4" aria-hidden />
+						<Link href={returnPolicy.href} className="underline underline-offset-4">
+							Returns & refunds
+						</Link>
+					</>
+				) : (
+					<>
+						<ReceiptText className="size-4" aria-hidden />
+						<span>Full costs shown before payment</span>
+					</>
+				)}
+			</div>
+		</div>
 	);
 }
 

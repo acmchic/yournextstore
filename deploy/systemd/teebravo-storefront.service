@@ -8,7 +8,7 @@ User=teebravo
 Group=teebravo
 WorkingDirectory=/srv/teebravo/current
 EnvironmentFile=/etc/teebravo/storefront.env
-Environment=NODE_ENV=production HOSTNAME=127.0.0.1 PORT=1990 NEXT_TELEMETRY_DISABLED=1
+Environment=NODE_ENV=production HOSTNAME=127.0.0.1 PORT=__STOREFRONT_PORT__ NEXT_TELEMETRY_DISABLED=1
 Environment=NODE_OPTIONS=--max-old-space-size=1024
 Environment=MALLOC_ARENA_MAX=2
 ExecStart=/usr/bin/node server.js
