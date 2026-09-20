@@ -27,6 +27,8 @@ elif name == 'systemctl':
     if args[:2] == ['restart', 'teebravo-storefront'] and os.getenv('FAIL_RESTART') and not (root / 'failed-once').exists():
         (root / 'failed-once').touch()
         sys.exit(1)
+elif name == 'chown':
+    pass
 elif name == 'docker':
     if args[0] == 'info':
         print(root)
@@ -89,7 +91,7 @@ class DeployTests(unittest.TestCase):
         content = content.replace('/run/lock/teebravo-deploy.lock', str(self.root / 'deploy.lock'))
         content = content.replace('export PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"', f'export PATH="{self.root}/bin:/usr/bin:/bin"')
         (self.repo / 'deploy.sh').write_text(content)
-        for name in ['runuser', 'flock', 'curl', 'realpath', 'systemctl', 'bun', 'node', 'install', 'mv', 'rsync', 'docker', 'ss']:
+        for name in ['runuser', 'flock', 'curl', 'realpath', 'systemctl', 'bun', 'node', 'install', 'mv', 'rsync', 'docker', 'ss', 'chown']:
             shim = self.root / 'bin' / name
             shim.write_text(f'#!{sys.executable}\n' + SHIM)
             shim.chmod(0o755)

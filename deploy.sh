@@ -172,7 +172,7 @@ sync_docker_config() {
   fi
 }
 setup_host() {
-  for tool in nginx rsync python3 node bun docker curl flock runuser ss; do need "$tool"; done
+  for tool in nginx rsync python3 node bun docker curl flock runuser ss chown; do need "$tool"; done
   docker compose version >/dev/null
   id "$APP_USER" >/dev/null 2>&1 || fail 'Create user teebravo and ownership as documented first.'
   install -d -m 755 -o "$APP_USER" -g "$APP_USER" "$BASE/build" "$BASE/releases" "$BASE/state"
@@ -182,7 +182,8 @@ setup_host() {
   sync_docker_config
   # UID/GID 33 is www-data in the Debian containers. Only new TeeBravo data paths.
   install -d -m 755 -o 33 -g 33 "$TEEBRAVO_SHARED_DIR/assets" "$TEEBRAVO_SHARED_DIR/mockup-cache" "$TEEBRAVO_SHARED_DIR/admin-storage" "$TEEBRAVO_SHARED_DIR/php"
-  install -d -m 755 "$TEEBRAVO_SHARED_DIR/admin-public" "$TEEBRAVO_SHARED_DIR/next-static" /var/www/letsencrypt
+  install -d -m 755 -o root -g root "$TEEBRAVO_SHARED_DIR/admin-public" /var/www/letsencrypt
+  install -d -m 755 -o "$APP_USER" -g "$APP_USER" "$TEEBRAVO_SHARED_DIR/next-static"
   check_ports
   render_template deploy/systemd/teebravo-storefront.service "$BASE/teebravo-storefront.service.rendered"
   install -m 644 "$BASE/teebravo-storefront.service.rendered" /etc/systemd/system/teebravo-storefront.service
@@ -278,6 +279,7 @@ fi
 if ((storefront)); then
   need node
   need bun
+  need chown
   node -e 'const [a,b]=process.versions.node.split(".").map(Number); if(a<22 || (a===22 && b<12))process.exit(1)'
   [[ -f /etc/teebravo/storefront.env ]] || fail 'Missing /etc/teebravo/storefront.env.'
   health "http://127.0.0.1:$TEEBRAVO_API_PORT/ready" || fail 'API must be ready before building storefront.'
@@ -300,12 +302,13 @@ if ((storefront)); then
     # env file must be shell-compatible KEY=value; quotes supported, no shell commands.
     (cd "$BASE/build"; run bash -c 'set -a; source /etc/teebravo/storefront.env; set +a; export NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 NEXT_DEPLOYMENT_ID="$1"; export NODE_OPTIONS="--max-old-space-size=${BUILD_HEAP_MB:-2048}"; exec nice -n 10 node node_modules/next/dist/bin/next build' bash "${release##*/}")
     [[ -f "$BASE/build/.next/standalone/server.js" ]] || fail 'standalone/server.js missing.'
-    install -d -o "$APP_USER" -g "$APP_USER" "$release/.next"
-    run rsync -a "$BASE/build/.next/standalone/" "$release/"
-    run rsync -a "$BASE/build/public/" "$release/public/"
-    run rsync -a "$BASE/build/.next/static/" "$release/.next/static/"
+    install -d -o "$APP_USER" -g "$APP_USER" "$release" "$release/.next"
+    chown -R "$APP_USER:$APP_USER" "$release"
+    run rsync -a --no-owner --no-group "$BASE/build/.next/standalone/" "$release/"
+    run rsync -a --no-owner --no-group "$BASE/build/public/" "$release/public/"
+    run rsync -a --no-owner --no-group "$BASE/build/.next/static/" "$release/.next/static/"
     # Hashed static chunks from older releases remain available to already-open tabs.
-    run rsync -a "$BASE/build/.next/static/" "$TEEBRAVO_SHARED_DIR/next-static/"
+    run rsync -a --no-owner --no-group "$BASE/build/.next/static/" "$TEEBRAVO_SHARED_DIR/next-static/"
     old=$(readlink -f "$BASE/current" || true)
     ln -s "$release" "$BASE/current.new"
     mv -Tf "$BASE/current.new" "$BASE/current"
