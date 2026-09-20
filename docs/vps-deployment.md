@@ -72,6 +72,7 @@ sudo bash deploy.sh --setup
 Setup chỉ chuẩn bị thư mục, tạo env nếu chưa có, cài **một unit Node** và HTTP ACME vhost nếu chưa có vhost TeeBravo. Mapping production dùng `deploy/env/deploy.env.example` làm nguồn duy nhất cho `teebravo.com`, `admin.teebravo.com`, `api.teebravo.com`, port 1990/1991 và Compose project. Không build/start backend, không sửa PHP host, không restart Docker. Xử lý vhost cũ trùng tên TeeBravo trước (các hostname được kiểm tra chưa có trong output bạn gửi).
 
 Nếu Docker daemon là bản Snap, thêm `TEEBRAVO_SHARED_DIR=/home/teebravo/shared` vào `/etc/teebravo/deploy.env` trước khi chạy `--all`. Docker Snap có thể đọc build context ở `/srv` nhưng không bind-mount được source dưới `/srv`; repo/build vẫn giữ ở `/srv/teebravo`, chỉ dữ liệu bind-mount chuyển sang thư mục trong home.
+Đồng thời đặt `TEEBRAVO_DOCKER_CONFIG_DIR=/home/teebravo/config`; script sẽ đồng bộ `api.env` và `admin.env` vào đó để Docker daemon đọc được file secrets.
 
 Nếu muốn setup, deploy toàn bộ và cài HTTPS trong một lần sau khi DNS đã trỏ đúng, dùng:
 
@@ -91,6 +92,7 @@ Setup tự sinh password DB/root, Laravel APP_KEY, signing secret và Server Act
 - `/etc/teebravo/storefront.env`: API loopback và public media URL được render từ `/etc/teebravo/deploy.env`.
 - `/etc/teebravo/deploy.env`: domain/port/project mapping được sinh từ `deploy/env/deploy.env.example`; không chứa secret.
 - `TEEBRAVO_SHARED_DIR` trong file trên: root persistent cho các bind mount Docker và các file Nginx đọc; mặc định `/srv/teebravo/shared`, dùng `/home/teebravo/shared` với Docker Snap.
+- `TEEBRAVO_DOCKER_CONFIG_DIR` trong file trên: thư mục chứa bản sao `api.env` và `admin.env` dành cho Docker bind mount; mặc định `/etc/teebravo`, dùng `/home/teebravo/config` với Docker Snap.
 
 Script không ghi đè file đã tồn tại; nếu bộ backend env chỉ có một phần thì dừng để tránh sinh password lệch. Nếu chuyển từ env native cũ: kiểm tra lại DB_HOST=db, asset/cache paths `/app/api/...`, URL loopback 1991 và bỏ tất cả placeholder. Không copy đè key/password lên database đã khởi tạo. MySQL image chỉ áp dụng MYSQL_PASSWORD khi tạo datadir mới; đổi env không tự đổi password trong DB.
 

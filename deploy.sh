@@ -61,7 +61,9 @@ load_config() {
   . "$DEPLOY_CONFIG"
   set +a
   TEEBRAVO_SHARED_DIR="${TEEBRAVO_SHARED_DIR:-$BASE/shared}"
+  TEEBRAVO_DOCKER_CONFIG_DIR="${TEEBRAVO_DOCKER_CONFIG_DIR:-/etc/teebravo}"
   [[ "$TEEBRAVO_SHARED_DIR" =~ ^/[A-Za-z0-9._/-]+$ ]] || fail 'Invalid TEEBRAVO_SHARED_DIR in /etc/teebravo/deploy.env.'
+  [[ "$TEEBRAVO_DOCKER_CONFIG_DIR" =~ ^/[A-Za-z0-9._/-]+$ ]] || fail 'Invalid TEEBRAVO_DOCKER_CONFIG_DIR in /etc/teebravo/deploy.env.'
   for name in TEEBRAVO_PUBLIC_DOMAIN TEEBRAVO_ADMIN_DOMAIN TEEBRAVO_API_DOMAIN TEEBRAVO_CERT_NAME TEEBRAVO_STOREFRONT_PORT TEEBRAVO_API_PORT TEEBRAVO_COMPOSE_PROJECT; do
     [[ -n "${!name:-}" ]] || fail "Missing $name in $DEPLOY_CONFIG."
   done
@@ -161,6 +163,14 @@ check_ports() {
   check_port "$TEEBRAVO_STOREFRONT_PORT" storefront
   check_port "$TEEBRAVO_API_PORT" api
 }
+sync_docker_config() {
+  [[ -s /etc/teebravo/api.env && -s /etc/teebravo/admin.env ]] || fail 'Missing backend env files; run --setup first.'
+  if [[ "$TEEBRAVO_DOCKER_CONFIG_DIR" != /etc/teebravo ]]; then
+    install -d -m 755 "$TEEBRAVO_DOCKER_CONFIG_DIR"
+    install -m 600 /etc/teebravo/api.env "$TEEBRAVO_DOCKER_CONFIG_DIR/api.env"
+    install -m 600 /etc/teebravo/admin.env "$TEEBRAVO_DOCKER_CONFIG_DIR/admin.env"
+  fi
+}
 setup_host() {
   for tool in nginx rsync python3 node bun docker curl flock runuser ss; do need "$tool"; done
   docker compose version >/dev/null
@@ -169,6 +179,7 @@ setup_host() {
   install -d -m 750 -o root -g "$APP_USER" /etc/teebravo
   python3 deploy/init-env.py /etc/teebravo
   load_config
+  sync_docker_config
   # UID/GID 33 is www-data in the Debian containers. Only new TeeBravo data paths.
   install -d -m 755 -o 33 -g 33 "$TEEBRAVO_SHARED_DIR/assets" "$TEEBRAVO_SHARED_DIR/mockup-cache" "$TEEBRAVO_SHARED_DIR/admin-storage" "$TEEBRAVO_SHARED_DIR/php"
   install -d -m 755 "$TEEBRAVO_SHARED_DIR/admin-public" "$TEEBRAVO_SHARED_DIR/next-static" /var/www/letsencrypt
@@ -213,6 +224,7 @@ if ((tls && !production)); then
 fi
 [[ -d "$BASE/state" ]] || fail 'Run --setup first.'
 load_config
+sync_docker_config
 check_ports
 need python3
 need rsync

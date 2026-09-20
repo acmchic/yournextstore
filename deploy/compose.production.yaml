@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
     ports: ["127.0.0.1:${TEEBRAVO_API_PORT:-1991}:8000"]
     volumes:
-      - /etc/teebravo/api.env:/app/api/.env:ro
+      - ${TEEBRAVO_DOCKER_CONFIG_DIR:-/etc/teebravo}/api.env:/app/api/.env:ro
       - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/assets:/app/api/public
       - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/mockup-cache:/app/api/.cache/mockups
     mem_limit: 1536m
@@ -51,8 +51,8 @@ services:
       target: admin
     restart: unless-stopped
     volumes:
-      - /etc/teebravo/admin.env:/app/admin/.env:ro
-      - /etc/teebravo/api.env:/app/api/.env:ro
+      - ${TEEBRAVO_DOCKER_CONFIG_DIR:-/etc/teebravo}/admin.env:/app/admin/.env:ro
+      - ${TEEBRAVO_DOCKER_CONFIG_DIR:-/etc/teebravo}/api.env:/app/api/.env:ro
       - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/assets:/app/api/public
       - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/mockup-cache:/app/api/.cache/mockups
       - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/admin-storage:/app/admin/storage
