@@ -31,8 +31,8 @@ services:
     ports: ["127.0.0.1:${TEEBRAVO_API_PORT:-1991}:8000"]
     volumes:
       - /etc/teebravo/api.env:/app/api/.env:ro
-      - /srv/teebravo/shared/assets:/app/api/public
-      - /srv/teebravo/shared/mockup-cache:/app/api/.cache/mockups
+      - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/assets:/app/api/public
+      - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/mockup-cache:/app/api/.cache/mockups
     mem_limit: 1536m
     cpus: 1.5
     logging: *logging
@@ -53,10 +53,10 @@ services:
     volumes:
       - /etc/teebravo/admin.env:/app/admin/.env:ro
       - /etc/teebravo/api.env:/app/api/.env:ro
-      - /srv/teebravo/shared/assets:/app/api/public
-      - /srv/teebravo/shared/mockup-cache:/app/api/.cache/mockups
-      - /srv/teebravo/shared/admin-storage:/app/admin/storage
-      - /srv/teebravo/shared/php:/run/teebravo-php
+      - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/assets:/app/api/public
+      - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/mockup-cache:/app/api/.cache/mockups
+      - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/admin-storage:/app/admin/storage
+      - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/php:/run/teebravo-php
     mem_limit: 1024m
     cpus: 1
     logging: *logging

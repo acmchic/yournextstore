@@ -60,6 +60,8 @@ load_config() {
   # shellcheck disable=SC1090
   . "$DEPLOY_CONFIG"
   set +a
+  TEEBRAVO_SHARED_DIR="${TEEBRAVO_SHARED_DIR:-$BASE/shared}"
+  [[ "$TEEBRAVO_SHARED_DIR" =~ ^/[A-Za-z0-9._/-]+$ ]] || fail 'Invalid TEEBRAVO_SHARED_DIR in /etc/teebravo/deploy.env.'
   for name in TEEBRAVO_PUBLIC_DOMAIN TEEBRAVO_ADMIN_DOMAIN TEEBRAVO_API_DOMAIN TEEBRAVO_CERT_NAME TEEBRAVO_STOREFRONT_PORT TEEBRAVO_API_PORT TEEBRAVO_COMPOSE_PROJECT; do
     [[ -n "${!name:-}" ]] || fail "Missing $name in $DEPLOY_CONFIG."
   done
@@ -79,7 +81,8 @@ render_template() {
     "API_DOMAIN=$TEEBRAVO_API_DOMAIN" \
     "CERT_NAME=$TEEBRAVO_CERT_NAME" \
     "STOREFRONT_PORT=$TEEBRAVO_STOREFRONT_PORT" \
-    "API_PORT=$TEEBRAVO_API_PORT"
+    "API_PORT=$TEEBRAVO_API_PORT" \
+    "SHARED_DIR=$TEEBRAVO_SHARED_DIR"
 }
 health() {
   local url=$1
@@ -162,13 +165,13 @@ setup_host() {
   for tool in nginx rsync python3 node bun docker curl flock runuser ss; do need "$tool"; done
   docker compose version >/dev/null
   id "$APP_USER" >/dev/null 2>&1 || fail 'Create user teebravo and ownership as documented first.'
-  install -d -m 755 -o "$APP_USER" -g "$APP_USER" "$BASE/build" "$BASE/releases" "$BASE/shared" "$BASE/shared/next-static" "$BASE/state"
-  # UID/GID 33 is www-data in the Debian containers. Only new TeeBravo data paths.
-  install -d -m 755 -o 33 -g 33 "$BASE/shared/assets" "$BASE/shared/mockup-cache" "$BASE/shared/admin-storage" "$BASE/shared/php"
-  install -d -m 755 "$BASE/shared/admin-public" /var/www/letsencrypt
+  install -d -m 755 -o "$APP_USER" -g "$APP_USER" "$BASE/build" "$BASE/releases" "$BASE/state"
   install -d -m 750 -o root -g "$APP_USER" /etc/teebravo
   python3 deploy/init-env.py /etc/teebravo
   load_config
+  # UID/GID 33 is www-data in the Debian containers. Only new TeeBravo data paths.
+  install -d -m 755 -o 33 -g 33 "$TEEBRAVO_SHARED_DIR/assets" "$TEEBRAVO_SHARED_DIR/mockup-cache" "$TEEBRAVO_SHARED_DIR/admin-storage" "$TEEBRAVO_SHARED_DIR/php"
+  install -d -m 755 "$TEEBRAVO_SHARED_DIR/admin-public" "$TEEBRAVO_SHARED_DIR/next-static" /var/www/letsencrypt
   check_ports
   render_template deploy/systemd/teebravo-storefront.service "$BASE/teebravo-storefront.service.rendered"
   install -m 644 "$BASE/teebravo-storefront.service.rendered" /etc/systemd/system/teebravo-storefront.service
@@ -220,6 +223,7 @@ if ((api || admin || db)); then
   docker compose version >/dev/null
   docker_root=$(docker info --format '{{.DockerRootDir}}')
   check_disk "$docker_root"
+  check_disk "$TEEBRAVO_SHARED_DIR"
   for name in db api admin; do [[ -s "/etc/teebravo/$name.env" ]] || fail "Missing $name.env; run --setup."; done
 fi
 if ((db)); then
@@ -252,9 +256,9 @@ if ((admin)); then
     cid=$(dc ps -q admin)
     [[ -n "$cid" ]] || fail 'Admin container failed to start.'
     dc exec -T admin php artisan about --only=environment >/dev/null
-    docker cp "$cid:/app/admin/public/." "$BASE/shared/admin-public/"
-    chmod -R a+rX "$BASE/shared/admin-public"
-    [[ -S "$BASE/shared/php/fpm.sock" ]] || fail 'Admin FPM socket missing. Inspect container logs, retry --only-admin --force.'
+    docker cp "$cid:/app/admin/public/." "$TEEBRAVO_SHARED_DIR/admin-public/"
+    chmod -R a+rX "$TEEBRAVO_SHARED_DIR/admin-public"
+    [[ -S "$TEEBRAVO_SHARED_DIR/php/fpm.sock" ]] || fail 'Admin FPM socket missing. Inspect container logs, retry --only-admin --force.'
     echo "$hash" > "$BASE/state/admin"
     echo 'Admin deployed. Test /up over HTTPS once SSL is installed.'
   else echo 'Admin unchanged; skipped.'; fi
@@ -289,7 +293,7 @@ if ((storefront)); then
     run rsync -a "$BASE/build/public/" "$release/public/"
     run rsync -a "$BASE/build/.next/static/" "$release/.next/static/"
     # Hashed static chunks from older releases remain available to already-open tabs.
-    run rsync -a "$BASE/build/.next/static/" "$BASE/shared/next-static/"
+    run rsync -a "$BASE/build/.next/static/" "$TEEBRAVO_SHARED_DIR/next-static/"
     old=$(readlink -f "$BASE/current" || true)
     ln -s "$release" "$BASE/current.new"
     mv -Tf "$BASE/current.new" "$BASE/current"

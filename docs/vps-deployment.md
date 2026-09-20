@@ -71,6 +71,8 @@ sudo bash deploy.sh --setup
 
 Setup chỉ chuẩn bị thư mục, tạo env nếu chưa có, cài **một unit Node** và HTTP ACME vhost nếu chưa có vhost TeeBravo. Mapping production dùng `deploy/env/deploy.env.example` làm nguồn duy nhất cho `teebravo.com`, `admin.teebravo.com`, `api.teebravo.com`, port 1990/1991 và Compose project. Không build/start backend, không sửa PHP host, không restart Docker. Xử lý vhost cũ trùng tên TeeBravo trước (các hostname được kiểm tra chưa có trong output bạn gửi).
 
+Nếu Docker daemon là bản Snap, thêm `TEEBRAVO_SHARED_DIR=/home/teebravo/shared` vào `/etc/teebravo/deploy.env` trước khi chạy `--all`. Docker Snap có thể đọc build context ở `/srv` nhưng không bind-mount được source dưới `/srv`; repo/build vẫn giữ ở `/srv/teebravo`, chỉ dữ liệu bind-mount chuyển sang thư mục trong home.
+
 Nếu muốn setup, deploy toàn bộ và cài HTTPS trong một lần sau khi DNS đã trỏ đúng, dùng:
 
 ```bash
@@ -88,6 +90,7 @@ Setup tự sinh password DB/root, Laravel APP_KEY, signing secret và Server Act
 - `/etc/teebravo/admin.env`: Laravel, cùng DB/password với API.
 - `/etc/teebravo/storefront.env`: API loopback và public media URL được render từ `/etc/teebravo/deploy.env`.
 - `/etc/teebravo/deploy.env`: domain/port/project mapping được sinh từ `deploy/env/deploy.env.example`; không chứa secret.
+- `TEEBRAVO_SHARED_DIR` trong file trên: root persistent cho các bind mount Docker và các file Nginx đọc; mặc định `/srv/teebravo/shared`, dùng `/home/teebravo/shared` với Docker Snap.
 
 Script không ghi đè file đã tồn tại; nếu bộ backend env chỉ có một phần thì dừng để tránh sinh password lệch. Nếu chuyển từ env native cũ: kiểm tra lại DB_HOST=db, asset/cache paths `/app/api/...`, URL loopback 1991 và bỏ tất cả placeholder. Không copy đè key/password lên database đã khởi tạo. MySQL image chỉ áp dụng MYSQL_PASSWORD khi tạo datadir mới; đổi env không tự đổi password trong DB.
 
@@ -98,19 +101,20 @@ Script không ghi đè file đã tồn tại; nếu bộ backend env chỉ có m
 Thư mục persistent:
 
 ```text
-/srv/teebravo/shared/assets          → /app/api/public (design, mockup…)
-/srv/teebravo/shared/mockup-cache    → cache render
-/srv/teebravo/shared/admin-storage  → Laravel storage
-/srv/teebravo/shared/php            → FPM socket
-/srv/teebravo/shared/admin-public   → assets public trích từ image admin
-/srv/teebravo/shared/next-static    → chunks Next hiện tại và cũ
+${TEEBRAVO_SHARED_DIR}/assets        → /app/api/public (design, mockup…)
+${TEEBRAVO_SHARED_DIR}/mockup-cache  → cache render
+${TEEBRAVO_SHARED_DIR}/admin-storage → Laravel storage
+${TEEBRAVO_SHARED_DIR}/php           → FPM socket
+${TEEBRAVO_SHARED_DIR}/admin-public  → assets public trích từ image admin
+${TEEBRAVO_SHARED_DIR}/next-static   → chunks Next hiện tại và cũ
 ```
 
 Đồng bộ assets vào `shared/assets`, không đóng hàng GB ảnh trong image Docker. Nếu repo trên VPS đã có đầy đủ `api/public`, dùng:
 
 ```bash
-sudo rsync -a api/public/ /srv/teebravo/shared/assets/
-sudo chown -R 33:33 /srv/teebravo/shared/assets
+set -a; . /etc/teebravo/deploy.env; set +a
+sudo rsync -a api/public/ "${TEEBRAVO_SHARED_DIR}/assets/"
+sudo chown -R 33:33 "${TEEBRAVO_SHARED_DIR}/assets"
 ```
 
 Chỉ chown thư mục TeeBravo này; `api/public/mockup` bị Git ignore nên cần chuyển riêng từ máy đang có ảnh. Dùng rsync không `--delete` để tránh xóa ảnh đã import. Mọi ảnh/assets mới vẫn chiếm dung lượng ổ host; kiểm tra trước.
