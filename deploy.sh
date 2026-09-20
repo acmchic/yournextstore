@@ -309,7 +309,8 @@ if ((storefront)); then
     run rsync -a --no-owner --no-group "$BASE/build/.next/static/" "$release/.next/static/"
     # Hashed static chunks from older releases remain available to already-open tabs.
     run rsync -a --no-owner --no-group "$BASE/build/.next/static/" "$TEEBRAVO_SHARED_DIR/next-static/"
-    old=$(readlink -f "$BASE/current" || true)
+    old=$(readlink -f "$BASE/current" 2>/dev/null || true)
+    [[ -d "$old" && "$old" != "$BASE/current" ]] || old=''
     ln -s "$release" "$BASE/current.new"
     mv -Tf "$BASE/current.new" "$BASE/current"
     if ! systemctl restart teebravo-storefront || ! health "http://127.0.0.1:$TEEBRAVO_STOREFRONT_PORT/"; then

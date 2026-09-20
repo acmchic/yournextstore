@@ -142,6 +142,13 @@ class DeployTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual((self.root / 'current').resolve(), old)
 
+    def test_failed_first_deploy_does_not_create_self_link(self):
+        result = self.deploy(FAIL_RESTART='1')
+        self.assertNotEqual(result.returncode, 0)
+        current = self.root / 'current'
+        if current.is_symlink():
+            self.assertNotEqual(os.readlink(current), str(current))
+
     def test_restart_failure_rolls_back(self):
         old = self.initial()
         result = self.deploy('--force', FAIL_RESTART='1')
