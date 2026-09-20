@@ -167,8 +167,8 @@ sync_docker_config() {
   [[ -s /etc/teebravo/api.env && -s /etc/teebravo/admin.env ]] || fail 'Missing backend env files; run --setup first.'
   if [[ "$TEEBRAVO_DOCKER_CONFIG_DIR" != /etc/teebravo ]]; then
     install -d -m 755 "$TEEBRAVO_DOCKER_CONFIG_DIR"
-    install -m 600 /etc/teebravo/api.env "$TEEBRAVO_DOCKER_CONFIG_DIR/api.env"
-    install -m 600 /etc/teebravo/admin.env "$TEEBRAVO_DOCKER_CONFIG_DIR/admin.env"
+    install -m 640 -o root -g 33 /etc/teebravo/api.env "$TEEBRAVO_DOCKER_CONFIG_DIR/api.env"
+    install -m 640 -o root -g 33 /etc/teebravo/admin.env "$TEEBRAVO_DOCKER_CONFIG_DIR/admin.env"
   fi
 }
 setup_host() {
