@@ -3,7 +3,7 @@
 	"details": {
 		"business_name": "TeeBravo",
 		"business_address": "",
-		"support_email": "support@teebravo.com",
+		"support_email": "",
 		"about_story": "",
 		"restrictions": "Orders ship to US addresses supported by the carrier. PO boxes, military addresses and other address restrictions depend on the selected product and carrier; contact support before ordering if you are unsure.",
 		"returns_eligibility": "",
@@ -39,7 +39,7 @@
 			"slug": "shipping-policy",
 			"title": "Shipping Policy",
 			"content": "Shipping destinations\nWe ship to the United States. Destination and delivery restrictions: {{restrictions}}\n\nOrder processing\nProcessing takes {{processing_time}} before shipment.\n\nShipping methods and charges (USD)\nStandard: {{standard_first}} for the first item plus {{standard_additional}} for each additional item in the same order.\nExpress: {{express_first}} for the first item plus {{express_additional}} for each additional item in the same order.\n\nEstimated transit after processing\nStandard: {{standard_transit}}.\nExpress: {{express_transit}}.\nTotal estimated delivery time includes processing plus transit. These are estimates, not guaranteed arrival dates.\n\nCosts before payment\nThe selected shipping charge, item subtotal and applicable taxes are shown at checkout before payment.\n\nDelivery help\nFor a delayed, missing or damaged shipment, contact us with your order reference. See Returns & Refunds for the applicable request window and resolution terms.\n\nContact: {{support_email}}\nWebsite: {{storefront_url}}",
-			"published": true
+			"published": false
 		},
 		{
 			"slug": "return-policy",

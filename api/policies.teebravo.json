@@ -1,0 +1,69 @@
+{
+	"version": 1,
+	"details": {
+		"business_name": "TeeBravo",
+		"business_address": "54 P. Liễu Giai\nGiảng Võ, Hà Nội 100000",
+		"support_email": "help@teebravo.com",
+		"about_story": "",
+		"restrictions": "We currently ship to addresses in the United States.",
+		"returns_eligibility": "",
+		"returns_window": "",
+		"returns_method": "",
+		"returns_fees": "",
+		"refund_timing": "",
+		"privacy_details": "",
+		"terms_conditions": ""
+	},
+	"delivery": {
+		"processing_min_business_days": 1,
+		"processing_max_business_days": 3,
+		"standard_transit_min_business_days": 2,
+		"standard_transit_max_business_days": 5,
+		"express_transit_min_business_days": null,
+		"express_transit_max_business_days": null
+	},
+	"pages": [
+		{
+			"slug": "about",
+			"title": "About TeeBravo",
+			"content": "TeeBravo is an online store for graphic clothing, serving customers in the United States. Browse a design, choose an available garment, and select your color and size.\n\nBefore you order, review the product details and size guide for the garment you choose. Fit and materials can vary between styles.\n\nAbout TeeBravo\nTeeBravo is operated by {{business_name}}.\n\nBusiness address\n{{business_address}}\n\nQuestions\nEmail {{support_email}} for help with products or an existing order. Include your order reference if you have one.\n\nShipping, returns and other purchase conditions are available from the policy links in our footer.\n\nWebsite: {{storefront_url}}",
+			"published": false
+		},
+		{
+			"slug": "contact",
+			"title": "Contact Us",
+			"content": "Email {{support_email}} for product questions, order support, returns or privacy requests.\n\nFor an existing order, include your order reference and a short description of the issue. Do not send payment card details by email.\n\nContact us before mailing an item. Our business address is not automatically the return address.\n\nBusiness information\n{{business_name}}\n{{business_address}}\n{{support_email}}\n\nWebsite: {{storefront_url}}",
+			"published": false
+		},
+		{
+			"slug": "shipping-policy",
+			"title": "Shipping Policy",
+			"content": "Shipping destinations\nWe ship to the United States.\n{{restrictions}}\n\nOrder processing\nProcessing takes {{processing_time}} before shipment.\n\nShipping charges\nShipping charges are in US dollars and depend on the number of items in your order.\nStandard shipping costs {{standard_first}} for the first item and {{standard_additional}} for each additional item in the same order.\nExpress shipping costs {{express_first}} for the first item and {{express_additional}} for each additional item in the same order.\n\nEstimated transit after processing\nStandard: {{standard_transit}}.\nExpress: {{express_transit}}.\n\nTotal estimated delivery time includes processing and transit. Delivery dates are estimates, not guaranteed arrival dates.\n\nCosts before payment\nYour item total, selected shipping charge and applicable taxes are shown at checkout before payment.\n\nDelivery help\nIf your order is delayed, missing or arrives damaged, email {{support_email}} with your order reference and a description of the problem.\n\nWebsite: {{storefront_url}}",
+			"published": false
+		},
+		{
+			"slug": "return-policy",
+			"title": "Returns & Refunds",
+			"content": "Eligibility\n{{returns_eligibility}}\n\nRequest window\n{{returns_window}}\n\nHow to request a return or replacement\nEmail {{support_email}} with your order reference and the reason for your request.\n{{returns_method}}\n\nContact us before mailing an item and follow the instructions we provide. Our business address is not automatically the return address.\n\nReturn shipping and fees\n{{returns_fees}}\n\nRefunds\n{{refund_timing}}\n\nContact\n{{business_name}}\n{{business_address}}\n{{support_email}}\n\nWebsite: {{storefront_url}}",
+			"published": false
+		},
+		{
+			"slug": "privacy-policy",
+			"title": "Privacy Policy",
+			"content": "Who we are\n{{business_name}} operates TeeBravo at {{storefront_url}}.\n\nOrder and support information\nWe collect the information needed to process an order, including name, email address, delivery address and purchased items. We keep delivery information with the order record. If you contact us, we use the information you send to respond to your request.\n\nPayments\nStripe collects payment information through its hosted checkout. We use payment status and transaction identifiers to reconcile your payment with your order. Do not email payment card details.\n\nCookies and preferences\nOur storefront uses a cart cookie to connect your browser to your shopping cart. It also stores a display preference when you choose a theme.\n\nOther data practices and your choices\n{{privacy_details}}\n\nContact\nSend privacy questions or requests to {{support_email}}.\n{{business_name}}\n{{business_address}}",
+			"published": false
+		},
+		{
+			"slug": "terms-of-service",
+			"title": "Terms of Service",
+			"content": "Shopping with TeeBravo\n{{business_name}} operates TeeBravo at {{storefront_url}}. These terms apply when you use our store or place an order.\n\nReview the product, garment style, color, size and quantity before purchasing. Use the size guide for the garment you select.\n\nPrices and payment\nPrices are in US dollars. Item charges, shipping and applicable taxes are shown before payment. Payments are processed through Stripe hosted checkout.\n\nOrder acceptance, changes and cancellations\n{{terms_conditions}}\n\nShipping and returns\nOur Shipping Policy explains delivery destinations, charges, processing time and transit estimates. Our Returns & Refunds policy explains eligibility, request deadlines, return procedures, fees and refund timing. Review both before placing an order.\n\nContact\n{{support_email}}\n{{business_name}}\n{{business_address}}",
+			"published": false
+		},
+		{
+			"slug": "faq",
+			"title": "Frequently Asked Questions",
+			"content": "Where do you ship?\nWe ship to the United States. {{restrictions}}\n\nHow much is shipping?\nStandard shipping is {{standard_first}} for the first item and {{standard_additional}} for each additional item. Express shipping is {{express_first}} for the first item and {{express_additional}} for each additional item. Charges are in US dollars.\n\nWhen will my order arrive?\nProcessing takes {{processing_time}}. After processing, estimated transit is {{standard_transit}} for Standard or {{express_transit}} for Express. Total delivery time includes processing and transit.\n\nHow do I choose a size?\nUse the size guide for the garment you select. Check its measurements before ordering because fit can vary between styles.\n\nCan I return or exchange an item?\n{{returns_eligibility}}\n{{returns_window}}\nRead Returns & Refunds for the request process, fees and refund timing.\n\nCan I change or cancel an order?\n{{terms_conditions}}\n\nHow do I contact TeeBravo?\nEmail {{support_email}}. Include your order reference when asking about an existing order. Do not include payment card details.\n\n{{business_name}}\n{{business_address}}",
+			"published": false
+		}
+	]
+}
