@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\Finder\Finder;
 use Symfony\Component\Process\Process;
 
 class StoreController extends Controller
@@ -211,7 +213,7 @@ class StoreController extends Controller
             return [];
         }
 
-        return collect(File::allFiles($root))
+        return collect(Finder::create()->files()->in($root)->exclude('external'))
             ->filter(fn (\SplFileInfo $file) => in_array(strtolower($file->getExtension()), ['png', 'webp', 'jpg', 'jpeg'], true))
             ->groupBy(fn (\SplFileInfo $file) => $file->getPath())
             ->map(function ($files, string $directory) use ($root): array {
@@ -259,27 +261,46 @@ class StoreController extends Controller
         };
     }
 
-    public function importProducts(Request $request): RedirectResponse
+    public function importProducts(Request $request): RedirectResponse|JsonResponse
     {
-        $data = $request->validate(['folder' => 'required|string|max:500']);
+        $data = $request->validate([
+            'folder' => 'required|string|max:500',
+            'offset' => 'sometimes|integer|min:0',
+            'trial' => 'sometimes|boolean',
+        ]);
         $root = realpath($this->designRoot());
-        $directory = $root === false ? false : realpath($root.DIRECTORY_SEPARATOR.$data['folder']);
-        if ($root === false || $directory === false || ! str_starts_with($directory.DIRECTORY_SEPARATOR, $root.DIRECTORY_SEPARATOR)) {
-            throw ValidationException::withMessages(['folder' => 'Hãy chọn folder bên trong api/public/design.']);
+        $folder = trim($data['folder']);
+        $external = rtrim((string) config('services.product_import.host_root'), '/');
+        if ($external !== '' && ($folder === $external || str_starts_with($folder, $external.'/'))) {
+            $folder = $this->designRoot().'/external'.substr($folder, strlen($external));
         }
-        if (! collect(File::allFiles($directory))->contains(fn (\SplFileInfo $file) => in_array(strtolower($file->getExtension()), ['png', 'webp', 'jpg', 'jpeg'], true))) {
-            throw ValidationException::withMessages(['folder' => 'Folder đã chọn không có ảnh được hỗ trợ.']);
+        $directory = $root === false ? false : realpath(
+            str_starts_with($folder, '/') ? $folder : $root.DIRECTORY_SEPARATOR.$folder
+        );
+        if ($root === false || $directory === false || ! is_dir($directory) || ! is_readable($directory)
+            || ! str_starts_with($directory.DIRECTORY_SEPARATOR, $root.DIRECTORY_SEPARATOR)) {
+            throw ValidationException::withMessages([
+                'folder' => 'Folder không đọc được. Dùng folder design hoặc đường dẫn server đã mount vào vùng ảnh external cho cả Admin và API.',
+            ]);
         }
-
-        $relativeDirectory = $directory === $root
-            ? ''
-            : ltrim(str_replace($root, '', $directory), DIRECTORY_SEPARATOR);
-        $designDirectory = 'public/design'.($relativeDirectory === '' ? '' : '/'.$relativeDirectory);
-        $this->runImporter(['import-products', '--design-dir', $designDirectory, '--publish']);
-
+        $arguments = ['import-products', '--design-dir', $directory];
+        if (! ($data['trial'] ?? false)) {
+            $arguments[] = '--publish';
+        }
+        if ($request->expectsJson() || ($data['trial'] ?? false)) {
+            $arguments = [...$arguments, '--limit', '100', '--offset', (string) ($data['offset'] ?? 0)];
+        }
+        $result = json_decode($this->runImporter($arguments), true, flags: JSON_THROW_ON_ERROR);
+        if ($result['total'] === 0) {
+            throw ValidationException::withMessages(['folder' => 'Folder không có ảnh PNG, JPG, JPEG hoặc WebP.']);
+        }
+        if ($request->expectsJson()) {
+            return response()->json($result);
+        }
+        $errors = collect($result['results'])->where('status', 'error')->count();
         Inertia::flash('toast', [
-            'type' => 'success',
-            'message' => 'Đã import products từ folder đã chọn.',
+            'type' => $errors ? 'error' : 'success',
+            'message' => 'Đã xử lý '.$result['count'].' ảnh. Lỗi: '.$errors.'.',
         ]);
 
         return back();
@@ -458,16 +479,19 @@ class StoreController extends Controller
 
     public function productDesignImage(int $product)
     {
-        $sourcePath = $this->table('products as p')
+        $design = $this->table('products as p')
             ->join('designs as d', 'd.id', '=', 'p.design_id')
             ->where('p.id', $product)
-            ->value('d.source_path');
-        $filename = is_string($sourcePath) ? basename($sourcePath) : '';
-        $image = $filename === '' ? null : collect(File::allFiles($this->designRoot()))
-            ->first(fn (\SplFileInfo $file) => $file->getFilename() === $filename);
-        abort_unless($image instanceof \SplFileInfo, 404);
+            ->first(['d.source_path', 'd.slug']);
+        $root = realpath($this->designRoot());
+        abort_unless($root !== false && $design !== null, 404);
+        // The manifest also resolves legacy paths saved relative to an import subfolder.
+        $manifest = $root.'/manifest.json';
+        $paths = is_file($manifest) ? json_decode(File::get($manifest), true) : [];
+        $image = $this->resolvePublicAsset($paths[$design->slug] ?? $design->source_path, $root);
+        abort_unless($image !== null && in_array(strtolower(pathinfo($image, PATHINFO_EXTENSION)), ['png', 'jpg', 'jpeg', 'webp'], true), 404);
 
-        return response()->file($image->getPathname(), ['Cache-Control' => 'private, max-age=3600']);
+        return response()->file($image, ['Cache-Control' => 'private, max-age=3600']);
     }
 
     public function productForm(?int $product = null): Response

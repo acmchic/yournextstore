@@ -14,6 +14,10 @@ return [
     |
     */
 
+    'product_import' => [
+        'host_root' => env('PRODUCT_IMPORT_HOST_ROOT', ''),
+    ],
+
     'storefront' => [
         'url' => env('STOREFRONT_PUBLIC_URL', 'https://teebravo.com'),
     ],

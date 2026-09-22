@@ -12,6 +12,7 @@ RUN python3 -c 'import tomllib; print("\n".join(tomllib.load(open("/tmp/pyprojec
 RUN --mount=type=cache,target=/root/.cache/pip .venv/bin/pip install -r /tmp/requirements.txt
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 COPY api/app ./app
+COPY api/scripts ./scripts
 COPY api/mysql ./mysql
 COPY api/bootstrap-db.sh ./bootstrap-db.sh
 COPY api/policies.teebravo.json ./policies.teebravo.json

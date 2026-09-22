@@ -32,6 +32,7 @@ services:
     volumes:
       - ${TEEBRAVO_DOCKER_CONFIG_DIR:-/etc/teebravo}/api.env:/app/api/.env:ro
       - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/assets:/app/api/public
+      - ${TEEBRAVO_IMAGE_SOURCE:-/srv/teebravo/shared/external-designs}:/app/api/public/design/external:ro
       - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/mockup-cache:/app/api/.cache/mockups
     mem_limit: 1536m
     cpus: 1.5
@@ -44,6 +45,8 @@ services:
     depends_on:
       db: {condition: service_healthy}
   admin:
+    environment:
+      PRODUCT_IMPORT_HOST_ROOT: ${TEEBRAVO_IMAGE_SOURCE:-/srv/teebravo/shared/external-designs}
     image: teebravo-admin:production
     build:
       context: ..
@@ -54,6 +57,7 @@ services:
       - ${TEEBRAVO_DOCKER_CONFIG_DIR:-/etc/teebravo}/admin.env:/app/admin/.env:ro
       - ${TEEBRAVO_DOCKER_CONFIG_DIR:-/etc/teebravo}/api.env:/app/api/.env:ro
       - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/assets:/app/api/public
+      - ${TEEBRAVO_IMAGE_SOURCE:-/srv/teebravo/shared/external-designs}:/app/api/public/design/external:ro
       - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/mockup-cache:/app/api/.cache/mockups
       - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/admin-storage:/app/admin/storage
       - ${TEEBRAVO_SHARED_DIR:-/srv/teebravo/shared}/php:/run/teebravo-php

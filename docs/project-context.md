@@ -136,7 +136,7 @@ Click thumbnail tại Admin Catalog mở preview lớn cùng ảnh mockup và ch
 
 Admin gọi Python CLI trong `api/` để import folder design, import Gearment catalog và phân tích mockup. `runImporter()` chạy `bootstrap-db.sh` trước CLI; đường dẫn dùng `POD_API_PATH` hoặc mặc định là thư mục `api` cạnh thư mục `admin`, nên không phụ thuộc workspace local. Audit nghiệp vụ ghi vào `activity_logs` trên connection Laravel mặc định; dữ liệu commerce ghi vào connection `store`.
 
-Admin `/operations` cung cấp allowlist cho các tác vụ vận hành: import product theo folder design, phân tích vùng in mockup, import catalog Gearment theo chế độ không truncate, cập nhật size chart và tạo showcase assignment. Không nhận command hoặc argument tùy ý từ trình duyệt; folder import product được kiểm tra phải nằm trong `api/public/design`.
+Admin `/operations` cung cấp allowlist cho các tác vụ vận hành: import product theo folder design, phân tích vùng in mockup, import catalog Gearment theo chế độ không truncate, cập nhật size chart và tạo showcase assignment. Không nhận command hoặc argument tùy ý từ trình duyệt; folder import product được kiểm tra phải nằm trong vùng design storage, bao gồm mount `external` chỉ đọc.
 
 ## 5. Nên đọc file nào trước?
 
@@ -195,3 +195,17 @@ Schema SQL hiện tại là nguồn quan trọng hơn phần giới thiệu lega
 - Import giải mã HTML entity, bỏ possessive khỏi slug và tách mã cuối: `women39;s-slim-fit-tee-6004` → `women-slim-fit-tee`, code `6004`. Tên hiển thị giữ dạng dễ đọc, không chứa mã cuối. Slug trùng catalog khác báo lỗi để tránh ghi đè.
 - `sync-gearment-catalog --apply` mặc định upsert, giữ ID và assignment. Chỉ `--truncate` mới yêu cầu reset. Chạy bootstrap DB trước import trên môi trường mới.
 - Asset front/back lưu theo placement (`front.png`, `back.png`, giữ extension thật); ảnh cùng placement bổ sung có hậu tố số, URL ảnh trùng được gộp. Khi sync catalog cũ, importer sao chép asset sang đường dẫn chuẩn rồi cập nhật DB và tham chiếu model/metadata. File nguồn cũ được giữ để rollback và tránh làm hỏng request ảnh đang chạy.
+
+## Import sản phẩm từ ảnh ngoài repository (2026-09-22)
+
+- Products → Import images nhận đường dẫn server hoặc folder design cũ; quét PNG/JPG/JPEG/WebP trong cả thư mục con. Tên và slug lấy từ filename, JSON sidecar được ưu tiên. Ảnh gốc không bị copy hay sửa.
+- Production cấu hình `TEEBRAVO_IMAGE_SOURCE=/home/images_ids/images` làm thư mục cha; modal chọn `ids`, `ids/gmc` hoặc nguồn khác bên dưới, quét đệ quy mọi cấp. Bind mount thư mục cha vào `/app/api/public/design/external:ro` ở cả Admin và API. Admin nhận cùng host path qua `PRODUCT_IMPORT_HOST_ROOT`; đường dẫn nhập ngoài vùng đã mount bị từ chối. Không dùng symlink vì renderer kiểm tra realpath.
+- Mặc định thử 100 ảnh đầu theo thứ tự đường dẫn, tạo draft để xem lại; sản phẩm đã publish giữ trạng thái. Chế độ toàn bộ publish theo từng request 100 ảnh, có tiến độ/kết quả và lỗi từng ảnh. Cần giữ modal mở; không thay danh sách file trong lúc chạy. Chạy lại upsert theo slug, không tạo bản sao; slug thuộc ảnh khác báo lỗi thay vì ghi đè.
+- `designs.source_path` mới lưu tương đối từ design storage, ví dụ `external/gmc/example.png`; manifest chung được cập nhật có lock và atomic replace mỗi batch. Thumbnail admin dùng manifest/source path chính xác, không quét toàn bộ kho theo basename. Danh sách folder khi mở Products không quét kho external.
+- CLI thêm `--limit` và `--offset`; `--dry-run` vẫn không ghi DB/manifest. Hướng dẫn bật mount: `docs/vps-deployment.md`, mục import ảnh ngoài repository.
+
+### Chuẩn hóa tên khi import
+
+- `api/app/product-name-exclusions.json` định nghĩa các cụm loại hàng theo nhóm apparel/accessories/home. Chỉnh file này để thêm/bớt cụm bị loại khỏi tên tự sinh; file đi cùng `api/app` trong image Docker.
+- Chỉ tên sản phẩm tự sinh được chuẩn hóa: bỏ extension và hậu tố `_xxx` cuối cùng (3 ký tự chữ/số), đổi dấu phân cách thành khoảng trắng, loại cụm nguyên từ không phân biệt hoa/thường, dọn ký tự đặc biệt và khoảng trắng. Cụm dài được ưu tiên trước (`coffee-mug-colored` trước `mug`). Ví dụ `1-baby-love-t-shirt_3ec.png` → `1 baby love`.
+- Không rename/move/copy/sửa file ảnh. `source_path` và manifest luôn giữ filename nguyên bản. Giữ cách tạo slug hiện tại để import lại không tự đổi URL. Title trong JSON sidecar vẫn là nội dung nhập thủ công được ưu tiên. Nếu loại hết các từ, báo lỗi cho ảnh đó thay vì tạo tên rỗng.

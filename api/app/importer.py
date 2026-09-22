@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import fcntl
 import hashlib
+import html
 import json
 import re
 import unicodedata
 import uuid
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -22,12 +25,48 @@ class ImportResult:
     status: str
     product_id: str | None
     warnings: tuple[str, ...] = ()
+    title: str = ""
+    source_path: str = ""
 
 
 def slugify(value: str) -> str:
     stem = Path(value).stem
     normalized = unicodedata.normalize("NFKD", stem).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
+
+
+@lru_cache(maxsize=1)
+def product_name_exclusions() -> re.Pattern[str]:
+    config = json.loads(Path(__file__).with_name("product-name-exclusions.json").read_text())
+    if not isinstance(config, dict) or not all(
+        isinstance(terms, list) and all(isinstance(term, str) and term.strip() for term in terms)
+        for terms in config.values()
+    ):
+        raise ValueError("Product name exclusions must contain lists of nonempty phrases")
+    phrases = {re.sub(r"[-_\s]+", " ", term).strip() for terms in config.values() for term in terms}
+    if not phrases:
+        return re.compile(r"(?!)")
+    return re.compile(
+        r"(?<!\w)(?:"
+        + "|".join(re.escape(term) for term in sorted(phrases, key=len, reverse=True))
+        + r")(?!\w)",
+        re.IGNORECASE,
+    )
+
+
+def product_name_from_filename(filename: str) -> str:
+    name = re.sub(r"_[a-z0-9]{3}$", "", Path(filename).stem, flags=re.IGNORECASE)
+    name = html.unescape(name)
+    name = re.sub(r"_quot_", " ", name, flags=re.IGNORECASE)
+    name = re.sub(r"[-_\s]+", " ", name)
+    name = product_name_exclusions().sub(" ", name)
+    name = re.sub(r"[^\w\s]", " ", name)
+    name = " ".join(name.split())
+    if not name:
+        raise ValueError(
+            f"No meaningful product name remains after removing product types: {filename}"
+        )
+    return name
 
 
 def load_sidecar(design_path: Path) -> dict[str, Any]:
@@ -52,17 +91,23 @@ def register_design_manifest(*, design_root: Path, design_path: Path, slug: str)
     if design_directory is None:
         raise ValueError("Design directory must be inside a directory named 'design'")
 
+    return register_design_manifests(
+        design_directory,
+        {slug: design_path.resolve().relative_to(design_directory).as_posix()},
+    )
+
+
+def register_design_manifests(design_directory: Path, entries: dict[str, str]) -> Path:
     manifest_path = design_directory / "manifest.json"
-    manifest = (
-        json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.is_file() else {}
-    )
-    if not isinstance(manifest, dict):
-        raise TypeError("design/manifest.json must contain an object")
-    manifest[slug] = design_path.resolve().relative_to(design_directory).as_posix()
-    manifest_path.write_text(
-        f"{json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False)}\n",
-        encoding="utf-8",
-    )
+    with (design_directory / ".manifest.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
+        if not isinstance(manifest, dict):
+            raise TypeError("design/manifest.json must contain an object")
+        manifest.update(entries)
+        temporary = manifest_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(manifest, ensure_ascii=False) + "\n")
+        temporary.replace(manifest_path)
     return manifest_path
 
 
@@ -73,6 +118,8 @@ async def import_design(
     design_path: Path,
     publish: bool,
     dry_run: bool,
+    manifest_root: Path | None = None,
+    register_manifest: bool = True,
 ) -> ImportResult:
     root = design_root.resolve()
     source = design_path.resolve()
@@ -87,32 +134,48 @@ async def import_design(
     slug = str(metadata.get("slug") or slugify(source.name))
     if not slug:
         raise ValueError(f"Could not derive a slug for {source.name}")
-    title = str(metadata.get("title") or slug.replace("-", " ").title())
+    title = str(metadata.get("title") or product_name_from_filename(source.name))
     description = str(
         metadata.get("description")
         or f"Original {title} design prepared for made-to-order products."
     )
     alt_text = str(metadata.get("alt_text") or f"{title} product design")
     license_status = str(metadata.get("license_status") or "owned")
-    checksum = hashlib.sha256(source.read_bytes()).hexdigest()
+    with source.open("rb") as stream:
+        checksum = hashlib.file_digest(stream, "sha256").hexdigest()
     with Image.open(source) as image:
         width, height = image.size
-    relative_source = source.relative_to(root).as_posix()
+    storage_root = (
+        manifest_root.resolve()
+        if manifest_root
+        else next((path for path in (root, *root.parents) if path.name == "design"), root)
+    )
+    relative_source = source.relative_to(storage_root).as_posix()
     public_design_id = f"des_{uuid.uuid4().hex[:22]}"
     public_product_id = f"prd_{uuid.uuid4().hex[:22]}"
     status = "active" if publish else "draft"
     warnings: list[str] = []
 
     if dry_run:
-        return ImportResult(slug=slug, status="dry-run", product_id=None)
+        return ImportResult(
+            slug=slug, status="dry-run", product_id=None, title=title, source_path=relative_source
+        )
 
     async with database.transaction() as cursor:
         await cursor.execute(
-            "select id, public_id, checksum from designs where slug=%s for update", (slug,)
+            "select id, public_id, checksum, source_path, status from designs where slug=%s for update",
+            (slug,),
         )
         existing_design = await cursor.fetchone()
         if existing_design:
+            existing_source = existing_design["source_path"]
+            if existing_source != relative_source:
+                manifest_path = storage_root / "manifest.json"
+                manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
+                if manifest.get(slug) != relative_source:
+                    raise ValueError(f"Slug already belongs to another image: {slug}")
             design_id = existing_design["id"]
+            design_status = status if publish else existing_design["status"]
             await cursor.execute(
                 """
                 update designs set name=%s, source_path=%s, checksum=%s, width=%s, height=%s,
@@ -128,7 +191,7 @@ async def import_design(
                     license_status,
                     alt_text,
                     json.dumps(metadata),
-                    status,
+                    design_status,
                     design_id,
                 ),
             )
@@ -157,10 +220,13 @@ async def import_design(
             design_id = cursor.lastrowid
             result_status = "created"
 
-        await cursor.execute("select id, public_id from products where slug=%s for update", (slug,))
+        await cursor.execute(
+            "select id, public_id, status from products where slug=%s for update", (slug,)
+        )
         product = await cursor.fetchone()
         if product:
             product_id = product["id"]
+            product_status = status if publish else product["status"]
             product_public_id = product["public_id"]
             await cursor.execute(
                 """
@@ -173,10 +239,10 @@ async def import_design(
                     design_id,
                     title,
                     description,
-                    status,
+                    product_status,
                     title,
                     description[:500],
-                    status,
+                    product_status,
                     product_id,
                 ),
             )
@@ -217,11 +283,14 @@ async def import_design(
             (product_public_id, json.dumps({"slug": slug})),
         )
 
-    register_design_manifest(design_root=root, design_path=source, slug=slug)
+    if register_manifest:
+        register_design_manifests(storage_root, {slug: relative_source})
 
     return ImportResult(
         slug=slug,
         status=result_status,
         product_id=product_public_id,
         warnings=tuple(warnings),
+        title=title,
+        source_path=relative_source,
     )

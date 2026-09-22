@@ -12,7 +12,7 @@ from app.db import Database
 from app.gearment.client import GearmentClient
 from app.gearment.sync import sync_catalog
 from app.gearment.web_catalog import fetch_product_page
-from app.importer import SUPPORTED_EXTENSIONS, import_design
+from app.importer import SUPPORTED_EXTENSIONS, import_design, register_design_manifests
 from app.settings import settings
 from scripts.analyze_catalog_mockups import analyze
 
@@ -20,23 +20,57 @@ from scripts.analyze_catalog_mockups import analyze
 async def run_import(args: argparse.Namespace) -> None:
     database = Database(settings)
     design_dir = Path(args.design_dir).resolve()
+    if not design_dir.is_dir():
+        raise ValueError("Image directory does not exist")
+    if args.offset < 0 or (args.limit is not None and args.limit < 1):
+        raise ValueError("Offset must be nonnegative and limit must be positive")
+    manifest_root = settings.asset_root / "design"
+    if not design_dir.is_relative_to(manifest_root.resolve()):
+        raise ValueError("Image directory must be inside the mounted design storage")
+    # ponytail: rescan sorted paths per batch; use a persisted inventory if directory size makes this slow.
     files = sorted(
-        path for path in design_dir.rglob("*") if path.suffix.lower() in SUPPORTED_EXTENSIONS
+        path
+        for path in design_dir.rglob("*")
+        if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS
     )
+    selected = files[args.offset : args.offset + args.limit if args.limit else None]
     results = []
+    entries = {}
     try:
-        for path in files:
-            result = await import_design(
-                database=database,
-                design_root=design_dir,
-                design_path=path,
-                publish=args.publish,
-                dry_run=args.dry_run,
-            )
-            results.append(result.__dict__)
+        for path in selected:
+            try:
+                result = await import_design(
+                    database=database,
+                    design_root=design_dir,
+                    design_path=path,
+                    publish=args.publish,
+                    dry_run=args.dry_run,
+                    manifest_root=manifest_root,
+                    register_manifest=False,
+                )
+                results.append(result.__dict__)
+                if not args.dry_run:
+                    entries[result.slug] = result.source_path
+            except (ValueError, OSError, TypeError) as error:
+                results.append({"source_path": str(path), "status": "error", "error": str(error)})
     finally:
-        await database.close()
-    print(json.dumps({"count": len(results), "results": results}, indent=2))
+        try:
+            if entries:
+                register_design_manifests(manifest_root, entries)
+        finally:
+            await database.close()
+    next_offset = args.offset + len(selected)
+    print(
+        json.dumps(
+            {
+                "count": len(results),
+                "total": len(files),
+                "next_offset": next_offset,
+                "done": next_offset >= len(files),
+                "results": results,
+            }
+        )
+    )
 
 
 def load_catalog_cache(path: Path) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
@@ -333,6 +367,8 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
     command = subparsers.add_parser("import-products")
     command.add_argument("--design-dir", required=True)
+    command.add_argument("--limit", type=int)
+    command.add_argument("--offset", type=int, default=0)
     command.add_argument("--publish", action="store_true")
     command.add_argument("--dry-run", action="store_true")
     gearment = subparsers.add_parser("sync-gearment-catalog")

@@ -3,6 +3,8 @@
 !api/pyproject.toml
 !api/app/
 !api/app/**
+!api/scripts/
+!api/scripts/**
 !api/mysql/
 !api/mysql/**
 !api/bootstrap-db.sh

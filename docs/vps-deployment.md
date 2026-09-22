@@ -213,3 +213,50 @@ Nếu đã từng chạy bộ native cũ, **không chạy hai API/FPM cùng lúc
 Workspace không có Docker CLI/daemon, nên chưa build/chạy image thực hoặc kiểm tra bằng `docker compose config` tại đây. YAML được parse cục bộ; Bash/helpers và tests mô phỏng kiểm tra được, nhưng không thay thế build/integration test Linux trên VPS. Chưa có truy cập SSH; chưa thay đổi server, database hoặc domain thật. Các phụ thuộc launch (SMTP, Stripe live, policy publish, quyền artwork, fulfillment, monitoring) vẫn cần hoàn tất trước mở bán.
 
 Kiểm tra bộ mới: 8 tests Python (default chỉ storefront, chỉ API không recreate DB, disk guard, rollback Node, secrets/mapping đồng bộ và partial env), Bash syntax, template rendering và kiểm tra port/limits đều qua. Chạy lại bằng `python3 -m unittest discover -s deploy/tests -p 'test_*.py'`. Trên VPS cần thêm `sudo docker compose --env-file /etc/teebravo/deploy.env -p teebravo-prod -f deploy/compose.production.yaml config --quiet` sau setup và build thực trong cửa sổ ít tải trước khi mở domain.
+
+## Import ảnh ngoài repository
+
+Trên server, thêm/cập nhật dòng sau trong `/etc/teebravo/deploy.env`:
+
+```dotenv
+TEEBRAVO_IMAGE_SOURCE=/home/images_ids/images
+```
+
+Đường dẫn này phải tồn tại và user `www-data` trong Admin (UID 33) phải đọc được file,
+traverse được thư mục. Không di chuyển/copy kho ảnh. Compose mount cùng thư mục host
+chỉ đọc vào `/app/api/public/design/external` của cả Admin và API; `PRODUCT_IMPORT_HOST_ROOT`
+được truyền tự động cho Admin. Dùng đường dẫn gốc ổn định: đổi mount sang kho khác có
+thể làm ảnh đã import không còn truy cập được. Docker Snap cũng phải có quyền đọc đường dẫn host.
+
+Sau khi cập nhật code và cấu hình, deploy cả hai backend (không cần build storefront):
+
+```bash
+sudo bash deploy.sh --only-api --admin --force
+```
+
+Tại Products → Import images, nhập `/home/images_ids/images/ids` hoặc thư mục con
+như `/home/images_ids/images/ids/gmc`. Chọn **Try first 100 products (draft)** để import
+thật tối đa 100 ảnh đầu, xem tên/slug/đường dẫn và kiểm tra thumbnail. Đây không phải dry-run:
+sản phẩm mới được lưu draft, trạng thái sản phẩm cũ được giữ. Chọn **Import and publish all
+products** để chạy toàn bộ, mỗi đợt 100 ảnh; giữ modal mở tới khi Finished và giữ nguyên
+cây file trong suốt lần chạy. Nếu bị gián đoạn, các đợt đã hoàn thành vẫn được lưu; chạy
+lại cùng thư mục sẽ upsert, không nhân đôi sản phẩm. File hỏng hoặc slug trùng ảnh khác
+được báo lỗi và không chặn các ảnh còn lại. Kết quả modal hiển thị đợt gần nhất và tổng số lỗi.
+
+Ảnh vẫn ở kho host; DB lưu `external/...`, manifest trong shared assets lưu ánh xạ slug
+cho renderer. Chỉ metadata được ghi vào shared assets. Không xóa ảnh gốc sau import.
+Mount một lần thư mục cha `/home/images_ids/images`. Modal có thể nhập bất kỳ thư mục
+con nào: `.../images/ids`, `.../images/ids/gmc`, hoặc `.../images/another-source`.
+Importer quét đệ quy mọi cấp dưới thư mục đã chọn; không yêu cầu ảnh nằm ngay tại đó.
+Ví dụ ảnh host `images/ids/gmc/art.png` được lưu đường dẫn `external/ids/gmc/art.png`.
+Không cần đổi cấu hình hoặc deploy lại khi thêm thư mục con mới trong `images`.
+Đường dẫn ngoài thư mục cha đã mount vẫn bị từ chối.
+
+Storefront dùng URL public dạng `/product-slug/catalog-slug/color.webp`, không dùng đường
+dẫn host. API tra manifest `external/...` và render từ mount chỉ đọc; cache ảnh render nằm
+trong shared mockup-cache. Sản phẩm/design cần active và catalog có variant/mockup hợp lệ.
+Các sản phẩm mới ở chế độ thử 100 là draft: publish sau khi duyệt để hiển thị storefront.
+Test `api/tests/test_product_import.py::test_imported_external_image_renders_storefront_webp`
+kiểm tra import → repository → endpoint storefront → renderer thật → WebP/cache, giữ nguyên
+file gốc; local dùng hard link mô phỏng cùng inode của bind mount, chưa thay thế kiểm tra mount
+thật trên VPS.
