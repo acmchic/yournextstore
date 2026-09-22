@@ -14,6 +14,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_
 COPY api/app ./app
 COPY api/mysql ./mysql
 COPY api/bootstrap-db.sh ./bootstrap-db.sh
+COPY api/policies.teebravo.json ./policies.teebravo.json
 
 FROM runtime AS api
 USER www-data

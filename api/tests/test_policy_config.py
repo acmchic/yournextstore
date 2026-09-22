@@ -58,3 +58,14 @@ def test_rejects_duplicate_slugs_and_invalid_delivery_ranges():
             config(),
             {"delivery": {"processing_min_business_days": 5, "processing_max_business_days": 2}},
         )
+
+
+def test_teebravo_release_has_complete_publishable_policies():
+    payload = validate(json.loads((Path(__file__).parents[1] / "policies.teebravo.json").read_text()))
+    merged = merge_settings(config(), payload)
+    assert len(payload["pages"]) == 7
+    assert all(payload["details"].values())
+    for page in payload["pages"]:
+        assert page["published"]
+        check_publish(page, merged)
+        assert "{{" not in render_policy(page["content"], merged)

@@ -6,6 +6,7 @@
 !api/mysql/
 !api/mysql/**
 !api/bootstrap-db.sh
+!api/policies.teebravo.json
 !admin/
 !admin/**
 !deploy/

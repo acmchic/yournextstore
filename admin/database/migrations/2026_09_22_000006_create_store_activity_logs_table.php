@@ -8,7 +8,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::connection('store')->create('activity_logs', function (Blueprint $table) {
+        $schema = Schema::connection('store');
+        if ($schema->hasTable('activity_logs')) {
+            return;
+        }
+
+        $schema->create('activity_logs', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('admin_user_id')->nullable();
             $table->string('entity_type', 40);
@@ -22,6 +27,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::connection('store')->dropIfExists('activity_logs');
+        // Audit history is shared operational data and survives rollbacks.
     }
 };

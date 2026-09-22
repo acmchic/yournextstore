@@ -38,7 +38,7 @@ async function FooterContactLink() {
 		<li>
 			<StoreLink
 				prefetch={"eager"}
-				href="/contact"
+				href="/legal/contact"
 				className="text-xs text-muted-foreground hover:text-foreground transition-colors"
 			>
 				Contact Us
@@ -89,12 +89,7 @@ function getLegalHref(href: string) {
 	}
 
 	const slug = href.replace(/^\/legal\//, "").replace(/^\//, "");
-	return slug === "shipping-policy" ||
-		slug === "return-policy" ||
-		slug === "privacy-policy" ||
-		slug === "terms-of-service"
-		? `/legal/${slug}`
-		: `/faq-policy`;
+	return `/legal/${slug}`;
 }
 
 function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {

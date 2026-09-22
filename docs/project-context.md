@@ -1,5 +1,12 @@
 # TeeBravo — context và kiến trúc cho AI
 
+## Cập nhật policy production ngày 2026-09-22
+
+- `api/policies.teebravo.json` chứa nội dung tiếng Anh hoàn chỉnh và 7 trang published: About, Contact, Shipping, Returns, Privacy, Terms, FAQ. Seeder `TeeBravoPolicySeeder` chạy một lần qua migration `2026_09_22_000007`, ghi cấu hình và trang trong cùng transaction; deploy sau giữ chỉnh sửa admin. File JSON được đóng gói trong Docker.
+- Shipping theo FAQ Mango: xử lý 1–3 ngày làm việc, Standard 5–7 ngày vận chuyển, Express 1–2 ngày; phí retail giữ $5 + $3 và $11 + $4. Không tự bật checkout hoặc PDP assurance.
+- POD claims: báo lỗi trong 30 ngày sau giao hàng; hàng lỗi/giao sai được chọn replacement miễn phí hoặc refund sau xác minh, không cần trả hàng. Không nhận đổi ý/tự chọn nhầm size; bảo lưu quyền theo luật. Refund gửi trong 2 ngày làm việc sau duyệt, ngân hàng có thể mất thêm 5–10 ngày.
+- Chi tiết nguồn, deploy và cấu hình GMC: `docs/policy-deployment.md`. Template `api/policies.json` vẫn là draft chung; tài liệu draft cũ không phải nội dung production.
+
 ## Cập nhật cart / checkout / policies ngày 2026-09-10
 
 - Cart được lưu trong MySQL qua cookie HttpOnly chứa cart ID. Trang `/cart`, cart drawer và checkout đều đọc cùng cart. Khi người dùng sửa cart trong lúc một Stripe Checkout Session đang mở, storefront hủy session đó rồi thử lại thao tác một lần để snapshot thanh toán không lệch với cart.

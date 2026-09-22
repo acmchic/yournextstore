@@ -313,8 +313,7 @@ class StoreController extends Controller
      */
     private function audit(Request $request, string $entity, int $id, array $before, array $after): void
     {
-        // Admin audit records live on the default Laravel connection; commerce data uses `store`.
-        DB::table('activity_logs')->insert([
+        $this->db()->table('activity_logs')->insert([
             'admin_user_id' => $request->user()?->getAuthIdentifier(),
             'entity_type' => $entity,
             'entity_id' => $id,

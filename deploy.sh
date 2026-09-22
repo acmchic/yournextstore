@@ -247,7 +247,7 @@ if ((api || admin)); then
   [[ -n $(dc ps --status running -q db) ]] || fail 'TeeBravo DB not running; initialize with --all or --db.'
 fi
 if ((api)); then
-  hash=$(fingerprint api/app api/pyproject.toml api/mysql/init api/bootstrap-db.sh deploy/docker deploy/compose.production.yaml /etc/teebravo/api.env)
+  hash=$(fingerprint api/app api/policies.teebravo.json api/pyproject.toml api/mysql/init api/bootstrap-db.sh deploy/docker deploy/compose.production.yaml /etc/teebravo/api.env)
   if changed "$BASE/state/api" "$hash" || [[ -z $(dc ps --status running -q api) ]]; then
     check_disk "$docker_root"
     dc build api
@@ -259,7 +259,7 @@ if ((api)); then
   else echo 'API unchanged; skipped.'; fi
 fi
 if ((admin)); then
-  hash=$(fingerprint admin/app admin/bootstrap/app.php admin/bootstrap/providers.php admin/config admin/routes admin/resources admin/database admin/composer.json admin/composer.lock admin/package.json admin/package-lock.json admin/vite.config.ts api/app api/pyproject.toml api/mysql/init api/bootstrap-db.sh deploy/docker deploy/compose.production.yaml /etc/teebravo/admin.env /etc/teebravo/api.env)
+  hash=$(fingerprint admin/app admin/bootstrap/app.php admin/bootstrap/providers.php admin/config admin/routes admin/resources admin/database admin/composer.json admin/composer.lock admin/package.json admin/package-lock.json admin/vite.config.ts api/app api/policies.teebravo.json api/pyproject.toml api/mysql/init api/bootstrap-db.sh deploy/docker deploy/compose.production.yaml /etc/teebravo/admin.env /etc/teebravo/api.env)
   if changed "$BASE/state/admin" "$hash" || [[ -z $(dc ps --status running -q admin) ]]; then
     check_disk "$docker_root"
     dc build admin
