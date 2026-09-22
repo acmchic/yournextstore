@@ -120,6 +120,7 @@ async def import_design(
     dry_run: bool,
     manifest_root: Path | None = None,
     register_manifest: bool = True,
+    preview_names: set[str] | None = None,
 ) -> ImportResult:
     root = design_root.resolve()
     source = design_path.resolve()
@@ -135,10 +136,19 @@ async def import_design(
     if not slug:
         raise ValueError(f"Could not derive a slug for {source.name}")
     title = str(metadata.get("title") or product_name_from_filename(source.name))
+    title = " ".join(unicodedata.normalize("NFKC", title).split())
+    if not title or len(title) > 255:
+        raise ValueError("Product name must contain between 1 and 255 characters")
     description = str(
         metadata.get("description")
-        or f"Original {title} design prepared for made-to-order products."
+        or f"{title[:1].upper()}{title[1:]} graphic design. Choose an available style, color and size, then preview your selection."
     )
+    seo_title = str(metadata.get("seo_title") or title)
+    seo_description = str(metadata.get("seo_description") or (
+        description if len(description) <= 500 else description[:497].rsplit(" ", 1)[0] + "…"
+    ))
+    if len(seo_title) > 255 or len(seo_description) > 500:
+        raise ValueError("SEO title must be at most 255 characters; SEO description at most 500")
     alt_text = str(metadata.get("alt_text") or f"{title} product design")
     license_status = str(metadata.get("license_status") or "owned")
     with source.open("rb") as stream:
@@ -156,12 +166,29 @@ async def import_design(
     status = "active" if publish else "draft"
     warnings: list[str] = []
 
-    if dry_run:
-        return ImportResult(
-            slug=slug, status="dry-run", product_id=None, title=title, source_path=relative_source
+    # ponytail: serialize imports across processes; per-name locks if throughput requires it.
+    async with database.transaction(lock_name="teebravo:product-import") as cursor:
+        await cursor.execute(
+            "select slug from products where title=%s order by id limit 1 for update",
+            (title,),
         )
+        duplicate = await cursor.fetchone()
+        name_key = title.casefold()
+        if (duplicate and duplicate["slug"] != slug) or (
+            dry_run and preview_names is not None and name_key in preview_names
+        ):
+            return ImportResult(
+                slug=slug, status="skipped", product_id=None, title=title,
+                source_path=relative_source,
+                warnings=("Product name already exists; duplicate image skipped.",),
+            )
+        if dry_run:
+            if preview_names is not None:
+                preview_names.add(name_key)
+            return ImportResult(
+                slug=slug, status="dry-run", product_id=None, title=title, source_path=relative_source
+            )
 
-    async with database.transaction() as cursor:
         await cursor.execute(
             "select id, public_id, checksum, source_path, status from designs where slug=%s for update",
             (slug,),
@@ -221,10 +248,18 @@ async def import_design(
             result_status = "created"
 
         await cursor.execute(
-            "select id, public_id, status from products where slug=%s for update", (slug,)
+            "select id, public_id, status, title, description, seo_title, seo_description from products where slug=%s for update", (slug,)
         )
         product = await cursor.fetchone()
         if product:
+            # Preserve edited copy; only replace the previous generated boilerplate.
+            old_description = f"Original {product.get('title', title)} design prepared for made-to-order products."
+            if not metadata.get("description") and product.get("description") not in (None, "", old_description):
+                description = product["description"]
+            if not metadata.get("seo_title") and product.get("seo_title") not in (None, "", product.get("title")):
+                seo_title = product["seo_title"]
+            if not metadata.get("seo_description") and product.get("seo_description") not in (None, "", old_description[:500]):
+                seo_description = product["seo_description"]
             product_id = product["id"]
             product_status = status if publish else product["status"]
             product_public_id = product["public_id"]
@@ -240,8 +275,8 @@ async def import_design(
                     title,
                     description,
                     product_status,
-                    title,
-                    description[:500],
+                    seo_title,
+                    seo_description,
                     product_status,
                     product_id,
                 ),
@@ -262,8 +297,8 @@ async def import_design(
                     description,
                     status,
                     str(metadata.get("brand") or "TeeBravo"),
-                    title,
-                    description[:500],
+                    seo_title,
+                    seo_description,
                     status,
                 ),
             )

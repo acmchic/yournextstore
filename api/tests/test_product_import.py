@@ -17,7 +17,7 @@ class MemoryDatabase:
         self.lastrowid = 1
 
     @asynccontextmanager
-    async def transaction(self):
+    async def transaction(self, **kwargs):
         yield self
 
     async def execute(self, query, params):
@@ -102,6 +102,7 @@ def test_trial_preserves_published_status_and_rejects_slug_collision(tmp_path):
         async def fetchone(self):
             return {
                 "id": 1,
+                "slug": "hello",
                 "public_id": "existing",
                 "source_path": self.existing_path,
                 "checksum": "old",
@@ -271,3 +272,120 @@ def test_clean_name_import_preserves_original_filename_and_bytes(tmp_path):
     assert list(root.glob("*.png")) == [original]
     with pytest.raises(ValueError, match="No meaningful product name"):
         product_name_from_filename("t-shirt-mug_3ec.png")
+
+
+def test_duplicate_names_skip_across_batches_without_changing_images(tmp_path, monkeypatch, capsys):
+    class ProductDatabase(MemoryDatabase):
+        products = []
+
+        async def execute(self, query, params):
+            await super().execute(query, params)
+            if 'insert into products(' in query:
+                self.products.append(dict(slug=params[2], title=params[3], description=params[4],
+                                          seo_title=params[7], seo_description=params[8]))
+
+        async def fetchone(self):
+            query, params = self.rows[-1]
+            if 'where title=' in query:
+                return next((p for p in self.products if p['title'].casefold() == params[0].casefold()), None)
+            return None
+
+    assets = tmp_path / 'public'
+    folder = assets / 'design' / 'external' / 'gmc'
+    folder.mkdir(parents=True)
+    for suffix in ('4f9', 'cb5', 'd6f', 'ef1', 'f05'):
+        Image.new('RGB', (2, 3)).save(folder / f'10th-mountain-division_{suffix}.png')
+    before = {p.name: p.read_bytes() for p in folder.iterdir()}
+    monkeypatch.setattr(cli, 'settings', SimpleNamespace(asset_root=assets))
+    monkeypatch.setattr(cli, 'Database', ProductDatabase)
+    args = argparse.Namespace(design_dir=str(folder), limit=2, offset=0, publish=True, dry_run=False)
+    statuses = []
+    for offset in (0, 2, 4):
+        args.offset = offset
+        asyncio.run(cli.run_import(args))
+        statuses.extend(r['status'] for r in json.loads(capsys.readouterr().out)['results'])
+    assert statuses == ['created', 'skipped', 'skipped', 'skipped', 'skipped']
+    assert len(ProductDatabase.products) == 1
+    product = ProductDatabase.products[0]
+    assert product['title'] == product['seo_title'] == '10th mountain division'
+    assert 'Original' not in product['description']
+    assert product['seo_description'] == product['description']
+    assert len(json.loads((assets / 'design' / 'manifest.json').read_text())) == 1
+    assert before == {p.name: p.read_bytes() for p in folder.iterdir()}
+
+
+def test_preview_duplicates_and_explicit_seo_copy(tmp_path):
+    source = tmp_path / 'baby-love-t-shirt_3ec.png'
+    Image.new('RGB', (2, 3)).save(source)
+    source.with_suffix('.json').write_text(json.dumps({
+        'description': 'A small reminder of a big love.',
+        'seo_title': 'Baby love design',
+        'seo_description': 'Find the baby love design at TeeBravo.',
+    }))
+    database = MemoryDatabase()
+    names = set()
+    async def exercise():
+        args = dict(database=database, design_root=tmp_path, design_path=source,
+                    publish=False, register_manifest=False, preview_names=names)
+        assert (await import_design(**args, dry_run=True)).status == 'dry-run'
+        assert (await import_design(**args, dry_run=True)).status == 'skipped'
+        assert not any('insert ' in query for query, _ in database.rows)
+        assert (await import_design(**args, dry_run=False)).status == 'created'
+    asyncio.run(exercise())
+    params = next(params for query, params in database.rows if 'insert into products(' in query)
+    assert params[4] == 'A small reminder of a big love.'
+    assert params[7:9] == ('Baby love design', 'Find the baby love design at TeeBravo.')
+
+
+def test_import_lock_is_released_after_commit_or_rollback():
+    from unittest.mock import AsyncMock
+    from app.db import Database
+
+    events = []
+
+    class Cursor:
+        async def execute(self, sql, params):
+            events.append('lock' if 'get_lock' in sql else 'release')
+
+        async def fetchone(self):
+            return {'acquired': 1}
+
+    class Connection:
+        async def ping(self, **kwargs):
+            pass
+
+        @asynccontextmanager
+        async def cursor(self):
+            yield Cursor()
+
+        async def begin(self):
+            events.append('begin')
+
+        async def commit(self):
+            events.append('commit')
+
+        async def rollback(self):
+            events.append('rollback')
+
+    class Pool:
+        closed = False
+
+        @asynccontextmanager
+        async def acquire(self):
+            yield Connection()
+
+    database = Database(SimpleNamespace())
+    database._pool = Pool()
+    database.connect = AsyncMock()
+
+    async def exercise():
+        async with database.transaction(lock_name='import'):
+            events.append('write')
+        assert events == ['lock', 'begin', 'write', 'commit', 'release']
+        events.clear()
+        with pytest.raises(ValueError):
+            async with database.transaction(lock_name='import'):
+                raise ValueError('failed image')
+        assert events == ['lock', 'begin', 'rollback', 'release']
+
+    asyncio.run(exercise())

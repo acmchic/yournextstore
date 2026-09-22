@@ -210,6 +210,10 @@ Schema SQL hiện tại là nguồn quan trọng hơn phần giới thiệu lega
 - Chỉ tên sản phẩm tự sinh được chuẩn hóa: bỏ extension và hậu tố `_xxx` cuối cùng (3 ký tự chữ/số), đổi dấu phân cách thành khoảng trắng, loại cụm nguyên từ không phân biệt hoa/thường, dọn ký tự đặc biệt và khoảng trắng. Cụm dài được ưu tiên trước (`coffee-mug-colored` trước `mug`). Ví dụ `1-baby-love-t-shirt_3ec.png` → `1 baby love`.
 - Không rename/move/copy/sửa file ảnh. `source_path` và manifest luôn giữ filename nguyên bản. Giữ cách tạo slug hiện tại để import lại không tự đổi URL. Title trong JSON sidecar vẫn là nội dung nhập thủ công được ưu tiên. Nếu loại hết các từ, báo lỗi cho ảnh đó thay vì tạo tên rỗng.
 
+- Import kiểm tra tên sau chuẩn hóa trên toàn bộ `products` (collation MySQL không phân biệt hoa/thường), giữ product có ID nhỏ nhất và trả `skipped` cho slug khác cùng tên. Nhập lại đúng slug vẫn cập nhật/publish. Không xóa các bản trùng đã có, không ghi manifest cho ảnh bị skip. Migration `017_product_title_index` thêm index không unique, tương thích dữ liệu trùng cũ.
+- MySQL advisory lock giữ xuyên transaction để hai importer không tạo cùng tên đồng thời. Dry-run kiểm tra DB và tên trong batch nhưng không ghi dữ liệu; cần kết nối DB.
+- Description mặc định ngắn, dựa vào tên và các lựa chọn trên trang; không tự nhận artwork là “Original”. JSON sidecar hỗ trợ `description`, `seo_title`, `seo_description`. Nhập lại giữ copy đã biên tập; thay câu mẫu cũ. Title SEO để storefront bổ sung catalog theo cấu trúc hiện tại. Nguyên tắc copy: [Humanizer](https://github.com/blader/humanizer), [Google titles](https://developers.google.com/search/docs/appearance/title-link), [Google snippets](https://developers.google.com/search/docs/appearance/snippet).
+
 ### Products: lọc theo thư mục và kết quả import
 
 - Admin Products có các ô folder với số product trong DB (bao gồm draft), dùng `designs.source_path` để phân nhóm, giữ cả đường dẫn để phân biệt thư mục trùng tên. Chọn folder bao gồm thư mục con, kết hợp search/status và phân trang 20 sản phẩm.

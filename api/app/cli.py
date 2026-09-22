@@ -36,6 +36,7 @@ async def run_import(args: argparse.Namespace) -> None:
     selected = files[args.offset : args.offset + args.limit if args.limit else None]
     results = []
     entries = {}
+    preview_names: set[str] = set()
     try:
         for path in selected:
             try:
@@ -47,9 +48,10 @@ async def run_import(args: argparse.Namespace) -> None:
                     dry_run=args.dry_run,
                     manifest_root=manifest_root,
                     register_manifest=False,
+                    preview_names=preview_names,
                 )
                 results.append(result.__dict__)
-                if not args.dry_run:
+                if not args.dry_run and result.product_id is not None:
                     entries[result.slug] = result.source_path
             except (ValueError, OSError, TypeError) as error:
                 results.append({"source_path": str(path), "status": "error", "error": str(error)})

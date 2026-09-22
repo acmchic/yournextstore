@@ -82,6 +82,7 @@ export default function Products({
             source_path: string;
             status: string;
             error?: string;
+            warnings?: string[];
         }[]
     >([]);
 
@@ -96,6 +97,7 @@ export default function Products({
         let failed = 0;
         let created = 0;
         let existing = 0;
+        let skipped = 0;
         let importedFolder = '';
         try {
             const csrfCookie = document.cookie
@@ -141,6 +143,9 @@ export default function Products({
                     );
                 }
                 const results = data.results as typeof importResults;
+                skipped += results.filter(
+                    (result) => result.status === 'skipped',
+                ).length;
                 failed += results.filter(
                     (result) => result.status === 'error',
                 ).length;
@@ -159,7 +164,7 @@ export default function Products({
                 done = data.done || importMode === 'trial';
                 setImportResults(results);
                 setImportProgress(
-                    `${offset} / ${importMode === 'trial' ? Math.min(data.total, 100) : data.total} images processed. ${created} new, ${existing} existing, ${failed} failed.${done ? ' Finished.' : ''}`,
+                    `${offset} / ${importMode === 'trial' ? Math.min(data.total, 100) : data.total} images processed. ${created} new, ${existing} existing, ${skipped} skipped, ${failed} failed.${done ? ' Finished.' : ''}`,
                 );
             }
             router.get(
@@ -341,6 +346,16 @@ export default function Products({
                                                 <p className="text-muted-foreground">
                                                     {result.source_path}
                                                 </p>
+                                                {result.warnings?.map(
+                                                    (warning) => (
+                                                        <p
+                                                            key={warning}
+                                                            className="text-muted-foreground"
+                                                        >
+                                                            {warning}
+                                                        </p>
+                                                    ),
+                                                )}
                                                 {result.error && (
                                                     <p className="text-destructive">
                                                         {result.error}

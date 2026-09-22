@@ -130,19 +130,27 @@ class Database:
             return cursor.rowcount
 
     @asynccontextmanager
-    async def transaction(self) -> AsyncIterator[Any]:
+    async def transaction(self, *, lock_name: str | None = None) -> AsyncIterator[Any]:
         await self.connect()
         pool = self._pool
         if pool is None or pool.closed:
             raise DatabaseUnavailableError("Database pool is not available")
         async with pool.acquire() as connection:
             await connection.ping(reconnect=True)
-            await connection.begin()
-            try:
-                async with connection.cursor() as cursor:
-                    yield cursor
-            except Exception:
-                await connection.rollback()
-                raise
-            else:
-                await connection.commit()
+            async with connection.cursor() as cursor:
+                if lock_name:
+                    await cursor.execute("select get_lock(%s, 30) as acquired", (lock_name,))
+                    if (await cursor.fetchone())["acquired"] != 1:
+                        raise TimeoutError("Another product import is busy; retry this batch")
+                try:
+                    await connection.begin()
+                    try:
+                        yield cursor
+                    except BaseException:
+                        await connection.rollback()
+                        raise
+                    else:
+                        await connection.commit()
+                finally:
+                    if lock_name:
+                        await cursor.execute("select release_lock(%s)", (lock_name,))
