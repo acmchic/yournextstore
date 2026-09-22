@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -47,6 +48,17 @@ SH);
             $this->actingAs($user)->postJson('/products/import', [
                 'folder' => '/etc',
             ])->assertUnprocessable()->assertJsonValidationErrors('folder');
+            config(['database.connections.store' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']]);
+            DB::purge('store');
+            DB::connection('store')->statement('CREATE TABLE products (public_id TEXT)');
+            File::put($root.'/.venv/bin/python', str_replace(
+                '"results":[]', '"results":[{"product_id":"missing-product","status":"created"}]',
+                File::get($root.'/.venv/bin/python')
+            ));
+            $this->actingAs($user)->postJson('/products/import', [
+                'folder' => '/home/images_ids/images/ids/gmc', 'trial' => true,
+            ])->assertUnprocessable()->assertJsonValidationErrors('import');
+            DB::purge('store');
         } finally {
             unset($_ENV['POD_API_PATH'], $_SERVER['POD_API_PATH']);
             if ($previous !== null) {

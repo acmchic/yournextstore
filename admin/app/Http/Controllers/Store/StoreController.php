@@ -222,7 +222,7 @@ class StoreController extends Controller
 
                 return [
                     'path' => $path,
-                    'label' => $path === '.' ? 'design' : $path,
+                    'label' => 'Project images: '.($path === '.' ? 'design' : $path),
                     'count' => $files->count(),
                 ];
             })
@@ -294,7 +294,15 @@ class StoreController extends Controller
         if ($result['total'] === 0) {
             throw ValidationException::withMessages(['folder' => 'Folder không có ảnh PNG, JPG, JPEG hoặc WebP.']);
         }
+        $importedIds = collect($result['results'])->pluck('product_id')->filter()->unique()->values();
+        if ($importedIds->isNotEmpty() && $this->table('products')->whereIn('public_id', $importedIds)->count() !== $importedIds->count()) {
+            throw ValidationException::withMessages([
+                'import' => 'Importer đã trả về sản phẩm nhưng Admin không đọc được chúng. Kiểm tra Admin và Python API đang kết nối cùng database.',
+            ]);
+        }
         if ($request->expectsJson()) {
+            $result['folder'] = $directory === $root ? '.' : substr($directory, strlen($root) + 1);
+
             return response()->json($result);
         }
         $errors = collect($result['results'])->where('status', 'error')->count();
@@ -436,9 +444,31 @@ class StoreController extends Controller
 
     public function products(Request $request): Response
     {
-        $filters = $this->filters($request);
+        $folderFilter = $request->validate(['folder' => 'nullable|string|max:500']);
+        $filters = [...$this->filters($request), 'folder' => $folderFilter['folder'] ?? ''];
+        if ($filters['status'] === 'all') {
+            $filters['status'] = '';
+        }
+        $directorySql = "COALESCE(NULLIF(SUBSTRING_INDEX(d.source_path, '/', CHAR_LENGTH(d.source_path) - CHAR_LENGTH(REPLACE(d.source_path, '/', ''))), ''), '.')";
+        $folderRows = $this->table('products as p')->join('designs as d', 'd.id', '=', 'p.design_id')
+            ->selectRaw($directorySql.' as path, COUNT(*) as count')
+            ->groupByRaw($directorySql)->orderBy('path')->get();
+        // ponytail: folder totals use a small in-memory scan; aggregate prefixes in SQL if folder counts grow large.
+        $productFolders = $folderRows->map(fn (object $row): array => [
+            'path' => $row->path,
+            'label' => $row->path === '.' ? 'Root folder' : basename($row->path),
+            'count' => (int) $folderRows->filter(fn (object $candidate) => $candidate->path === $row->path
+                || ($row->path !== '.' && str_starts_with($candidate->path, $row->path.'/')))->sum('count'),
+        ])->all();
+
         $query = $this->table('products as p')->join('designs as d', 'd.id', '=', 'p.design_id')
-            ->select('p.*', 'd.name as design_name');
+            ->select('p.*', 'd.name as design_name', 'd.source_path');
+        if ($filters['folder'] === '.') {
+            $query->whereRaw($directorySql." = '.'");
+        } elseif ($filters['folder'] !== '') {
+            $prefix = rtrim($filters['folder'], '/').'/';
+            $query->whereRaw('SUBSTR(d.source_path, 1, ?) = ?', [mb_strlen($prefix), $prefix]);
+        }
         if ($filters['q'] !== '') {
             $query->where(fn (Builder $q) => $q->where('p.title', 'like', '%'.$filters['q'].'%')->orWhere('p.slug', 'like', '%'.$filters['q'].'%'));
         }
@@ -446,7 +476,7 @@ class StoreController extends Controller
             $query->where('p.status', $filters['status']);
         }
 
-        $products = $query->orderByDesc('p.id')->paginate(20)->withQueryString();
+        $products = $query->orderByDesc('p.updated_at')->orderByDesc('p.id')->paginate(20)->withQueryString();
         $availableCatalogs = $this->table('catalogs as c')
             ->where('c.active', true)
             ->whereExists(fn (Builder $q) => $q->from('catalog_assets as ca')
@@ -474,6 +504,10 @@ class StoreController extends Controller
             'products' => $products,
             'filters' => $filters,
             'importFolders' => $this->importFolders(),
+            'productFolders' => $productFolders,
+            'productTotal' => (int) $folderRows->sum('count'),
+            'externalImportRoot' => (string) config('services.product_import.host_root', ''),
+            'storefrontUrl' => rtrim((string) config('services.storefront.url'), '/'),
         ]);
     }
 

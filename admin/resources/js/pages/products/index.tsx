@@ -11,6 +11,8 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { FolderFilters } from '@/components/ui/folder-filters';
+import { ResourcePagination } from '@/components/ui/resource-pagination';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -32,6 +34,7 @@ type ProductRow = {
     title: string;
     slug: string;
     design_name: string;
+    source_path: string;
     status: string;
     updated_at: string;
     design_image_url: string;
@@ -42,19 +45,32 @@ type CatalogOption = { slug: string; name: string };
 
 type ProductPaginator = {
     data: ProductRow[];
+    current_page: number;
+    last_page: number;
+    total: number;
+    prev_page_url: string | null;
+    next_page_url: string | null;
 };
 
 export default function Products({
     products,
     filters,
     importFolders,
+    productFolders,
+    productTotal,
+    externalImportRoot,
+    storefrontUrl,
 }: {
     products: ProductPaginator;
-    filters: { q: string; status: string };
+    filters: { q: string; status: string; folder: string };
+    productFolders: ImportFolder[];
+    productTotal: number;
+    externalImportRoot: string;
+    storefrontUrl: string;
     importFolders: ImportFolder[];
 }) {
     const [isImportOpen, setIsImportOpen] = useState(false);
-    const [folder, setFolder] = useState(importFolders[0]?.path ?? '');
+    const [folder, setFolder] = useState(externalImportRoot || '');
     const [isImporting, setIsImporting] = useState(false);
     const [importError, setImportError] = useState('');
     const [importMode, setImportMode] = useState('trial');
@@ -78,6 +94,9 @@ export default function Products({
         setImportProgress('Reading image folder...');
         let offset = 0;
         let failed = 0;
+        let created = 0;
+        let existing = 0;
+        let importedFolder = '';
         try {
             const csrfCookie = document.cookie
                 .split('; ')
@@ -129,14 +148,25 @@ export default function Products({
                     throw new Error(
                         'Import did not advance. Completed batches are saved.',
                     );
+                created += results.filter(
+                    (result) => result.status === 'created',
+                ).length;
+                existing += results.filter((result) =>
+                    ['updated', 'unchanged'].includes(result.status),
+                ).length;
+                importedFolder = data.folder;
                 offset = data.next_offset;
                 done = data.done || importMode === 'trial';
                 setImportResults(results);
                 setImportProgress(
-                    `${offset} / ${importMode === 'trial' ? Math.min(data.total, 100) : data.total} images processed. ${failed} failed.${done ? ' Finished.' : ''}`,
+                    `${offset} / ${importMode === 'trial' ? Math.min(data.total, 100) : data.total} images processed. ${created} new, ${existing} existing, ${failed} failed.${done ? ' Finished.' : ''}`,
                 );
             }
-            router.reload({ only: ['products'] });
+            router.get(
+                '/products',
+                { folder: importedFolder },
+                { preserveState: true, preserveScroll: true },
+            );
         } catch (error) {
             setImportError(
                 error instanceof Error
@@ -196,7 +226,11 @@ export default function Products({
                                         onChange={(event) =>
                                             setFolder(event.target.value)
                                         }
-                                        placeholder="/home/images_ids/images/ids"
+                                        placeholder={
+                                            externalImportRoot
+                                                ? `${externalImportRoot}/ids/gmc`
+                                                : '/home/images_ids/images/ids/gmc'
+                                        }
                                         disabled={isImporting}
                                         aria-describedby="import-path-help"
                                     />
@@ -210,12 +244,13 @@ export default function Products({
                                         copied.
                                     </p>
                                     <Label htmlFor="import-folder">
-                                        Existing design folders
+                                        Image source
                                     </Label>
                                     <Select
                                         disabled={
                                             isImporting ||
-                                            importFolders.length === 0
+                                            (importFolders.length === 0 &&
+                                                !externalImportRoot)
                                         }
                                         value={folder}
                                         onValueChange={setFolder}
@@ -227,6 +262,15 @@ export default function Products({
                                             <SelectValue placeholder="Select image folder" />
                                         </SelectTrigger>
                                         <SelectContent>
+                                            {externalImportRoot && (
+                                                <SelectItem
+                                                    value={externalImportRoot}
+                                                >
+                                                    External storage:{' '}
+                                                    {externalImportRoot}{' '}
+                                                    (includes subfolders)
+                                                </SelectItem>
+                                            )}
                                             {importFolders.map(
                                                 (importFolder) => (
                                                     <SelectItem
@@ -334,7 +378,19 @@ export default function Products({
                         </DialogContent>
                     </Dialog>
                 </div>
-                <form className="flex gap-2">
+                <FolderFilters
+                    folders={productFolders}
+                    selected={filters.folder}
+                    total={productTotal}
+                    href={(path) =>
+                        `/products?${new URLSearchParams({ q: filters.q, status: filters.status, folder: path })}`
+                    }
+                />
+                <form
+                    key={`${filters.folder}:${filters.q}:${filters.status}`}
+                    className="flex flex-wrap gap-2"
+                >
+                    <Input type="hidden" name="folder" value={filters.folder} />
                     <Input
                         name="q"
                         defaultValue={filters.q}
@@ -342,12 +398,13 @@ export default function Products({
                     />
                     <Select
                         name="status"
-                        defaultValue={filters.status || undefined}
+                        defaultValue={filters.status || 'all'}
                     >
                         <SelectTrigger className="w-40">
                             <SelectValue placeholder="All statuses" />
                         </SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="all">All statuses</SelectItem>
                             <SelectItem value="active">Active</SelectItem>
                             <SelectItem value="draft">Draft</SelectItem>
                             <SelectItem value="archived">Archived</SelectItem>
@@ -367,6 +424,22 @@ export default function Products({
                             </tr>
                         </thead>
                         <tbody>
+                            {products.data.length === 0 && (
+                                <tr>
+                                    <td
+                                        colSpan={5}
+                                        className="text-muted-foreground p-6 text-center"
+                                    >
+                                        No products match these filters.{' '}
+                                        <Link
+                                            href="/products"
+                                            className="underline"
+                                        >
+                                            Clear filters
+                                        </Link>
+                                    </td>
+                                </tr>
+                            )}
                             {products.data.map((p) => (
                                 <tr className="border-t" key={p.id}>
                                     <td className="p-3">
@@ -384,8 +457,16 @@ export default function Products({
                                                 alt={`Design artwork for ${p.title}`}
                                                 className="border-border/70 size-11 rounded-sm border object-cover"
                                             />
-                                            <span className="text-muted-foreground max-w-40 truncate">
-                                                {p.design_name}
+                                            <span className="min-w-0">
+                                                <span className="text-muted-foreground block max-w-40 truncate">
+                                                    {p.design_name}
+                                                </span>
+                                                <span
+                                                    className="text-muted-foreground block max-w-52 truncate text-xs"
+                                                    title={p.source_path}
+                                                >
+                                                    {p.source_path}
+                                                </span>
                                             </span>
                                         </div>
                                     </td>
@@ -397,7 +478,7 @@ export default function Products({
                                             aria-label={`Preview ${p.title} in a catalog`}
                                             onValueChange={(value) => {
                                                 window.open(
-                                                    `http://localhost:3000/product/${p.slug}/${value}`,
+                                                    `${storefrontUrl}/product/${encodeURIComponent(p.slug)}/${encodeURIComponent(value)}`,
                                                     '_blank',
                                                     'noopener,noreferrer',
                                                 );
@@ -434,6 +515,7 @@ export default function Products({
                         </tbody>
                     </table>
                 </div>
+                <ResourcePagination {...products} />
             </div>
         </>
     );

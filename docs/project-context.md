@@ -209,3 +209,9 @@ Schema SQL hiện tại là nguồn quan trọng hơn phần giới thiệu lega
 - `api/app/product-name-exclusions.json` định nghĩa các cụm loại hàng theo nhóm apparel/accessories/home. Chỉnh file này để thêm/bớt cụm bị loại khỏi tên tự sinh; file đi cùng `api/app` trong image Docker.
 - Chỉ tên sản phẩm tự sinh được chuẩn hóa: bỏ extension và hậu tố `_xxx` cuối cùng (3 ký tự chữ/số), đổi dấu phân cách thành khoảng trắng, loại cụm nguyên từ không phân biệt hoa/thường, dọn ký tự đặc biệt và khoảng trắng. Cụm dài được ưu tiên trước (`coffee-mug-colored` trước `mug`). Ví dụ `1-baby-love-t-shirt_3ec.png` → `1 baby love`.
 - Không rename/move/copy/sửa file ảnh. `source_path` và manifest luôn giữ filename nguyên bản. Giữ cách tạo slug hiện tại để import lại không tự đổi URL. Title trong JSON sidecar vẫn là nội dung nhập thủ công được ưu tiên. Nếu loại hết các từ, báo lỗi cho ảnh đó thay vì tạo tên rỗng.
+
+### Products: lọc theo thư mục và kết quả import
+
+- Admin Products có các ô folder với số product trong DB (bao gồm draft), dùng `designs.source_path` để phân nhóm, giữ cả đường dẫn để phân biệt thư mục trùng tên. Chọn folder bao gồm thư mục con, kết hợp search/status và phân trang 20 sản phẩm.
+- Sau import, UI mở trang đầu của folder vừa import và xóa bộ lọc search/status cũ, sắp theo updated_at mới nhất. Kết quả phân biệt ảnh tạo product mới và ảnh đã tồn tại. Backend kiểm tra các product ID importer trả về có trong DB Admin; báo lỗi cấu hình nếu không khớp.
+- Modal mặc định chọn đường dẫn kho external khi có cấu hình, không tự chọn thư mục ảnh mẫu. Dropdown ghi rõ Project images hoặc External storage. Preview storefront dùng URL cấu hình production thay vì localhost.
