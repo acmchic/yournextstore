@@ -15,6 +15,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('collections', [CollectionController::class, 'index'])->name('collections.index');
     Route::post('collections', [CollectionController::class, 'save'])->name('collections.store');
     Route::put('collections/{collection}', [CollectionController::class, 'save'])->whereNumber('collection')->name('collections.update');
+    Route::post('collections/{collection}/image', [CollectionController::class, 'uploadImage'])->whereNumber('collection')->name('collections.image.store');
+    Route::get('collections/{collection}/image', [CollectionController::class, 'image'])->whereNumber('collection')->name('collections.image');
     Route::get('legal', [LegalPageController::class, 'index'])->name('legal.index');
     Route::post('legal', [LegalPageController::class, 'save'])->name('legal.store');
     Route::put('legal/{page}', [LegalPageController::class, 'save'])->whereNumber('page')->name('legal.update');

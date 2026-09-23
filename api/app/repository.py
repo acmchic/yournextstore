@@ -884,7 +884,9 @@ class CatalogRepository:
             )
         if not asset and metadata and metadata.get("source_path"):
             source_path = Path(str(metadata["source_path"]))
-            asset_path = source_path if source_path.is_absolute() else settings.asset_root / source_path
+            asset_path = (
+                source_path if source_path.is_absolute() else settings.asset_root / source_path
+            )
             try:
                 asset_path = asset_path.resolve()
                 asset_path.relative_to(settings.asset_root)
@@ -1379,6 +1381,21 @@ class CatalogRepository:
                     continue
             populated.append(collection)
         return populated
+
+    async def list_homepage_collections(self) -> list[dict[str, Any]]:
+        return await self._database.fetch_all(
+            """
+            select public_id id, slug, title, description, image_url, indexable,
+              featured, selection_rule, selection_keywords, homepage_section,
+              created_at, updated_at
+            from collections
+            where status='active' and featured=true
+              and homepage_section in ('theme', 'holiday')
+              and image_url is not null
+            order by sort_order, title
+            """,
+            (),
+        )
 
     async def get_collection(self, slug: str) -> dict[str, Any] | None:
         collection = await self._database.fetch_one(

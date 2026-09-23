@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SelectionList } from '@/components/ui/selection-list';
+import { Spinner } from '@/components/ui/spinner';
 import {
     Select,
     SelectContent,
@@ -21,6 +22,8 @@ type Collection = {
     description: string | null;
     selection_rule: string;
     selection_keywords: string | null;
+    homepage_section: string | null;
+    image_url: string | null;
     status: string;
     featured: boolean | number;
     sort_order: number;
@@ -32,6 +35,7 @@ const empty = {
     description: '',
     selection_rule: 'manual',
     selection_keywords: '',
+    homepage_section: '',
     status: 'draft',
     featured: false,
     sort_order: 0,
@@ -47,14 +51,15 @@ export default function Collections({
 }) {
     const [selected, setSelected] = useState<number | null>(null);
     const form = useForm(empty);
+    const imageForm = useForm<{ asset: File | null }>({ asset: null });
     return (
         <div className="space-y-6 p-6">
             <Head title="Collections" />
             <h1 className="text-2xl font-semibold">Collections</h1>
             <p className="text-muted-foreground">
                 Choose products for an editorial collection, or use an automatic
-                selection. Only active, populated collections appear in the
-                store.
+                selection. Empty theme and holiday cards can be prepared before
+                their matching products arrive.
             </p>
             <div className="grid gap-8 lg:grid-cols-[18rem_1fr]">
                 <SelectionList
@@ -70,6 +75,8 @@ export default function Collections({
                         setSelected(null);
                         form.setData(empty);
                         form.clearErrors();
+                        imageForm.reset();
+                        imageForm.clearErrors();
                     }}
                     onSelect={(item) => {
                         setSelected(item.id);
@@ -80,11 +87,14 @@ export default function Collections({
                             description: item.description ?? '',
                             selection_rule: item.selection_rule,
                             selection_keywords: item.selection_keywords ?? '',
+                            homepage_section: item.homepage_section ?? '',
                             status: item.status,
                             featured: Boolean(item.featured),
                             sort_order: item.sort_order,
                             product_ids: item.product_ids,
                         });
+                        imageForm.reset();
+                        imageForm.clearErrors();
                     }}
                 />
                 <form
@@ -181,7 +191,7 @@ export default function Collections({
                             />
                             <p
                                 id="collection-keywords-help"
-                                className="text-sm text-muted-foreground"
+                                className="text-muted-foreground text-sm"
                             >
                                 Separate words or phrases with commas, e.g.
                                 christmas, xmas, santa claus. Matches product
@@ -190,7 +200,7 @@ export default function Collections({
                             {form.errors.selection_keywords && (
                                 <p
                                     role="alert"
-                                    className="text-sm text-destructive"
+                                    className="text-destructive text-sm"
                                 >
                                     {form.errors.selection_keywords}
                                 </p>
@@ -232,6 +242,42 @@ export default function Collections({
                             ))}
                         </fieldset>
                     )}
+                    <div className="space-y-2">
+                        <Label htmlFor="collection-homepage-section">
+                            Homepage block
+                        </Label>
+                        <Select
+                            value={form.data.homepage_section || 'none'}
+                            onValueChange={(value) =>
+                                form.setData(
+                                    'homepage_section',
+                                    value === 'none' ? '' : value,
+                                )
+                            }
+                        >
+                            <SelectTrigger
+                                id="collection-homepage-section"
+                                className="w-full"
+                            >
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">
+                                    Not in these blocks
+                                </SelectItem>
+                                <SelectItem value="theme">
+                                    Shop by theme
+                                </SelectItem>
+                                <SelectItem value="holiday">
+                                    Shop by holiday
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p className="text-muted-foreground text-sm">
+                            Theme uses a square icon. Holiday uses a wide
+                            banner. Only active featured collections are shown.
+                        </p>
+                    </div>
                     <div className="space-y-2">
                         <Label htmlFor="collection-status">Status</Label>
                         <Select
@@ -285,8 +331,78 @@ export default function Collections({
                             {error}
                         </p>
                     ))}
-                    <Button disabled={form.processing}>Save collection</Button>
+                    <Button disabled={form.processing}>
+                        {form.processing ? <Spinner /> : null}
+                        Save collection
+                    </Button>
                 </form>
+                {selected ? (
+                    <form
+                        className="bg-card space-y-5 rounded-xl border p-6 shadow-xs lg:col-start-2"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            imageForm.post(`/collections/${selected}/image`, {
+                                forceFormData: true,
+                                onSuccess: () => imageForm.reset(),
+                            });
+                        }}
+                    >
+                        <div>
+                            <h2 className="text-lg font-semibold">
+                                Homepage artwork
+                            </h2>
+                            <p className="text-muted-foreground mt-1 text-sm">
+                                Upload a transparent square icon for themes or a
+                                landscape banner for holidays. PNG, JPEG or
+                                WebP, at least 500 px on both sides.
+                            </p>
+                        </div>
+                        {collections.find((item) => item.id === selected)
+                            ?.image_url ? (
+                            <div className="bg-muted/30 overflow-hidden rounded-lg border">
+                                <img
+                                    src={`/collections/${selected}/image`}
+                                    alt="Current collection artwork"
+                                    className="max-h-72 w-full object-contain"
+                                />
+                            </div>
+                        ) : null}
+                        <div className="space-y-2">
+                            <Label htmlFor="collection-artwork">Image</Label>
+                            <Input
+                                id="collection-artwork"
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp"
+                                required
+                                onChange={(event) =>
+                                    imageForm.setData(
+                                        'asset',
+                                        event.target.files?.[0] ?? null,
+                                    )
+                                }
+                                aria-invalid={Boolean(imageForm.errors.asset)}
+                            />
+                            {imageForm.errors.asset ? (
+                                <p
+                                    role="alert"
+                                    className="text-destructive text-sm"
+                                >
+                                    {imageForm.errors.asset}
+                                </p>
+                            ) : null}
+                        </div>
+                        <Button
+                            type="submit"
+                            variant="outline"
+                            disabled={
+                                imageForm.processing || !imageForm.data.asset
+                            }
+                        >
+                            {imageForm.processing ? <Spinner /> : null}
+                            Upload artwork
+                        </Button>
+                    </form>
+                ) : null}
             </div>
         </div>
     );

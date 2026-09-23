@@ -105,6 +105,33 @@ async def list_collections(repo: Annotated[CatalogRepository, Depends(get_reposi
     return {"data": await repo.list_collections()}
 
 
+@app.get("/v1/homepage-collections")
+async def list_homepage_collections(
+    repo: Annotated[CatalogRepository, Depends(get_repository)],
+):
+    return {"data": await repo.list_homepage_collections()}
+
+
+@app.get("/v1/merchandising/{filename}")
+async def get_merchandising_asset(filename: str):
+    suffix = Path(filename).suffix.lower()
+    if Path(filename).name != filename or suffix not in {".jpg", ".jpeg", ".png", ".webp", ".svg"}:
+        raise HTTPException(status_code=404, detail="Merchandising asset not found")
+    asset = settings.asset_root / "merchandising" / filename
+    if not asset.is_file():
+        raise HTTPException(status_code=404, detail="Merchandising asset not found")
+    media_type = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".svg": "image/svg+xml",
+    }[suffix]
+    return FileResponse(
+        asset, media_type=media_type, headers={"Cache-Control": "public, max-age=86400"}
+    )
+
+
 @app.get("/v1/shop")
 async def browse_shop(
     repo: Annotated[CatalogRepository, Depends(get_repository)],
@@ -288,7 +315,9 @@ async def lookup_order(
         order = await repo.get_order_for_tracking(lookup)
     except Exception as error:
         logger.exception("Order tracking lookup failed")
-        raise HTTPException(status_code=503, detail="Order tracking is temporarily unavailable") from error
+        raise HTTPException(
+            status_code=503, detail="Order tracking is temporarily unavailable"
+        ) from error
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     return order

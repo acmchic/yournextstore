@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { ownCommerce, productGetByCatalog, resolveStoreConfig } from "@/lib/own-commerce";
+import {
+	homepageCollections,
+	ownCommerce,
+	productGetByCatalog,
+	resolveStoreConfig,
+} from "@/lib/own-commerce";
 import { storefront } from "@/lib/storefront-config";
 
 describe("resolveStoreConfig", () => {
@@ -84,6 +89,35 @@ test("store metadata falls back to the configured storefront when the API is una
 		const result = await ownCommerce.meGet();
 		assert.equal(result.store.name, storefront.brandName);
 		assert.equal(result.store.currency, "usd");
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
+});
+
+test("homepage collection artwork resolves against the public media origin", async () => {
+	const originalFetch = globalThis.fetch;
+	globalThis.fetch = (async () =>
+		Response.json({
+			data: [
+				{
+					id: "collection-dog-lover",
+					slug: "dog-lover",
+					title: "Dog Lover",
+					description: null,
+					image_url: "/v1/merchandising/theme-dog-lover.png",
+					indexable: true,
+					featured: true,
+					selection_rule: "keywords",
+					homepage_section: "theme",
+					created_at: "2026-09-23T00:00:00Z",
+					updated_at: "2026-09-23T00:00:00Z",
+				},
+			],
+		})) as typeof fetch;
+	try {
+		const result = await homepageCollections();
+		const mediaOrigin = process.env.STORE_MEDIA_URL || process.env.STORE_API_URL || "http://localhost:8000";
+		assert.equal(result.data[0]?.image_url, `${mediaOrigin}/v1/merchandising/theme-dog-lover.png`);
 	} finally {
 		globalThis.fetch = originalFetch;
 	}

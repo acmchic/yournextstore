@@ -2,6 +2,9 @@
 
 ## Merchandising và collection theo dịp (2026-09-23)
 
+- Homepage có hai block CMS mới: Shop by theme dùng icon vuông và Shop by holiday dùng banner ngang. Cả hai responsive bằng horizontal snap trên mobile và grid trên desktop, giữ typography/spacing của TeeBravo thay vì sao chép UI TeeNavi.
+- `collections.homepage_section` nhận `theme`, `holiday` hoặc null. Endpoint `/v1/homepage-collections` trả collection active + featured có ảnh kể cả khi chưa có product, để admin chuẩn bị merchandising trước; API collection công khai bình thường vẫn ẩn keyword collection rỗng khỏi footer/sitemap. Admin Collections sửa section, keyword, thứ tự, trạng thái và upload PNG/JPEG/WebP vào `api/public/merchandising`; FastAPI phục vụ qua `/v1/merchandising/{filename}`.
+- Seed ban đầu gồm Dog Lover (`dog`), Teacher, Fishing, Trucker, Funny và Nurse; Halloween, Thanksgiving và Christmas dùng holiday banner. Ảnh là asset gốc của TeeBravo và có thể thay qua admin. Deploy migration admin/API trước API và storefront mới.
 - Homepage New Arrivals dùng collection `new-arrivals` / rule `newest`, hiển thị 8 design mới nhất trên apparel. Selector xoay loại áo trước, rồi catalog trong cùng loại, nên nhiều catalog tee không lấn hết hoodie/sweatshirt. Shop by style dùng ảnh sản phẩm thật từ danh sách này.
 - Collection rule `keywords` nhận `selection_keywords` (các từ/cụm phân cách bằng dấu phẩy). API khớp nguyên từ/cụm, không phân biệt hoa thường, trên `products.title` (tên public là `product.name`); điều kiện áp dụng trước count/pagination và không tìm trong description. Query search bổ sung vẫn kết hợp theo AND.
 - Admin Collections chỉnh được keywords. Migration `2026_09_22_000008` thêm cột và seed Halloween, Christmas, Thanksgiving, Valentine's Day, Mother's Day, Father's Day bằng insert-or-ignore; kích hoạt New Arrivals theo yêu cầu. Không ghi đè collection dịp lễ đã tồn tại.

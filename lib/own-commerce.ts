@@ -19,7 +19,11 @@ const MEDIA_URL = process.env.STORE_MEDIA_URL || API_URL;
 const now = () => new Date().toISOString();
 
 function resolveMediaUrl(url: string): string {
-	if (url.startsWith("/v1/products/") || url.startsWith("/v1/catalogs/")) {
+	if (
+		url.startsWith("/v1/products/") ||
+		url.startsWith("/v1/catalogs/") ||
+		url.startsWith("/v1/merchandising/")
+	) {
 		return `${MEDIA_URL}${url}`;
 	}
 	if (url.startsWith("/") && isCatalogMockupUrl(url)) {
@@ -148,6 +152,7 @@ type ApiCollection = {
 	image_url: string | null;
 	indexable: boolean;
 	selection_rule?: "manual" | "newest" | "tees" | string | null;
+	homepage_section?: "theme" | "holiday" | null;
 	created_at: string;
 	updated_at: string;
 	products?: ApiProduct[];
@@ -443,9 +448,35 @@ export async function shopBrowse({
 
 export async function storefrontCollections() {
 	try {
-		return await apiFetch<{ data: (ApiCollection & { featured: boolean; indexable: boolean })[] }>(
+		const result = await apiFetch<{ data: (ApiCollection & { featured: boolean; indexable: boolean })[] }>(
 			"/v1/collections",
 		);
+		return {
+			data: result.data.map((collection) => ({
+				...collection,
+				image_url: collection.image_url ? resolveMediaUrl(collection.image_url) : null,
+			})),
+		};
+	} catch {
+		return { data: [] };
+	}
+}
+
+export async function homepageCollections() {
+	try {
+		const result = await apiFetch<{
+			data: (ApiCollection & {
+				featured: boolean;
+				indexable: boolean;
+				homepage_section: "theme" | "holiday";
+			})[];
+		}>("/v1/homepage-collections");
+		return {
+			data: result.data.map((collection) => ({
+				...collection,
+				image_url: collection.image_url ? resolveMediaUrl(collection.image_url) : null,
+			})),
+		};
 	} catch {
 		return { data: [] };
 	}
@@ -630,7 +661,7 @@ export const ownCommerce: OwnCommerceClient = {
 				id: item.id,
 				name: item.title,
 				slug: item.slug,
-				image: item.image_url,
+				image: item.image_url ? resolveMediaUrl(item.image_url) : null,
 				createdAt: item.created_at,
 				active: true,
 				description: item.description,
@@ -653,7 +684,7 @@ export const ownCommerce: OwnCommerceClient = {
 			id: item.id,
 			name: item.title,
 			slug: item.slug,
-			image: item.image_url,
+			image: item.image_url ? resolveMediaUrl(item.image_url) : null,
 			description: item.description,
 			createdAt: item.created_at,
 			updatedAt: item.updated_at,

@@ -4,7 +4,7 @@ import { ProductCard } from "@/components/product-card";
 import { OccasionCollections } from "@/components/sections/occasion-collections";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { ApiCatalog } from "@/lib/own-commerce";
-import { catalogBrowse, shopBrowse, storefrontCollections } from "@/lib/own-commerce";
+import { catalogBrowse, homepageCollections, shopBrowse, storefrontCollections } from "@/lib/own-commerce";
 import { StoreMedia } from "@/lib/store-media";
 
 type HomeProduct = Awaited<ReturnType<typeof shopBrowse>>["data"][number];
@@ -378,9 +378,10 @@ function findSeasonalCollection(collections: HomeCollection[]) {
 export async function HomeCollections() {
 	"use cache";
 	cacheLife("minutes");
-	const [catalogs, collections, newArrivalResult] = await Promise.all([
+	const [catalogs, collections, homepageCollectionResult, newArrivalResult] = await Promise.all([
 		catalogBrowse(),
 		storefrontCollections(),
+		homepageCollections(),
 		shopBrowse({ collection: "new-arrivals", limit: 8 }),
 	]);
 	const newArrivals = distinctProducts(newArrivalResult.data).slice(0, 8);
@@ -410,7 +411,7 @@ export async function HomeCollections() {
 				linkLabel="View all new arrivals"
 				id="new-arrivals"
 			/>
-			<OccasionCollections />
+			<OccasionCollections collections={homepageCollectionResult.data} />
 			<InterestTiles collections={collections.data} excludedId={seasonalCollection?.id} />
 			<SeasonalFeature collection={seasonalCollection} />
 			<ProductRail

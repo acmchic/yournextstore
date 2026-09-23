@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="room" x2="1"><stop stop-color="#3b241a"/><stop offset=".5" stop-color="#8c4f2f"/><stop offset="1" stop-color="#cf8b48"/></linearGradient>
+    <radialGradient id="light"><stop stop-color="#ffe3a3" stop-opacity=".75"/><stop offset="1" stop-color="#ffe3a3" stop-opacity="0"/></radialGradient>
+    <filter id="noise"><feTurbulence baseFrequency=".6" numOctaves="3" seed="5"/><feBlend in="SourceGraphic" mode="soft-light"/></filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#room)"/>
+  <circle cx="1160" cy="250" r="430" fill="url(#light)"/>
+  <path d="M0 625h1600v275H0z" fill="#38251e"/>
+  <path d="M0 648h1600" stroke="#d9a066" stroke-width="12" opacity=".35"/>
+  <g transform="translate(930 280)">
+    <ellipse cx="250" cy="354" rx="290" ry="142" fill="#d7b280" stroke="#5b3828" stroke-width="18"/>
+    <ellipse cx="250" cy="350" rx="220" ry="102" fill="#7a4a2d"/>
+    <path d="M67 294c30-152 123-234 228-194 65 25 97 76 117 151-136-37-251-23-345 43z" fill="#b96732" stroke="#57301f" stroke-width="18"/>
+    <path d="M160 91c18-55 61-90 128-98-6 57-44 91-104 112z" fill="#59613e"/>
+    <path d="M155 248c34-58 82-82 144-72m-92 82c39-43 86-55 140-35" fill="none" stroke="#e7a15c" stroke-width="17" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(650 528)" fill="#c47435" stroke="#5a3425" stroke-width="14"><ellipse cx="0" cy="90" rx="92" ry="112"/><ellipse cx="-42" cy="92" rx="53" ry="104"/><ellipse cx="42" cy="92" rx="53" ry="104"/><path d="M0-15c10-42 38-65 79-73-10 44-37 69-77 83z" fill="#68704b"/></g>
+  <g filter="url(#noise)" opacity=".14"><rect width="1600" height="900" fill="#f0c89a"/></g>
+</svg>

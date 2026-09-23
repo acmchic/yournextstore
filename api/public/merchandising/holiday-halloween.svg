@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="sky" x2="1" y2="1"><stop stop-color="#16121d"/><stop offset=".62" stop-color="#39202a"/><stop offset="1" stop-color="#9d482d"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#ffd376"/><stop offset=".45" stop-color="#ed7e32"/><stop offset="1" stop-color="#7b2d28" stop-opacity="0"/></radialGradient>
+    <filter id="noise"><feTurbulence baseFrequency=".55" numOctaves="3" seed="11"/><feBlend in="SourceGraphic" mode="soft-light"/></filter>
+  </defs>
+  <rect width="1600" height="900" fill="url(#sky)"/>
+  <circle cx="1210" cy="236" r="280" fill="url(#glow)" opacity=".8"/>
+  <path d="M0 690c228-120 383-12 574-71 214-66 348-200 542-111 190 87 304 33 484-33v425H0z" fill="#171017"/>
+  <g transform="translate(940 315)">
+    <ellipse cx="208" cy="360" rx="265" ry="235" fill="#c65c28" stroke="#3d1e1b" stroke-width="20"/>
+    <ellipse cx="208" cy="360" rx="120" ry="235" fill="#df7430" opacity=".72"/>
+    <path d="M190 128c9-72 50-124 116-147 2 54-18 101-74 143z" fill="#445338" stroke="#30271f" stroke-width="16"/>
+    <path d="m76 310 86-55 60 78-89 19zm266-49 94 48-49 51-88-18zm-192 142 67 41 72-44-17 86H164z" fill="#1c1114"/>
+  </g>
+  <g fill="#f6d3a1" opacity=".85"><circle cx="720" cy="146" r="5"/><circle cx="622" cy="282" r="7"/><circle cx="1394" cy="132" r="5"/><path d="m762 207 8 18 18 8-18 8-8 18-8-18-18-8 18-8z"/></g>
+  <g filter="url(#noise)" opacity=".16"><rect width="1600" height="900" fill="#b99276"/></g>
+</svg>
