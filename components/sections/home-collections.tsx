@@ -174,7 +174,7 @@ function StyleNavigation({ catalogs, products }: { catalogs: ApiCatalog[]; produ
 					<Link
 						key={style.slug}
 						href={style.href}
-						className="group flex min-h-44 flex-col justify-between border-b border-r border-border p-5 transition-colors hover:bg-foreground hover:text-background focus-visible:bg-foreground focus-visible:text-background focus-visible:outline-none sm:min-h-52 sm:p-7"
+						className="group flex min-h-44 flex-col justify-between border-b border-r border-border p-5 transition-[border-color] hover:border-foreground focus-visible:border-foreground focus-visible:outline-none sm:min-h-52 sm:p-7"
 					>
 						{style.image && (
 							<div className="relative mb-5 aspect-square w-full overflow-hidden bg-white">
@@ -189,7 +189,7 @@ function StyleNavigation({ catalogs, products }: { catalogs: ApiCatalog[]; produ
 						)}
 						<span>
 							<span className="block font-display text-2xl tracking-tight sm:text-3xl">{style.label}</span>
-							<span className="mt-2 block max-w-[13rem] text-xs leading-relaxed text-muted-foreground group-hover:text-background/70 group-focus-visible:text-background/70">
+							<span className="mt-2 block max-w-[13rem] text-xs leading-relaxed text-muted-foreground">
 								{style.description}
 							</span>
 						</span>

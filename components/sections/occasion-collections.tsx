@@ -20,13 +20,14 @@ export async function OccasionCollections({
 		collections.data
 			.filter((collection) => collection.selection_rule === "keywords" && collection.featured)
 			.slice(0, 6)
-			.map(async (collection) => {
+			.map(async (collection, index) => {
 				const products = await shopBrowse({
 					collection: collection.slug,
 					department,
 					catalog,
 					type,
 					limit: 1,
+					offset: index,
 				});
 				const product = products.data[0];
 				return { collection, product, count: products.meta.count };
@@ -59,7 +60,7 @@ export async function OccasionCollections({
 						href={`/collection/${collection.slug}${query ? `?${query}` : ""}`}
 						className="group block rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4"
 					>
-						<div className="relative aspect-[4/3] overflow-hidden bg-secondary">
+						<div className="relative aspect-[4/3] overflow-hidden bg-white">
 							<StoreMedia
 								src={product.images[0]}
 								alt={`${collection.title}: ${product.name}`}
