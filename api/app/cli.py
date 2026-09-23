@@ -364,6 +364,28 @@ async def run_catalog_truncate(args: argparse.Namespace) -> None:
         await database.close()
 
 
+async def run_retitle_products(args: argparse.Namespace) -> None:
+    from app.db import Database
+    from app.importer import prettify_product_title
+
+    database = Database(settings)
+    updated: list[tuple[str, str]] = []
+    try:
+        rows = await database.fetch_all("select id, title from products", ())
+        for row in rows:
+            new_title = prettify_product_title(row["title"])
+            if new_title == row["title"]:
+                continue
+            await database.execute(
+                "update products set title=%s, seo_title=%s where id=%s",
+                (new_title, new_title, row["id"]),
+            )
+            updated.append((row["title"], new_title))
+    finally:
+        await database.close()
+    print(json.dumps({"updated": len(updated), "titles": [{"from": a, "to": b} for a, b in updated]}, indent=2, ensure_ascii=False))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="pod-commerce")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -422,6 +444,10 @@ def main() -> None:
         help="Number of products to assign to each eligible catalog (default: 4)",
     )
     subparsers.add_parser("analyze-catalog-mockups")
+    retitle = subparsers.add_parser(
+        "retitle-products",
+        help="Prettify raw lowercase product titles (Title Case + apostrophes)",
+    )
     args = parser.parse_args()
     if args.command == "import-products":
         asyncio.run(run_import(args))
@@ -437,6 +463,8 @@ def main() -> None:
         asyncio.run(run_product_showcase_seed(args))
     elif args.command == "analyze-catalog-mockups":
         asyncio.run(analyze())
+    elif args.command == "retitle-products":
+        asyncio.run(run_retitle_products(args))
 
 
 if __name__ == "__main__":

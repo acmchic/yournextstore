@@ -35,7 +35,34 @@ def slugify(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
 
 
-@lru_cache(maxsize=1)
+_SMALL_WORDS = {
+    "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "of", "on",
+    "or", "the", "to", "with", "is", "it", "its", "my", "your",
+}
+_UNCAPPED = {"i", "i'm", "i'd", "i'll", "i've", "us", "usa", "nyc", "diy", "bff"}
+
+
+def prettify_product_title(raw: str) -> str:
+    """Convert a raw filename-derived title (all-lowercase, no punctuation)
+    into a presentable Title Case headline, restoring common apostrophes."""
+    name = raw.replace("dont", "don't").replace("cant ", "can't ").replace("wont ", "won't ")
+    name = re.sub(r"\byoure\b", "you're", name, flags=re.IGNORECASE)
+    name = re.sub(r"\byour\b(?= )", "your", name)
+    name = re.sub(r"\bles\b(?=s? )", "Les", name, flags=re.IGNORECASE)
+    words = name.split()
+    out: list[str] = []
+    for idx, word in enumerate(words):
+        low = word.lower()
+        if low in _UNCAPPED:
+            out.append(low.upper() if len(low) <= 3 else word.upper())
+            continue
+        if idx not in (0, len(words) - 1) and low in _SMALL_WORDS:
+            out.append(low)
+            continue
+        out.append(low.capitalize())
+    return " ".join(out)
+
+
 def product_name_exclusions() -> re.Pattern[str]:
     config = json.loads(Path(__file__).with_name("product-name-exclusions.json").read_text())
     if not isinstance(config, dict) or not all(
@@ -137,6 +164,8 @@ async def import_design(
         raise ValueError(f"Could not derive a slug for {source.name}")
     title = str(metadata.get("title") or product_name_from_filename(source.name))
     title = " ".join(unicodedata.normalize("NFKC", title).split())
+    if metadata.get("title") is None:
+        title = prettify_product_title(title)
     if not title or len(title) > 255:
         raise ValueError("Product name must contain between 1 and 255 characters")
     description = str(

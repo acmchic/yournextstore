@@ -177,7 +177,7 @@ function StyleNavigation({ catalogs, products }: { catalogs: ApiCatalog[]; produ
 						className="group flex min-h-44 flex-col justify-between border-b border-r border-border p-5 transition-colors hover:bg-foreground hover:text-background focus-visible:bg-foreground focus-visible:text-background focus-visible:outline-none sm:min-h-52 sm:p-7"
 					>
 						{style.image && (
-							<div className="relative mb-5 aspect-square w-full overflow-hidden bg-secondary">
+							<div className="relative mb-5 aspect-square w-full overflow-hidden bg-white">
 								<StoreMedia
 									src={style.image}
 									alt={style.label}

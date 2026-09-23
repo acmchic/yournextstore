@@ -74,7 +74,10 @@ async def get_store() -> dict[str, object]:
         "name": "TeeBravo",
         "currency": "USD",
         "locale": "en-US",
-        "settings": {"enabled_tools": {"blog": False, "contact_form": True}},
+        "settings": {
+            "enabled_tools": {"blog": False, "contact_form": True},
+            "ogimage": "/brand/og.png",
+        },
     }
 
 

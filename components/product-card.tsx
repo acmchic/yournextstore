@@ -29,9 +29,11 @@ export function ProductCard({
 	const displayName = title ?? product.name;
 	const variants = "variants" in product ? product.variants : null;
 	const firstVariantPrice = variants?.[0] ? BigInt(variants[0].price) : null;
+	// Accessory/sticker variants (very low price points) skew the apparel price range
+	const apparelVariants = variants?.filter((v) => BigInt(v.price) >= 1_000n) ?? null;
 	const { minPrice, maxPrice } =
 		variants && firstVariantPrice !== null
-			? variants.reduce(
+			? (apparelVariants ?? []).reduce(
 					(acc, v) => {
 						const price = BigInt(v.price);
 						return {
