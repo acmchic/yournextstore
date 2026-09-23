@@ -171,7 +171,7 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 					: undefined;
 
 				return (
-					<fieldset key={group.label} className="border-0 p-0">
+					<fieldset key={group.label} className="min-w-0 border-0 p-0">
 						{group.type === "color" ? (
 							<>
 								<div className="mb-3 flex items-center justify-between">
@@ -208,7 +208,7 @@ export function VariantSelector({ variants, selectedVariantId }: VariantSelector
 												title={option.value}
 											>
 												{isLightColor && (
-													<span className="absolute inset-0 rounded-full border border-border" />
+													<span className="absolute inset-0 rounded-full border border-slate-500/70 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.12)]" />
 												)}
 											</Button>
 										);

@@ -90,14 +90,14 @@ export function CatalogTypeSelector({
 	return (
 		<div
 			className={cn(
-				"grid gap-4 transition-opacity duration-150 ease-out motion-reduce:transition-none",
+				"grid w-full min-w-0 gap-4 transition-opacity duration-150 ease-out motion-reduce:transition-none",
 				isPending && "opacity-80",
 			)}
 			aria-busy={isPending}
 		>
-			<fieldset className="m-0 border-0 p-0">
+			<fieldset className="m-0 min-w-0 border-0 p-0">
 				<legend className="mb-3 text-xs uppercase tracking-[0.06em]">Type</legend>
-				<div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Type">
+				<div className="grid w-full min-w-0 grid-cols-4 gap-2" role="radiogroup" aria-label="Type">
 					{productCatalogTypes.map((type) => {
 						const firstCatalog = catalogOptions[type][0];
 						const isSelected = selectedType === type;
@@ -110,7 +110,7 @@ export function CatalogTypeSelector({
 								size="lg"
 								role="radio"
 								aria-checked={isSelected}
-								className="min-w-24 rounded border-foreground px-5 font-normal"
+								className="min-w-0 w-full rounded border-foreground px-1 text-xs font-normal sm:px-2 sm:text-sm"
 								disabled={!firstCatalog}
 								onPointerEnter={() => firstCatalog && prefetchCatalog(firstCatalog.slug)}
 								onFocus={() => firstCatalog && prefetchCatalog(firstCatalog.slug)}
@@ -123,7 +123,7 @@ export function CatalogTypeSelector({
 				</div>
 			</fieldset>
 
-			<fieldset className="m-0 border-0 p-0">
+			<fieldset className="m-0 min-w-0 border-0 p-0">
 				<legend className="mb-3 text-xs uppercase tracking-[0.06em]">Style</legend>
 				<Select
 					value={selectedCatalog.slug}
@@ -131,7 +131,7 @@ export function CatalogTypeSelector({
 					onValueChange={navigateToCatalog}
 				>
 					<SelectTrigger
-						className="h-10 w-full cursor-pointer rounded border-foreground bg-white px-3 text-left text-sm font-normal text-slate-950 focus-visible:ring-2 focus-visible:ring-[#aaaaac] dark:bg-white dark:text-slate-950"
+						className="h-10 w-full min-w-0 cursor-pointer rounded border-foreground bg-white px-3 text-left text-sm font-normal text-slate-950 focus-visible:ring-2 focus-visible:ring-[#aaaaac] dark:bg-white dark:text-slate-950"
 						onFocus={() => prefetchType(selectedType)}
 						onPointerDown={() => prefetchType(selectedType)}
 					>

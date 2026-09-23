@@ -70,7 +70,7 @@ async function getProductMetadata(slug: string, catalog?: string): Promise<Metad
 		configuredTitle &&
 		catalogName &&
 		!configuredTitle.toLocaleLowerCase().includes(catalogName.toLocaleLowerCase())
-			? `${configuredTitle} — ${catalogName}`
+			? `${configuredTitle} - ${catalogName}`
 			: configuredTitle || displayName;
 	const seoDescription = product.seo?.description || product.summary || undefined;
 	const canonical = product.seo?.canonical || `/product/${product.slug}`;
