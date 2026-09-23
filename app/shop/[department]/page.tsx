@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/product-card";
+import { OccasionCollections } from "@/components/sections/occasion-collections";
 import { catalogNavigation, departments } from "@/lib/catalog-navigation";
 import { getCanonicalUrl } from "@/lib/commerce";
 import { JsonLdScript } from "@/lib/json-ld";
@@ -136,6 +137,9 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
 					)}
 				</section>
 			</div>
+			{page === 1 && (
+				<OccasionCollections department={department} type={query.type} catalog={query.catalog} />
+			)}
 		</div>
 	);
 }

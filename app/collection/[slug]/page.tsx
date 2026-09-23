@@ -2,11 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/product-card";
+import { Button } from "@/components/ui/button";
 import { getCanonicalUrl } from "@/lib/commerce";
 import { JsonLdScript } from "@/lib/json-ld";
 import { shopBrowse, storefrontCollections } from "@/lib/own-commerce";
 
-type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ page?: string }> };
+type Props = {
+	params: Promise<{ slug: string }>;
+	searchParams: Promise<{ page?: string; department?: string; catalog?: string; type?: string }>;
+};
 export const unstable_instant = false;
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
@@ -17,7 +21,11 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 		title: collection.title,
 		description: collection.description ?? undefined,
 		alternates: { canonical: `/collection/${slug}` },
-		robots: { index: Boolean(collection.indexable) && !query.page, follow: true },
+		robots: {
+			index:
+				Boolean(collection.indexable) && !query.page && !query.department && !query.catalog && !query.type,
+			follow: true,
+		},
 	};
 }
 
@@ -27,9 +35,17 @@ export default async function CollectionPage({ params, searchParams }: Props) {
 	if (!collection) notFound();
 	const page = Number(query.page ?? 1);
 	if (!Number.isSafeInteger(page) || page < 1) notFound();
-	const products = await shopBrowse({ collection: slug, limit: 24, offset: (page - 1) * 24 });
+	const products = await shopBrowse({
+		collection: slug,
+		department: query.department,
+		catalog: query.catalog,
+		type: query.type,
+		limit: 24,
+		offset: (page - 1) * 24,
+	});
 	if (!products.data.length) notFound();
 	const base = getCanonicalUrl();
+	const pageHref = (target: number) => `?${new URLSearchParams({ ...query, page: String(target) })}`;
 	return (
 		<div>
 			<JsonLdScript
@@ -58,6 +74,29 @@ export default async function CollectionPage({ params, searchParams }: Props) {
 				</h1>
 				<p className="mx-auto mt-5 max-w-md text-sm text-muted-foreground">{collection.description}</p>
 			</header>
+			{collection.selection_rule !== "manual" && (
+				<nav aria-label="Collection garment types" className="flex flex-wrap justify-center gap-3 px-4 pt-8">
+					{[
+						{ slug: "", label: "All styles" },
+						{ slug: "t-shirts", label: "T-shirts" },
+						{ slug: "hoodies", label: "Hoodies" },
+						{ slug: "sweatshirts", label: "Sweatshirts" },
+					].map((style) => (
+						<Button
+							key={style.slug}
+							asChild
+							variant={(query.type ?? "") === style.slug ? "default" : "outline"}
+						>
+							<Link
+								href={`?${new URLSearchParams({ ...(query.department ? { department: query.department } : {}), ...(style.slug ? { type: style.slug } : {}) })}`}
+								aria-current={(query.type ?? "") === style.slug ? "page" : undefined}
+							>
+								{style.label}
+							</Link>
+						</Button>
+					))}
+				</nav>
+			)}
 			<section className="px-4 py-10 md:px-8">
 				<p className="mb-6 text-xs uppercase">{products.meta.count} pieces</p>
 				<div className="grid grid-cols-2 gap-x-3 gap-y-10 md:grid-cols-4 md:gap-x-6">
@@ -72,11 +111,11 @@ export default async function CollectionPage({ params, searchParams }: Props) {
 				</div>
 				{products.meta.count > 24 && (
 					<nav aria-label="Pagination" className="mt-12 flex justify-between border-t py-6 text-sm">
-						{page > 1 ? <Link href={`?page=${page - 1}`}>Previous</Link> : <span />}
+						{page > 1 ? <Link href={pageHref(page - 1)}>Previous</Link> : <span />}
 						<span>
 							Page {page} of {Math.ceil(products.meta.count / 24)}
 						</span>
-						{page * 24 < products.meta.count ? <Link href={`?page=${page + 1}`}>Next</Link> : <span />}
+						{page * 24 < products.meta.count ? <Link href={pageHref(page + 1)}>Next</Link> : <span />}
 					</nav>
 				)}
 			</section>

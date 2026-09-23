@@ -1,5 +1,11 @@
-import { redirect } from "next/navigation";
+import PolicyPage, { generateMetadata as policyMetadata } from "@/app/[slug]/page";
 
-export default function FAQPage() {
-	redirect("/legal/faq");
+export const unstable_instant = false;
+
+export function generateMetadata() {
+	return policyMetadata({ params: Promise.resolve({ slug: "faq" }) });
+}
+
+export default function Page() {
+	return <PolicyPage params={Promise.resolve({ slug: "faq" })} />;
 }

@@ -20,6 +20,7 @@ type Collection = {
     slug: string;
     description: string | null;
     selection_rule: string;
+    selection_keywords: string | null;
     status: string;
     featured: boolean | number;
     sort_order: number;
@@ -30,6 +31,7 @@ const empty = {
     slug: '',
     description: '',
     selection_rule: 'manual',
+    selection_keywords: '',
     status: 'draft',
     featured: false,
     sort_order: 0,
@@ -77,6 +79,7 @@ export default function Collections({
                             slug: item.slug,
                             description: item.description ?? '',
                             selection_rule: item.selection_rule,
+                            selection_keywords: item.selection_keywords ?? '',
                             status: item.status,
                             featured: Boolean(item.featured),
                             sort_order: item.sort_order,
@@ -149,9 +152,51 @@ export default function Collections({
                                 <SelectItem value="tees">
                                     Graphic tees
                                 </SelectItem>
+                                <SelectItem value="keywords">
+                                    Product name keywords
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
+                    {form.data.selection_rule === 'keywords' && (
+                        <div className="space-y-2">
+                            <Label htmlFor="collection-keywords">
+                                Keywords
+                            </Label>
+                            <Input
+                                id="collection-keywords"
+                                required
+                                maxLength={500}
+                                value={form.data.selection_keywords}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'selection_keywords',
+                                        event.target.value,
+                                    )
+                                }
+                                aria-describedby="collection-keywords-help"
+                                aria-invalid={Boolean(
+                                    form.errors.selection_keywords,
+                                )}
+                            />
+                            <p
+                                id="collection-keywords-help"
+                                className="text-sm text-muted-foreground"
+                            >
+                                Separate words or phrases with commas, e.g.
+                                christmas, xmas, santa claus. Matches product
+                                names, regardless of capitalization.
+                            </p>
+                            {form.errors.selection_keywords && (
+                                <p
+                                    role="alert"
+                                    className="text-sm text-destructive"
+                                >
+                                    {form.errors.selection_keywords}
+                                </p>
+                            )}
+                        </div>
+                    )}
                     {form.data.selection_rule === 'manual' && (
                         <fieldset className="max-h-72 space-y-3 overflow-y-auto rounded-lg border p-4">
                             <legend className="px-1 text-sm font-medium">

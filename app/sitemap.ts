@@ -30,11 +30,6 @@ async function getAllLegalPages() {
 	return result.data.map((p) => ({ path: p.href, updatedAt: p.updatedAt }));
 }
 
-async function getContactFormEnabled() {
-	const me = await meGetCached().catch(() => null);
-	return me?.store.settings?.enabledTools?.contactForm ?? false;
-}
-
 async function getBlogState() {
 	const me = await meGetCached().catch(() => null);
 	if (!me?.store.settings?.enabledTools?.blog) {
@@ -54,25 +49,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 	const staticRoutes: MetadataRoute.Sitemap = [
 		{ url: `${baseUrl}/`, lastModified: now, changeFrequency: "daily", priority: 1.0 },
 		{ url: `${baseUrl}/products`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
-		{ url: `${baseUrl}/faq`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
 	];
 
-	const [products, collections, legalPages, blog, contactFormEnabled] = await Promise.all([
+	const [products, collections, legalPages, blog] = await Promise.all([
 		getAllProducts().catch(() => []),
 		getAllCollections().catch(() => []),
 		getAllLegalPages().catch(() => []),
 		getBlogState().catch(() => ({ enabled: false, posts: [] })),
-		getContactFormEnabled().catch(() => false),
 	]);
-
-	if (contactFormEnabled) {
-		staticRoutes.push({
-			url: `${baseUrl}/contact`,
-			lastModified: now,
-			changeFrequency: "monthly",
-			priority: 0.5,
-		});
-	}
 
 	const productRoutes: MetadataRoute.Sitemap = products.map((p) => ({
 		url: `${baseUrl}/product/${p.slug}`,
@@ -90,7 +74,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 	}));
 
 	const legalRoutes: MetadataRoute.Sitemap = legalPages.map((p) => ({
-		url: p.path === "/about" ? `${baseUrl}/about` : `${baseUrl}/legal${p.path}`,
+		url: `${baseUrl}${p.path}`,
 		lastModified: new Date(p.updatedAt),
 		changeFrequency: "yearly",
 		priority: 0.3,

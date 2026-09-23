@@ -1,6 +1,7 @@
 import { cacheLife } from "next/cache";
 import Link from "next/link";
 import { ProductCard } from "@/components/product-card";
+import { OccasionCollections } from "@/components/sections/occasion-collections";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { ApiCatalog } from "@/lib/own-commerce";
 import { catalogBrowse, shopBrowse, storefrontCollections } from "@/lib/own-commerce";
@@ -98,7 +99,7 @@ function distinctProducts(products: HomeProduct[]) {
 	});
 }
 
-function buildStyleTiles(catalogs: ApiCatalog[]) {
+function buildStyleTiles(catalogs: ApiCatalog[], products: HomeProduct[]) {
 	return styleDefinitions.flatMap((style, index) => {
 		const matchingCatalogs = catalogs.filter(
 			(catalog) =>
@@ -113,6 +114,9 @@ function buildStyleTiles(catalogs: ApiCatalog[]) {
 		return [
 			{
 				...style,
+				image: products.find((product) =>
+					matchingCatalogs.some((catalog) => catalog.slug === product.category?.slug),
+				)?.images[0],
 				number: String(index + 1).padStart(2, "0"),
 				href: `/shop/${department}?type=${encodeURIComponent(style.slug)}`,
 			},
@@ -143,8 +147,8 @@ function BuyingInfo() {
 	);
 }
 
-function StyleNavigation({ catalogs }: { catalogs: ApiCatalog[] }) {
-	const styles = buildStyleTiles(catalogs);
+function StyleNavigation({ catalogs, products }: { catalogs: ApiCatalog[]; products: HomeProduct[] }) {
+	const styles = buildStyleTiles(catalogs, products);
 	if (styles.length === 0) return null;
 	return (
 		<section className="border-b border-border px-5 py-14 sm:px-8 md:py-20" aria-labelledby="shop-by-style">
@@ -172,9 +176,17 @@ function StyleNavigation({ catalogs }: { catalogs: ApiCatalog[] }) {
 						href={style.href}
 						className="group flex min-h-44 flex-col justify-between border-b border-r border-border p-5 transition-colors hover:bg-foreground hover:text-background focus-visible:bg-foreground focus-visible:text-background focus-visible:outline-none sm:min-h-52 sm:p-7"
 					>
-						<span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground group-hover:text-background/60 group-focus-visible:text-background/60">
-							{style.number}
-						</span>
+						{style.image && (
+							<div className="relative mb-5 aspect-square w-full overflow-hidden bg-secondary">
+								<StoreMedia
+									src={style.image}
+									alt={style.label}
+									fill
+									sizes="(max-width: 768px) 50vw, 25vw"
+									className="object-contain"
+								/>
+							</div>
+						)}
 						<span>
 							<span className="block font-display text-2xl tracking-tight sm:text-3xl">{style.label}</span>
 							<span className="mt-2 block max-w-[13rem] text-xs leading-relaxed text-muted-foreground group-hover:text-background/70 group-focus-visible:text-background/70">
@@ -416,9 +428,9 @@ export async function HomeCollections() {
 	const [catalogs, collections, newArrivalResult] = await Promise.all([
 		catalogBrowse(),
 		storefrontCollections(),
-		shopBrowse({ limit: 24 }),
+		shopBrowse({ collection: "new-arrivals", limit: 8 }),
 	]);
-	const newArrivals = distinctProducts(newArrivalResult.data).slice(0, 4);
+	const newArrivals = distinctProducts(newArrivalResult.data).slice(0, 8);
 	const newArrivalIds = new Set(newArrivals.map((product) => product.id));
 	const picksCollection = collections.data.find(
 		(collection) => collection.featured && collection.selection_rule === "manual",
@@ -436,22 +448,23 @@ export async function HomeCollections() {
 	return (
 		<>
 			<BuyingInfo />
-			<StyleNavigation catalogs={catalogs.data} />
+			<StyleNavigation catalogs={catalogs.data} products={newArrivals} />
 			<ProductRail
 				eyebrow="01 / Just in"
 				title="New arrivals"
-				description="The latest published pieces, shown once per design so the edit stays easy to scan."
+				description="Fresh graphics on tees, hoodies and sweatshirts. Find your next everyday favorite."
 				products={newArrivals}
-				href="/products"
+				href="/collection/new-arrivals"
 				linkLabel="View all new arrivals"
 				id="new-arrivals"
 			/>
+			<OccasionCollections />
 			<InterestTiles collections={collections.data} excludedId={seasonalCollection?.id} />
 			<SeasonalFeature collection={seasonalCollection} />
 			<ProductRail
 				eyebrow="02 / Curated by TeeBravo"
 				title="TeeBravo picks"
-				description="A focused selection from a manually curated collection. No bestseller claim, just pieces worth a closer look."
+				description="A few favorites from our latest edit. Find the graphic that feels like you."
 				products={picks}
 				href={picksCollection ? `/collection/${picksCollection.slug}` : "/products"}
 				linkLabel="Explore the picks"

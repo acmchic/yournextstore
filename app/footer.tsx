@@ -25,28 +25,6 @@ async function FooterBlogLink() {
 	);
 }
 
-async function FooterContactLink() {
-	"use cache";
-	cacheLife("hours");
-
-	const me = await meGetCached().catch(() => null);
-	if (!me?.store.settings?.enabledTools?.contactForm) {
-		return null;
-	}
-
-	return (
-		<li>
-			<StoreLink
-				prefetch={"eager"}
-				href="/legal/contact"
-				className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-			>
-				Contact Us
-			</StoreLink>
-		</li>
-	);
-}
-
 async function FooterCollections() {
 	"use cache";
 	cacheLife("hours");
@@ -67,29 +45,35 @@ async function FooterCollections() {
 	);
 }
 
-async function FooterLegalPages() {
+async function FooterPolicyLinks() {
 	"use cache";
-	cacheLife("hours");
-
+	cacheLife({ stale: 0, revalidate: 30, expire: 60 });
 	const pages = await commerce.legalPageBrowse().catch(() => ({ data: [] }));
+	const supportPaths = ["/about", "/contact", "/faq", "/shipping-policy", "/return-policy"];
 	return (
-		<FooterColumn title="Legal">
-			{pages.data.map((page) => (
-				<FooterLink key={page.href} href={getLegalHref(page.href)}>
-					{page.label}
-				</FooterLink>
-			))}
-		</FooterColumn>
+		<>
+			<FooterColumn title="Customer care">
+				{supportPaths.map((href) => {
+					const page = pages.data.find((page) => page.href === href);
+					return page ? (
+						<FooterLink key={href} href={href}>
+							{page.label}
+						</FooterLink>
+					) : null;
+				})}
+				<FooterBlogLink />
+			</FooterColumn>
+			<FooterColumn title="Policies">
+				{pages.data
+					.filter((page) => !supportPaths.includes(page.href))
+					.map((page) => (
+						<FooterLink key={page.href} href={page.href}>
+							{page.label}
+						</FooterLink>
+					))}
+			</FooterColumn>
+		</>
 	);
-}
-
-function getLegalHref(href: string) {
-	if (href === "/about") {
-		return "/about";
-	}
-
-	const slug = href.replace(/^\/legal\//, "").replace(/^\//, "");
-	return `/legal/${slug}`;
 }
 
 function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
@@ -147,21 +131,12 @@ export function Footer() {
 
 					<FooterCollections />
 
-					<FooterColumn title="Support">
-						<FooterLink href="/about">About Us</FooterLink>
-						<FooterLink href="/faq">FAQ</FooterLink>
-						<FooterLink href="/shipping-policy">Shipping</FooterLink>
-						<FooterLink href="/return-policy">Returns</FooterLink>
-						<FooterContactLink />
-						<FooterBlogLink />
-					</FooterColumn>
-
-					<FooterLegalPages />
+					<FooterPolicyLinks />
 				</div>
 
 				<div className="flex flex-col items-center justify-between gap-4 border-t border-border py-8 sm:flex-row">
 					<p className="text-center text-[11px] uppercase tracking-[0.2em] text-muted-foreground sm:text-left">
-						© {new Date().getFullYear()} {storefront.brandName} — All rights reserved
+						© {new Date().getFullYear()} {storefront.brandName} · All rights reserved
 					</p>
 					<div className="flex items-center gap-5 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
 						<span>Visa</span>

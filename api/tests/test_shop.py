@@ -152,3 +152,26 @@ def test_draft_collection_cannot_expose_products():
     assert result["data"] == []
     assert "status='active'" in db.fetch_one.call_args.args[0]
     db.fetch_all.assert_not_awaited()
+
+
+def test_automatic_collections_match_titles_before_pagination_and_mix_apparel():
+    db = AsyncMock()
+    db.fetch_one.side_effect = [{"id": 9, "selection_rule": "keywords", "selection_keywords": "halloween, trick or treat"}, {"count": 4}]
+    db.fetch_all.return_value = [{"slug": f"design-{i}"} for i in range(4)]
+    repo = CatalogRepository(db)
+    repo.list_catalogs = AsyncMock(return_value=[catalog("mug", "accessories", "mugs"), catalog("tee-a", "unisex", "t-shirts"), catalog("tee-b", "unisex", "t-shirts"), catalog("hoodie", "unisex", "hoodies"), catalog("sweatshirt", "unisex", "sweatshirts")])
+    repo.get_product_detail = AsyncMock(side_effect=lambda slug, catalog_slug: {"id": slug})
+    result = asyncio.run(repo.browse_shop(collection="halloween", limit=4, offset=0))
+    sql, params = db.fetch_all.call_args.args
+    assert "regexp_like(title, %s, 'i')" in sql
+    assert "halloween" in params[0] and params[1:] == (4, 0)
+    assert db.fetch_one.await_args_list[1].args[1] == (params[0],)
+    assert [call.kwargs["catalog_slug"] for call in repo.get_product_detail.await_args_list] == ["tee-a", "hoodie", "sweatshirt", "tee-b"]
+    assert result["meta"]["count"] == 4
+
+
+def test_keyword_collections_without_matches_are_not_listed():
+    db = AsyncMock()
+    db.fetch_all.return_value = [{"slug": "christmas", "selection_rule": "keywords", "selection_keywords": "christmas"}, {"slug": "new-arrivals", "selection_rule": "newest"}]
+    db.fetch_one.return_value = None
+    assert [item["slug"] for item in asyncio.run(CatalogRepository(db).list_collections())] == ["new-arrivals"]

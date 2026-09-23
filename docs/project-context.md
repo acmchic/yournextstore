@@ -1,5 +1,23 @@
 # TeeBravo — context và kiến trúc cho AI
 
+## Merchandising và collection theo dịp (2026-09-23)
+
+- Homepage New Arrivals dùng collection `new-arrivals` / rule `newest`, hiển thị 8 design mới nhất trên apparel. Selector xoay loại áo trước, rồi catalog trong cùng loại, nên nhiều catalog tee không lấn hết hoodie/sweatshirt. Shop by style dùng ảnh sản phẩm thật từ danh sách này.
+- Collection rule `keywords` nhận `selection_keywords` (các từ/cụm phân cách bằng dấu phẩy). API khớp nguyên từ/cụm, không phân biệt hoa thường, trên `products.title` (tên public là `product.name`); điều kiện áp dụng trước count/pagination và không tìm trong description. Query search bổ sung vẫn kết hợp theo AND.
+- Admin Collections chỉnh được keywords. Migration `2026_09_22_000008` thêm cột và seed Halloween, Christmas, Thanksgiving, Valentine's Day, Mother's Day, Father's Day bằng insert-or-ignore; kích hoạt New Arrivals theo yêu cầu. Không ghi đè collection dịp lễ đã tồn tại.
+- Shared `OccasionCollections` hiển thị tối đa 6 collection keyword featured có kết quả/ảnh trên home, `/shop/[department]` và `/category/[...slugs]` trang đầu. Link giữ department/type/catalog. Collection có nút lọc tee/hoodie/sweatshirt, URL bộ lọc noindex và pagination giữ query.
+- Keyword collections chưa có product active khớp được loại khỏi API listing/footer/sitemap; section tự ẩn nếu không có ảnh hoặc catalog phù hợp. Không tạo sản phẩm giả hoặc claim bestseller.
+- **Deploy:** chạy migration admin trước API mới (cột `selection_keywords` bắt buộc), sau đó deploy storefront. Chưa deploy production trong phiên này. Local đã chạy migration và kiểm tra dữ liệu thật.
+- Regression: từ `api/`, `.venv/bin/python -m pytest tests/test_shop.py -q`; storefront `bun test`, `bunx tsgo --noEmit`; admin `bun run types:check`.
+
+
+## Footer và URL policy (2026-09-22)
+
+- Policy published dùng URL gốc `/{slug}`; `/legal/{slug}` redirect 308. Contact và FAQ dùng chung renderer CMS, không phụ thuộc công tắc contact form.
+- Footer chia Customer care / Policies, mỗi trang xuất hiện một lần; sitemap, canonical, return JSON-LD và llms.txt dùng cùng URL gốc. Nội dung vẫn do CMS quản lý và render server, không cần bot chạy JavaScript để lấy nội dung.
+- Kiểm tra hồi quy: `bun scripts/audit-policies.ts http://localhost:3100`.
+
+
 ## Cập nhật policy production ngày 2026-09-22
 
 - `api/policies.teebravo.json` chứa nội dung tiếng Anh hoàn chỉnh và 7 trang published: About, Contact, Shipping, Returns, Privacy, Terms, FAQ. Seeder `TeeBravoPolicySeeder` chạy một lần qua migration `2026_09_22_000007`, ghi cấu hình và trang trong cùng transaction; deploy sau giữ chỉnh sửa admin. File JSON được đóng gói trong Docker.

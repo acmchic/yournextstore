@@ -12,14 +12,11 @@ const nextConfig: NextConfig = {
 	devIndicators: false,
 	reactCompiler: true,
 	cacheComponents: true,
-	async rewrites() {
+	async redirects() {
 		return [
-			{ source: "/shipping-policy", destination: "/legal/shipping-policy" },
-			{ source: "/return-policy", destination: "/legal/return-policy" },
-			{ source: "/privacy-policy", destination: "/legal/privacy-policy" },
-			{ source: "/terms-of-service", destination: "/legal/terms-of-service" },
-			{ source: "/contact-policy", destination: "/legal/contact" },
-			{ source: "/faq-policy", destination: "/legal/faq" },
+			{ source: "/legal/:slug", destination: "/:slug", permanent: true },
+			{ source: "/contact-policy", destination: "/contact", permanent: true },
+			{ source: "/faq-policy", destination: "/faq", permanent: true },
 		];
 	},
 	experimental: {

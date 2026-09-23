@@ -57,10 +57,11 @@ no database or Stripe credentials. Domain tokens always come from environment.
 The export refuses to replace an existing file. Repeated default imports create
 no duplicate pages; explicit overwrite reapplies the file as the chosen source.
 
-Published pages are served at `/legal/{slug}` (About redirects to `/about`) and
-are automatically listed in the footer and sitemap. Contact and FAQ use
-`/legal/contact` and `/legal/faq`; the separate optional `/contact` form is not
-required for the published contact policy. Unpublished pages remain unavailable.
+Published pages are served at `/{slug}`, including `/contact` and `/faq`.
+Legacy `/legal/{slug}` URLs permanently redirect (308) to the root URL.
+Footer links, canonical metadata, sitemap and return-policy JSON-LD use the same
+root URLs. Contact content no longer depends on the optional contact-form flag.
+Unpublished pages remain unavailable.
 Allow existing Next.js caches to expire or restart/redeploy after publication.
 
 Before Merchant Center submission, verify all seven public links, a test purchase,

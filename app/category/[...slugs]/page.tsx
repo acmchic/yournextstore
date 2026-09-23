@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Fragment, Suspense } from "react";
 import { ProductCard } from "@/components/product-card";
+import { OccasionCollections } from "@/components/sections/occasion-collections";
 import { ProductFilters, ProductFiltersMobile } from "@/components/sections/product-filters";
 import {
 	Breadcrumb,
@@ -257,6 +258,7 @@ export default async function CategoryPage(props: {
 					</Suspense>
 				</div>
 			</div>
+			{(!filters.page || filters.page === "1") && <OccasionCollections catalog={slug} />}
 		</div>
 	);
 }

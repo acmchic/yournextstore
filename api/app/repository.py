@@ -71,9 +71,20 @@ def _rotate_listing_color(product: dict[str, Any], position: int) -> dict[str, A
     return {**product, "default_color": color_slug, "default_color_name": color_name}
 
 
+def _collection_title_pattern(keywords: str | None) -> str:
+    terms = [re.escape(term.strip()) for term in (keywords or "").split(",") if term.strip()]
+    return "(^|[^[:alnum:]])(" + "|".join(terms) + ")([^[:alnum:]]|$)" if terms else "a^"
+
+
 def _listing_catalog_at(catalogs: list[dict[str, Any]], position: int) -> str:
-    """Cycle through any eligible catalog without coupling collections to catalog names."""
-    return catalogs[position % len(catalogs)]["slug"]
+    """Rotate garment types first, then catalogs within each type."""
+    groups = {}
+    for catalog in catalogs:
+        kind = next((item["type_slug"] for item in catalog.get("taxonomy", [])), catalog["slug"])
+        groups.setdefault(kind, []).append(catalog)
+    types = list(groups.values())
+    group = types[position % len(types)]
+    return group[(position // len(types)) % len(group)]["slug"]
 
 
 def _catalog_mockup_category(departments: set[str]) -> str | None:
@@ -301,6 +312,10 @@ class CatalogRepository:
         collection: str | None = None,
         query: str | None = None,
     ) -> dict[str, Any]:
+        if collection:
+            return await self.browse_shop(
+                limit=limit, offset=offset, catalog_slug=catalog, collection=collection, query=query
+            )
         filters = ["p.status = 'active'"]
         params: list[Any] = []
         joins = ["join designs d on d.id=p.design_id"]
@@ -319,11 +334,6 @@ class CatalogRepository:
                 )"""
             )
             params.append(catalog)
-        if collection:
-            joins.append("join collection_products cp_filter on cp_filter.product_id=p.id")
-            joins.append("join collections co_filter on co_filter.id=cp_filter.collection_id")
-            filters.append("co_filter.slug=%s and co_filter.status='active'")
-            params.append(collection)
         if query:
             filters.append("(p.title like %s or p.description like %s)")
             value = f"%{query}%"
@@ -372,12 +382,13 @@ class CatalogRepository:
         product_type: str | None = None,
         catalog_slug: str | None = None,
         collection: str | None = None,
+        query: str | None = None,
     ) -> dict[str, Any]:
         catalogs = await self.list_catalogs()
         rule = None
         if collection:
             rule = await self._database.fetch_one(
-                "select id, selection_rule from collections where slug=%s and status='active'",
+                "select id, selection_rule, selection_keywords from collections where slug=%s and status='active'",
                 (collection,),
             )
             if not rule:
@@ -402,12 +413,18 @@ class CatalogRepository:
             return {"data": [], "meta": {"count": 0, "limit": limit, "offset": offset}}
 
         if rule and rule["selection_rule"] != "manual":
-            count = await self._database.fetch_one(
-                "select count(*) count from products where status='active'", ()
-            )
+            where = "from products where status='active'"
+            values = ()
+            if rule["selection_rule"] == "keywords":
+                where += " and regexp_like(title, %s, 'i')"
+                values = (_collection_title_pattern(rule.get("selection_keywords")),)
+            if query:
+                where += " and (title like %s or description like %s)"
+                values += (f"%{query}%", f"%{query}%")
+            count = await self._database.fetch_one(f"select count(*) count {where}", values)
             rows = await self._database.fetch_all(
-                "select slug from products where status='active' order by published_at desc, id desc limit %s offset %s",
-                (limit, offset),
+                f"select slug {where} order by published_at desc, id desc limit %s offset %s",
+                (*values, limit, offset),
             )
             data = []
             for index, row in enumerate(rows):
@@ -443,6 +460,9 @@ class CatalogRepository:
         if rule and rule["selection_rule"] == "manual":
             where += " and exists(select 1 from collection_products cp where cp.product_id=p.id and cp.collection_id=%s)"
             params += (rule["id"],)
+        if query:
+            where += " and (p.title like %s or p.description like %s)"
+            params += (f"%{query}%", f"%{query}%")
         count = await self._database.fetch_one(f"select count(*) count {where}", params)
         rows = await self._database.fetch_all(
             f"select p.slug {where} order by p.published_at desc, p.id desc limit %s offset %s",
@@ -1337,9 +1357,9 @@ class CatalogRepository:
         return catalogs
 
     async def list_collections(self) -> list[dict[str, Any]]:
-        return await self._database.fetch_all(
+        collections = await self._database.fetch_all(
             """
-            select public_id id, slug, title, description, image_url, indexable, created_at, updated_at, featured, selection_rule
+            select public_id id, slug, title, description, image_url, indexable, created_at, updated_at, featured, selection_rule, selection_keywords
             from collections where status='active' and (
               (selection_rule!='manual' and exists(select 1 from products where status='active'))
               or exists(select 1 from collection_products cp join products p on p.id=cp.product_id where cp.collection_id=collections.id and p.status='active')
@@ -1347,6 +1367,18 @@ class CatalogRepository:
             """,
             (),
         )
+
+        populated = []
+        for collection in collections:
+            if collection["selection_rule"] == "keywords":
+                match = await self._database.fetch_one(
+                    "select id from products where status='active' and regexp_like(title, %s, 'i') limit 1",
+                    (_collection_title_pattern(collection.get("selection_keywords")),),
+                )
+                if not match:
+                    continue
+            populated.append(collection)
+        return populated
 
     async def get_collection(self, slug: str) -> dict[str, Any] | None:
         collection = await self._database.fetch_one(
