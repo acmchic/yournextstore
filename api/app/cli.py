@@ -6,6 +6,9 @@ import json
 import shutil
 from pathlib import Path
 from typing import Any
+from urllib.parse import urljoin, urlparse
+
+import httpx
 
 from app.catalog_assignment import assign_product_catalog, seed_product_showcase
 from app.db import Database
@@ -15,6 +18,116 @@ from app.gearment.web_catalog import fetch_product_page
 from app.importer import SUPPORTED_EXTENSIONS, import_design, register_design_manifests
 from app.settings import settings
 from scripts.analyze_catalog_mockups import analyze
+
+
+async def prewarm_shop_images(args: argparse.Namespace) -> None:
+    if args.page < 1 or not 1 <= args.limit <= 48 or args.concurrency < 1:
+        raise ValueError("Page, limit, or concurrency is outside the supported range")
+
+    offset = (args.page - 1) * args.limit
+    params = {"limit": args.limit, "offset": offset}
+    params.update(
+        {
+            key: value
+            for key, value in {
+                "department": args.department,
+                "product_type": args.product_type,
+                "catalog": args.catalog,
+                "collection": args.collection,
+            }.items()
+            if value
+        }
+    )
+    api_url = args.api_url.rstrip("/")
+    api_origin = urlparse(api_url)
+
+    async with httpx.AsyncClient(base_url=f"{api_url}/", timeout=120.0, follow_redirects=True) as client:
+        response = await client.get("v1/shop", params=params)
+        response.raise_for_status()
+        payload = response.json()
+
+        def listing_image(product: dict[str, Any]) -> str | None:
+            variants = product.get("variants") or []
+            first_variant = variants[0] if variants else {}
+            catalog = product.get("default_catalog") or first_variant.get("catalog")
+            default_color = product.get("default_color") or next(
+                (variant.get("color") for variant in variants if variant.get("catalog") == catalog),
+                None,
+            )
+            media = product.get("media") or []
+            preferred_media = [
+                item
+                for item in media
+                if (not catalog or item.get("catalog") == catalog)
+                and (not default_color or item.get("color") == default_color)
+            ]
+            display_media = preferred_media or media
+            media_url = next(
+                (
+                    url
+                    for item in display_media
+                    for url in (item.get("url"), item.get("blank_url"))
+                    if isinstance(url, str) and url
+                ),
+                None,
+            )
+            if media_url:
+                return media_url
+            variant_images = next(
+                (variant.get("images") for variant in variants if variant.get("images")), []
+            )
+            return variant_images[0] if variant_images and isinstance(variant_images[0], str) else None
+
+        products = payload.get("data", [])
+        entries = [
+            {
+                "slug": product.get("slug"),
+                "name": product.get("title"),
+                "image_url": listing_image(product),
+            }
+            for product in products
+        ]
+        entries = [entry for entry in entries if entry["image_url"]]
+        print(
+            json.dumps(
+                {"page": args.page, "count": len(entries), "products": entries},
+                ensure_ascii=False,
+            )
+        )
+        if args.dry_run:
+            return
+
+        semaphore = asyncio.Semaphore(args.concurrency)
+
+        async def warm(entry: dict[str, Any]) -> dict[str, Any]:
+            image_url = urljoin(f"{api_url}/", entry["image_url"])
+            image_origin = urlparse(image_url)
+            if (image_origin.scheme, image_origin.netloc) != (api_origin.scheme, api_origin.netloc):
+                return {"slug": entry["slug"], "status": "skipped_external_url"}
+            async with semaphore:
+                try:
+                    image_response = await client.get(image_url)
+                    image_response.raise_for_status()
+                    return {
+                        "slug": entry["slug"],
+                        "status": image_response.headers.get("X-Mockup-Cache", "warmed"),
+                        "bytes": len(image_response.content),
+                    }
+                except httpx.HTTPError as error:
+                    return {"slug": entry["slug"], "status": "error", "error": str(error)}
+
+        results = await asyncio.gather(*(warm(entry) for entry in entries))
+        print(
+            json.dumps(
+                {
+                    "warmed": sum(
+                        row["status"] in {"hit", "miss", "warmed"} for row in results
+                    ),
+                    "results": results,
+                },
+                ensure_ascii=False,
+            )
+        )
 
 
 async def run_import(args: argparse.Namespace) -> None:
@@ -444,10 +557,23 @@ def main() -> None:
         help="Number of products to assign to each eligible catalog (default: 4)",
     )
     subparsers.add_parser("analyze-catalog-mockups")
-    retitle = subparsers.add_parser(
+    subparsers.add_parser(
         "retitle-products",
         help="Prettify raw lowercase product titles (Title Case + apostrophes)",
     )
+    prewarm = subparsers.add_parser(
+        "prewarm-shop-images",
+        help="Render and cache the product images for a shop listing page",
+    )
+    prewarm.add_argument("--api-url", default="http://127.0.0.1:8000")
+    prewarm.add_argument("--department", default="unisex")
+    prewarm.add_argument("--product-type", default=None)
+    prewarm.add_argument("--catalog", default=None)
+    prewarm.add_argument("--collection", default=None)
+    prewarm.add_argument("--page", type=int, default=1)
+    prewarm.add_argument("--limit", type=int, default=24)
+    prewarm.add_argument("--concurrency", type=int, default=2)
+    prewarm.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     if args.command == "import-products":
         asyncio.run(run_import(args))
@@ -465,6 +591,8 @@ def main() -> None:
         asyncio.run(analyze())
     elif args.command == "retitle-products":
         asyncio.run(run_retitle_products(args))
+    elif args.command == "prewarm-shop-images":
+        asyncio.run(prewarm_shop_images(args))
 
 
 if __name__ == "__main__":

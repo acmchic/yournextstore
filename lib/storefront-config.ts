@@ -2,11 +2,11 @@ export const storefront = {
 	brandName: "TeeBravo",
 	shortName: "TeeBravo",
 	url: (process.env.NEXT_PUBLIC_URL || "https://teebravo.com").replace(/\/+$/, ""),
-	positioning: "Premium graphic clothing",
+	positioning: "Printed apparel and accessories",
 	description:
-		"Discover TeeBravo graphic tees, hoodies, and sweatshirts. Expressive designs and everyday silhouettes, made for your personal style.",
+		"Discover TeeBravo printed T-shirts, hoodies, sweatshirts and accessories. Choose a design, then find the product, color and size that suit you.",
 	heroStatement:
-		"Graphic tees, hoodies, and sweatshirts with a point of view. Find your design. Make it part of your everyday.",
+		"Printed T-shirts, hoodies, sweatshirts and accessories for everyday use. Choose your design, product and color.",
 	footerStatement:
-		"TeeBravo brings expressive graphics to everyday clothing. Explore the collection and find the piece that feels like you.",
+		"TeeBravo brings printed designs to clothing and accessories. Browse by interest or occasion, then choose the product that suits you.",
 } as const;

@@ -35,8 +35,19 @@ def test_listing_colors_rotate_across_available_variants():
 
     assert _rotate_listing_color(product, 0)["default_color"] == "navy"
     assert _rotate_listing_color(product, 1)["default_color"] == "red"
-    assert _rotate_listing_color(product, 2)["default_color"] == "white"
-    assert _rotate_listing_color(product, 3)["default_color"] == "navy"
+    assert _rotate_listing_color(product, 2)["default_color"] == "navy"
+    assert _rotate_listing_color(product, 3)["default_color"] == "red"
+
+
+def test_listing_color_uses_white_when_it_is_the_only_available_color():
+    product = {
+        "variants": [
+            {"color": "white", "color_name": "White", "stock": 10},
+            {"color": "navy", "color_name": "Navy", "stock": 0},
+        ]
+    }
+
+    assert _rotate_listing_color(product, 0)["default_color"] == "white"
 
 
 def test_listing_catalogs_rotate_without_named_catalog_rules():

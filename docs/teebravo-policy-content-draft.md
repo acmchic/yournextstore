@@ -36,9 +36,9 @@ Populate existing fields as follows: business identity in `business_name` and `b
 
 Destination: `/about`. CMS slug: `about`.
 
-### Graphic clothing for everyday wear
+### Printed clothing and accessories
 
-TeeBravo is an online store for graphic clothing, serving customers in the United States. Browse a design, choose an available garment, and select your color and size.
+TeeBravo is an online store for printed clothing and accessories, serving customers in the United States. Browse a design, choose an available product, and select the options that suit you.
 
 Before you order, check the details and size guide for the garment you choose. Fit and materials can vary between styles.
 

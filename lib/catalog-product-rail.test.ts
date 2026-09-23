@@ -29,3 +29,18 @@ test("catalog rail never selects an out-of-stock color", () => {
 
 	assert.equal(getListingColorName(selected ?? variant("Fallback")), "Natural");
 });
+
+test("catalog rail skips white while another in-stock color is available", () => {
+	const variants = [variant("White"), variant("Black"), variant("Red")];
+	const selected = Array.from({ length: 4 }, (_, position) =>
+		getListingColorName(selectListingColor(variants, position) ?? variants[0]),
+	);
+
+	assert.deepEqual(selected, ["Black", "Red", "Black", "Red"]);
+});
+
+test("catalog rail falls back to white when no other color is available", () => {
+	const selected = selectListingColor([variant("White"), variant("Black", 0)], 0);
+
+	assert.equal(getListingColorName(selected ?? variant("Fallback")), "White");
+});

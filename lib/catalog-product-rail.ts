@@ -26,6 +26,10 @@ export function selectListingColor<T extends ListingColorVariant>(variants: read
 		seenColors.add(colorName);
 		return true;
 	});
+	const nonWhiteColors = colors.filter(
+		(variant) => getListingColorName(variant)?.trim().toLowerCase() !== "white",
+	);
+	const listingColors = nonWhiteColors.length > 0 ? nonWhiteColors : colors;
 
-	return colors.length > 0 ? colors[position % colors.length] : null;
+	return listingColors.length > 0 ? listingColors[position % listingColors.length] : null;
 }

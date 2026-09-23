@@ -57,7 +57,7 @@ def _public_catalog_taxonomy(rows: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 
 def _rotate_listing_color(product: dict[str, Any], position: int) -> dict[str, Any]:
-    """Pick a stable, varied in-stock color for a product card in a listing."""
+    """Pick a stable, varied non-white color for a product card when possible."""
     colors = list(
         {
             variant["color"]: variant["color_name"]
@@ -67,7 +67,14 @@ def _rotate_listing_color(product: dict[str, Any], position: int) -> dict[str, A
     )
     if not colors:
         return product
-    color_slug, color_name = colors[position % len(colors)]
+    non_white_colors = [
+        (color_slug, color_name)
+        for color_slug, color_name in colors
+        if str(color_slug).strip().casefold() != "white"
+        and str(color_name).strip().casefold() != "white"
+    ]
+    listing_colors = non_white_colors or colors
+    color_slug, color_name = listing_colors[position % len(listing_colors)]
     return {**product, "default_color": color_slug, "default_color_name": color_name}
 
 

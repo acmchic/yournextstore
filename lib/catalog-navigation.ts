@@ -4,24 +4,24 @@ export const departments = [
 	{
 		slug: "unisex",
 		label: "Unisex",
-		description: "Graphic tees, hoodies, and sweatshirts designed for everyone.",
+		description: "Printed T-shirts, hoodies and sweatshirts in unisex styles.",
 	},
 	{
 		slug: "women",
 		label: "Women",
-		description: "Explore graphic tees, relaxed layers, and everyday silhouettes.",
+		description: "Explore printed T-shirts, relaxed layers and women’s styles.",
 	},
 	{
 		slug: "kids",
 		label: "Kids",
-		description: "Graphic tees and layers in youth sizes. Choose a design, then find their fit.",
+		description: "Printed T-shirts and layers in youth sizes. Choose a design, then find their fit.",
 	},
 	{
 		slug: "accessories",
 		label: "Accessories",
-		description: "Small details. Personal touches. Explore graphic accessories.",
+		description: "Explore printed ornaments, flags and other accessories.",
 	},
-	{ slug: "home-living", label: "Home & Living", description: "Graphic objects for your everyday spaces." },
+	{ slug: "home-living", label: "Home & Living", description: "Printed pieces for your everyday spaces." },
 ] as const;
 
 export function catalogNavigation(catalogs: ApiCatalog[]) {

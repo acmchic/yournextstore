@@ -1,5 +1,12 @@
 # TeeBravo — context và kiến trúc cho AI
 
+## About page editorial (2026-09-23)
+
+- `/about` là route tĩnh riêng tại `app/about/page.tsx`, không còn dùng renderer plain text của `app/[slug]/page.tsx`. Trang giữ nội dung factual về sản phẩm in sau khi đặt, thị trường US, địa chỉ và hỗ trợ; metadata riêng dùng định vị "printed apparel and accessories".
+- Trang dùng ba ảnh editorial do TeeBravo tạo riêng trong `public/images/about/`, hiển thị qua `StoreMedia`. Ảnh không đại diện cho một SKU cụ thể, không có logo, chữ hoặc claim sản phẩm.
+- Footer luôn hiển thị About TeeBravo kể cả khi API legal pages tạm thời không khả dụng. Sitemap đưa `/about` vào static routes và loại bản CMS trùng khỏi legal routes.
+- Các câu định vị chung trên storefront dùng "printed clothing/apparel and accessories". Cụm "graphic tees" vẫn có thể dùng ở collection hoặc category áo khi đúng search intent; không dùng "graphic clothing" làm tên chung cho mọi catalog.
+
 ## Merchandising và collection theo dịp (2026-09-23)
 
 - Homepage có hai block CMS mới: Shop by theme dùng icon vuông và Shop by holiday dùng banner ngang. Cả hai responsive bằng horizontal snap trên mobile và grid trên desktop, giữ typography/spacing của TeeBravo thay vì sao chép UI TeeNavi.
@@ -45,7 +52,7 @@
 
 - Home: `Hero` → `HomeCollections`, phong cách ảnh lớn, monochrome, typography gọn. Không còn form newsletter chưa có API hoạt động hoặc nút Favorites không có chức năng.
 - `lib/catalog-navigation.ts` là nguồn grouping menu; `/shop/[department]?type=...&page=...` dùng `/v1/shop` phân trang 24 cặp design–catalog. Storefront chuẩn hóa catalog có taxonomy nguồn `men` thành `unisex`, bỏ taxonomy `women` trùng trên cùng loại, và chỉ giữ `women` cho catalog nữ chuyên biệt. Không gộp sản phẩm chỉ theo design ID. Filter/page noindex, department chính có canonical và breadcrumbs.
-- Admin `/collections`: active/draft, featured, sort order, mô tả; rule `manual` chọn design, `newest` dùng thứ tự published_at, `tees` chỉ catalog taxonomy t-shirts. Home tối đa 3 collections featured, 4 sản phẩm/module. Automatic collections xoay vòng toàn bộ catalog đủ điều kiện bằng một selector dùng chung, rồi xoay màu còn hàng theo vị trí card; không hard-code hoodie, tee hay tên catalog cụ thể. Đây là lựa chọn merchandising hiện tại, không phải bestseller.
+- Admin `/collections`: active/draft, featured, sort order, mô tả; rule `manual` chọn design, `newest` dùng thứ tự published_at, `tees` chỉ catalog taxonomy t-shirts. Home tối đa 3 collections featured, 4 sản phẩm/module. Automatic collections xoay vòng toàn bộ catalog đủ điều kiện bằng một selector dùng chung, rồi xoay màu còn hàng theo vị trí card; màu White không được dùng làm ảnh card khi catalog còn màu khác đang bán, nhưng vẫn là lựa chọn mua trên trang chi tiết. Không hard-code hoodie, tee hay tên catalog cụ thể. Đây là lựa chọn merchandising hiện tại, không phải bestseller.
 - Admin `/legal`: soạn plain text, preview, draft/published, unpublish. URL không đổi sau khi tạo. API chỉ đọc published. Text được escape để tránh XSS. Thay đổi lưu vào activity_logs cùng transaction. Footer/sitemap đọc published policies; không có nội dung chính sách giả được xuất bản.
 - Migrations Laravel bổ sung: `2026_09_08_000001_create_legal_pages_table.php`, `2026_09_08_000002_add_collection_rules.php` trên connection `store`. Chạy trước khi cập nhật API/storefront ở môi trường mới.
 - Feed chuẩn bị tại `/api/feed/google?department=unisex&page=1` (unisex/women/kids, 12 cặp design–catalog/trang, header X-Feed-Pages). `MERCHANT_FEED_ENABLED=false` mặc định. `lib/merchant.ts` chia sẻ URL, giá, currency và stock với JSON-LD. Chỉ bật sau khi kiểm tra payment, quyền artwork, chính sách, ảnh HTTPS và dữ liệu feed. Không coi feature này là Google approval.
@@ -57,7 +64,7 @@
 
 ## 1. Repo này làm gì?
 
-Thương hiệu public là **TeeBravo**, định vị premium graphic clothing cho khách hàng US, domain chính thức **https://teebravo.com**. Tên thư mục local vẫn là `Teeravo`.
+Thương hiệu public là **TeeBravo**, bán áo và phụ kiện in thiết kế cho khách hàng US, domain chính thức **https://teebravo.com**. Tên thư mục local vẫn là `Teeravo`.
 
 TeeBravo là storefront bán áo in design, phục vụ khách hàng US. Một design có thể được bán trên nhiều catalog khác nhau, ví dụ cùng artwork trên T-shirt và hoodie. Không tạo một bản artwork riêng cho từng loại áo, màu hoặc size.
 
@@ -240,3 +247,8 @@ Schema SQL hiện tại là nguồn quan trọng hơn phần giới thiệu lega
 - Admin Products có các ô folder với số product trong DB (bao gồm draft), dùng `designs.source_path` để phân nhóm, giữ cả đường dẫn để phân biệt thư mục trùng tên. Chọn folder bao gồm thư mục con, kết hợp search/status và phân trang 20 sản phẩm.
 - Sau import, UI mở trang đầu của folder vừa import và xóa bộ lọc search/status cũ, sắp theo updated_at mới nhất. Kết quả phân biệt ảnh tạo product mới và ảnh đã tồn tại. Backend kiểm tra các product ID importer trả về có trong DB Admin; báo lỗi cấu hình nếu không khớp.
 - Modal mặc định chọn đường dẫn kho external khi có cấu hình, không tự chọn thư mục ảnh mẫu. Dropdown ghi rõ Project images hoặc External storage. Preview storefront dùng URL cấu hình production thay vì localhost.
+
+## Warm ảnh shop (2026-09-24)
+
+- Ảnh card mockup được render on-demand qua API, sau đó lưu trong `MOCKUP_CACHE_DIR` (`/app/.cache/mockups` trong Compose) trên volume bền và dùng chung giữa API/worker. URL ảnh vẫn ổn định; request sau đọc bản render cache. Không lưu bản trùng trong `api/public`.
+- `python -m app.cli prewarm-shop-images` đọc đúng trang/filter từ `/v1/shop`, in danh sách thiết kế và URL ảnh, rồi gọi URL ảnh với concurrency mặc định 2 để render trước. Mặc định là 24 item đầu của Unisex; có thể truyền type/catalog/collection/page. `--dry-run` chỉ xem danh sách. Xem `api/README.md` để chạy trong API container.

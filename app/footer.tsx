@@ -53,14 +53,17 @@ async function FooterPolicyLinks() {
 	return (
 		<>
 			<FooterColumn title="Customer care">
-				{supportPaths.map((href) => {
-					const page = pages.data.find((page) => page.href === href);
-					return page ? (
-						<FooterLink key={href} href={href}>
-							{page.label}
-						</FooterLink>
-					) : null;
-				})}
+				<FooterLink href="/about">About TeeBravo</FooterLink>
+				{supportPaths
+					.filter((href) => href !== "/about")
+					.map((href) => {
+						const page = pages.data.find((page) => page.href === href);
+						return page ? (
+							<FooterLink key={href} href={href}>
+								{page.label}
+							</FooterLink>
+						) : null;
+					})}
 				<FooterBlogLink />
 			</FooterColumn>
 			<FooterColumn title="Policies">
@@ -105,7 +108,7 @@ export function Footer() {
 			<div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-10">
 				<div className="border-b border-border py-16 sm:py-20">
 					<p className="text-center text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-						Graphic clothing with a point of view
+						Printed clothing and accessories
 					</p>
 					<div className="mt-6 select-none text-center font-display text-[14vw] leading-[0.9] tracking-[0.05em] text-foreground sm:text-[10vw] lg:text-[8vw]">
 						{storefront.brandName.toUpperCase()}

@@ -284,3 +284,21 @@ The four `dst_quad` points are top-left, top-right, bottom-right, bottom-left in
 - Put a CDN in front of rendered URLs.
 - Cache key includes product, variant, artwork, template, output width, format, and asset version fields.
 - Warm the first 1-3 product images asynchronously when a product page is requested.
+
+To preview or pre-render the images on a shop listing page, run this inside the
+API container. It asks `/v1/shop` for the exact page/filter and requests each
+card's selected image with concurrency limited to two by default. Rendered files
+go into the shared persistent mockup cache, so subsequent public image requests
+use the same URL and skip rendering; no duplicate files are needed under
+`api/public`.
+
+```bash
+docker compose -f api/docker-compose.yml exec -T api \
+  python -m app.cli prewarm-shop-images --department unisex --page 1 --dry-run
+docker compose -f api/docker-compose.yml exec -T api \
+  python -m app.cli prewarm-shop-images --department unisex --page 1
+```
+
+Use `--product-type`, `--catalog`, or `--collection` to match filtered shop
+pages, `--page` to select a later page, and `--limit` up to 48. The command
+prints the selected product/image list before rendering it.

@@ -25,7 +25,7 @@ export function Newsletter() {
 								Get the next drop
 							</h2>
 							<p className="mt-4 text-lg leading-relaxed text-background/60 max-w-md mx-auto">
-								Release notes for new graphics, blank tests, and limited apparel edits.
+								Updates on new designs, product tests and limited releases.
 							</p>
 							<form action={action} className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:flex-row">
 								<input

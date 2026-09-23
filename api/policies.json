@@ -26,7 +26,7 @@
 		{
 			"slug": "about",
 			"title": "About TeeBravo",
-			"content": "TeeBravo offers graphic clothing for customers in the United States.\n\nOur story\n{{about_story}}\n\nContact\n{{business_name}}\n{{business_address}}\n{{support_email}}\nWebsite: {{storefront_url}}",
+			"content": "TeeBravo offers printed clothing and accessories for customers in the United States.\n\nOur story\n{{about_story}}\n\nContact\n{{business_name}}\n{{business_address}}\n{{support_email}}\nWebsite: {{storefront_url}}",
 			"published": false
 		},
 		{

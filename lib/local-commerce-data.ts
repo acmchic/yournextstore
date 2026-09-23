@@ -43,7 +43,7 @@ const collections = [
 		name: "Current Edit",
 		slug: "featured-designs",
 		image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1600&auto=format&fit=crop",
-		description: "A tight edit of graphic apparel used for organic demand testing.",
+		description: "A focused selection of printed clothing and accessories.",
 	},
 	{
 		id: "col-street",

@@ -74,7 +74,7 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
 				<p className="mx-auto mt-5 max-w-md text-sm text-muted-foreground">{group.description}</p>
 			</header>
 			<div className="grid gap-8 p-4 md:p-8 lg:grid-cols-[18rem_minmax(0,1fr)]">
-				<aside>
+				<aside className="hidden lg:block">
 					<nav
 						aria-label={`${group.label} categories`}
 						className="flex flex-wrap gap-3 lg:sticky lg:top-8 lg:flex-col"

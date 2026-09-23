@@ -118,7 +118,7 @@ export async function CatalogShowcase() {
 					</h2>
 				</div>
 				<p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-					A rotating selection of graphic-led apparel and objects. Choose a body, then make it yours.
+					A rotating selection of printed clothing and accessories. Choose a product, then find your design.
 				</p>
 			</div>
 

@@ -8,7 +8,7 @@ export function About() {
 					The standard
 				</p>
 				<h2 className="mt-5 max-w-sm font-display text-5xl font-black uppercase leading-[0.82] tracking-[-0.06em] sm:text-6xl">
-					A graphic. A feeling. Your everyday.
+					Printed designs for everyday things.
 				</h2>
 			</div>
 			<div className="col-span-12 p-7 md:col-span-7 md:p-12">
@@ -16,7 +16,7 @@ export function About() {
 					<div>
 						<p className="font-mono text-[10px] uppercase tracking-[0.18em]">Edit</p>
 						<p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-							Discover graphics that speak to your interests and make an everyday outfit your own.
+							Browse designs by interest or occasion, then choose the product you want.
 						</p>
 					</div>
 					<div>

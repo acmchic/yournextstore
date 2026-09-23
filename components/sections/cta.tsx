@@ -20,8 +20,7 @@ export function CTA() {
 				<div className="mx-auto max-w-3xl border border-border bg-background p-8 sm:p-12">
 					<h2 className="text-4xl font-extrabold leading-tight sm:text-5xl">First drops are live.</h2>
 					<p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-						{storefront.positioning} with original graphics, premium blank selection, and lean release
-						discipline.
+						{storefront.positioning}, with a focused selection of designs and product options.
 					</p>
 
 					<div className="mt-8 flex flex-col gap-4 sm:flex-row">

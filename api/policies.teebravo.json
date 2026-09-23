@@ -4,7 +4,7 @@
 		"business_name": "TeeBravo",
 		"business_address": "54 Lieu Giai, Ba Dinh, Hanoi 100000, Vietnam",
 		"support_email": "help@teebravo.com",
-		"about_story": "A good graphic can say a lot before you say a word. TeeBravo is for the designs you connect with and the clothes you reach for on an ordinary day.\n\nChoose a design, then find the garment, color and size that suit you. We print each item after you order it. That gives you a choice of styles without asking you to settle for whichever finished shirt happens to be on a shelf.\n\nWe are based in Hanoi, Vietnam, and serve customers in the United States. You can check the materials and size guide on each product page before buying. If something arrives damaged, has a print defect or does not match your order, email us. We will help put it right under our Returns & Refunds policy.",
+		"about_story": "TeeBravo brings printed designs to T-shirts, hoodies, sweatshirts and accessories for customers in the United States.\n\nBrowse by interest or occasion, choose a design, then pick the product, color and size that suit you. Each item is printed after you order. The product page lists the available materials, colors, sizes and price for your selection.\n\nTeeBravo is based in Hanoi, Vietnam. Please review the product details and size guide before checkout. If an item arrives damaged, has a print defect or does not match your order, email us and we will review the issue under our Returns & Refunds policy.",
 		"restrictions": "We ship to the United States only. We do not impose additional destination restrictions within the United States. International shipping is not available.",
 		"returns_eligibility": "If an item arrives damaged, has a manufacturing or printing defect, or differs from your order, you may choose a free replacement or a refund after we verify the issue. This includes receiving the wrong design, garment, color or size, and a garment whose measurements fall outside the tolerance stated in its size guide.\n\nEvery item is printed to order. We do not accept returns or exchanges for a change of mind, a size or color you selected incorrectly, or a fit preference when the item matches the order and published size guide. Please check the measurements before ordering. Normal wear, misuse and damage caused by washing contrary to the care instructions are not covered. These limits do not remove any rights you have under applicable consumer law.",
 		"returns_window": "Email us within 30 calendar days after delivery to report a damaged, defective or incorrect item. This is the deadline to contact us, not a deadline to send anything back. If a shipment has not arrived, contact us as soon as the latest estimated delivery date has passed, preferably within 30 calendar days of that date, so we can investigate. Statutory rights and remedies are not limited by these reporting periods.",
@@ -26,7 +26,7 @@
 		{
 			"slug": "about",
 			"title": "About TeeBravo",
-			"content": "Graphic clothing for everyday wear\n{{about_story}}\n\nBusiness information\n{{business_name}}\n{{business_address}}\n\nQuestions about a product or order? Email {{support_email}}.\nWebsite: {{storefront_url}}",
+			"content": "Printed clothing and accessories\n{{about_story}}\n\nBusiness information\n{{business_name}}\n{{business_address}}\n\nQuestions about a product or order? Email {{support_email}}.\nWebsite: {{storefront_url}}",
 			"published": true
 		},
 		{

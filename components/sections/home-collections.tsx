@@ -116,7 +116,7 @@ function StyleNavigation({ catalogs, products }: { catalogs: ApiCatalog[]; produ
 					</h2>
 				</div>
 				<p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-					Start with the garment, then find the graphic that feels like you.
+					Start with the product, then choose the design, color and fit that suit you.
 				</p>
 			</header>
 			<nav
@@ -302,13 +302,13 @@ function AboutBlock() {
 					id="about-teebravo"
 					className="mt-5 max-w-lg font-display text-4xl leading-[0.95] tracking-tight sm:text-6xl"
 				>
-					Graphic clothing with a point of view.
+					Printed designs for the things you wear and use.
 				</h2>
 			</div>
 			<div className="flex flex-col justify-center px-6 py-12 sm:px-10 md:px-16 md:py-20">
 				<p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
-					TeeBravo brings expressive graphics to everyday clothing. Start with the artwork, choose the
-					silhouette, and find the color and fit that work for your rotation.
+					TeeBravo brings printed designs to clothing and accessories. Browse by interest or occasion, then
+					choose the product, color and size that suit you.
 				</p>
 				<Link
 					href="/about"
@@ -405,7 +405,7 @@ export async function HomeCollections() {
 			<ProductRail
 				eyebrow="01 / Just in"
 				title="New arrivals"
-				description="Fresh graphics on tees, hoodies and sweatshirts. Find your next everyday favorite."
+				description="New designs on T-shirts, hoodies and sweatshirts. Find your next everyday favorite."
 				products={newArrivals}
 				href="/collection/new-arrivals"
 				linkLabel="View all new arrivals"
@@ -417,7 +417,7 @@ export async function HomeCollections() {
 			<ProductRail
 				eyebrow="02 / Curated by TeeBravo"
 				title="TeeBravo picks"
-				description="A few favorites from our latest edit. Find the graphic that feels like you."
+				description="A few favorites from our latest edit. Choose a design, then find the product you want."
 				products={picks}
 				href={picksCollection ? `/collection/${picksCollection.slug}` : "/products"}
 				linkLabel="Explore the picks"
