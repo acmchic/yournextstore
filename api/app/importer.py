@@ -37,17 +37,26 @@ def slugify(value: str) -> str:
 
 _SMALL_WORDS = {
     "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "of", "on",
-    "or", "the", "to", "with", "is", "it", "its", "my", "your",
+    "or", "the", "to", "with", "is", "it", "its",
 }
 _UNCAPPED = {"i", "i'm", "i'd", "i'll", "i've", "us", "usa", "nyc", "diy", "bff"}
+_CONTRACTIONS = {
+    "cant": "can't",
+    "dont": "don't",
+    "wont": "won't",
+    "youre": "you're",
+}
 
 
 def prettify_product_title(raw: str) -> str:
     """Convert a raw filename-derived title (all-lowercase, no punctuation)
     into a presentable Title Case headline, restoring common apostrophes."""
-    name = raw.replace("dont", "don't").replace("cant ", "can't ").replace("wont ", "won't ")
-    name = re.sub(r"\byoure\b", "you're", name, flags=re.IGNORECASE)
-    name = re.sub(r"\byour\b(?= )", "your", name)
+    name = re.sub(
+        r"\b(" + "|".join(_CONTRACTIONS) + r")\b",
+        lambda match: _CONTRACTIONS[match.group(1).lower()],
+        raw,
+        flags=re.IGNORECASE,
+    )
     name = re.sub(r"\bles\b(?=s? )", "Les", name, flags=re.IGNORECASE)
     words = name.split()
     out: list[str] = []

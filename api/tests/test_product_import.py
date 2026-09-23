@@ -8,7 +8,7 @@ import pytest
 from PIL import Image
 
 from app import cli
-from app.importer import import_design, product_name_from_filename
+from app.importer import import_design, prettify_product_title, product_name_from_filename
 
 
 class MemoryDatabase:
@@ -248,6 +248,18 @@ def test_product_name_excludes_types_without_partial_word_matches(filename, expe
     assert product_name_from_filename(filename) == expected
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("dont stop cant quit", "Don't Stop Can't Quit"),
+        ("youre my sunshine", "You're My Sunshine"),
+        ("welcome to nyc", "Welcome to NYC"),
+    ],
+)
+def test_prettify_product_title_matches_import_and_retitle_titles(raw, expected):
+    assert prettify_product_title(raw) == expected
+
+
 def test_clean_name_import_preserves_original_filename_and_bytes(tmp_path):
     root = tmp_path / "design"
     root.mkdir()
@@ -264,7 +276,7 @@ def test_clean_name_import_preserves_original_filename_and_bytes(tmp_path):
             dry_run=False,
         )
     )
-    assert result.title == "1 baby love"
+    assert result.title == "1 Baby Love"
     assert result.source_path == original.name
     assert result.slug == "1-baby-love-t-shirt-3ec"
     assert original.read_bytes() == before
@@ -307,7 +319,7 @@ def test_duplicate_names_skip_across_batches_without_changing_images(tmp_path, m
     assert statuses == ['created', 'skipped', 'skipped', 'skipped', 'skipped']
     assert len(ProductDatabase.products) == 1
     product = ProductDatabase.products[0]
-    assert product['title'] == product['seo_title'] == '10th mountain division'
+    assert product['title'] == product['seo_title'] == '10th Mountain Division'
     assert 'Original' not in product['description']
     assert product['seo_description'] == product['description']
     assert len(json.loads((assets / 'design' / 'manifest.json').read_text())) == 1

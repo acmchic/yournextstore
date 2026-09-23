@@ -35,30 +35,6 @@ const styleDefinitions = [
 
 const departmentOrder = ["unisex", "women", "kids"] as const;
 
-const buyingNotes = [
-	{
-		label: "01 / Where we ship",
-		title: "United States",
-		copy: "Shop from anywhere in the US. Current service coverage is shown before checkout.",
-		href: "/shipping-policy",
-		linkLabel: "Shipping details",
-	},
-	{
-		label: "02 / Before it arrives",
-		title: "Processing + transit",
-		copy: "These are separate parts of delivery. Check the current estimates for your order.",
-		href: "/shipping-policy",
-		linkLabel: "See the timeline",
-	},
-	{
-		label: "03 / Before you buy",
-		title: "Shipping + returns",
-		copy: "Review the current purchase terms for the piece and address you choose.",
-		href: "/return-policy",
-		linkLabel: "Read returns policy",
-	},
-] as const;
-
 const buyingFaq = [
 	{
 		question: "Where do you ship?",
@@ -122,29 +98,6 @@ function buildStyleTiles(catalogs: ApiCatalog[], products: HomeProduct[]) {
 			},
 		];
 	});
-}
-
-function BuyingInfo() {
-	return (
-		<section className="grid border-b border-border sm:grid-cols-3" aria-label="Buying information">
-			{buyingNotes.map((note) => (
-				<div
-					key={note.label}
-					className="border-b border-border px-6 py-8 last:border-b-0 sm:border-b-0 sm:border-r sm:px-8 sm:py-10 sm:last:border-r-0"
-				>
-					<p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{note.label}</p>
-					<h2 className="mt-5 text-xl font-semibold uppercase tracking-tight">{note.title}</h2>
-					<p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">{note.copy}</p>
-					<Link
-						href={note.href}
-						className="mt-5 inline-flex min-h-11 items-center text-xs uppercase tracking-[0.12em] underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
-					>
-						{note.linkLabel}
-					</Link>
-				</div>
-			))}
-		</section>
-	);
 }
 
 function StyleNavigation({ catalogs, products }: { catalogs: ApiCatalog[]; products: HomeProduct[] }) {
@@ -447,7 +400,6 @@ export async function HomeCollections() {
 
 	return (
 		<>
-			<BuyingInfo />
 			<StyleNavigation catalogs={catalogs.data} products={newArrivals} />
 			<ProductRail
 				eyebrow="01 / Just in"

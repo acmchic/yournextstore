@@ -75,7 +75,7 @@ api/catalog-import.cache.json
 api/catalog-cache/
 # Provider source assets and rendered caches are generated locally. Keep only
 # approved, reusable AI model templates under version control.
-api/public/mockup/**
+# api/public/mockup/**
 !api/public/mockup/
 !api/public/mockup/**/
 !api/public/mockup/**/men_black_front.png
