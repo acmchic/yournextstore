@@ -11,17 +11,36 @@ class TeeBravoPolicySeeder extends Seeder
 {
     public function run(): void
     {
+        $this->seedPolicies(false);
+    }
+
+    public function refreshContent(): void
+    {
+        $this->seedPolicies(true);
+    }
+
+    private function seedPolicies(bool $preserveOperationalSettings): void
+    {
         $payload = json_decode(file_get_contents(base_path('../api/policies.teebravo.json')), true, 512, JSON_THROW_ON_ERROR);
         $db = DB::connection('store');
-        $db->transaction(function () use ($db, $payload) {
+        $db->transaction(function () use ($db, $payload, $preserveOperationalSettings) {
             $current = $db->table('checkout_settings')->where('id', 1)->lockForUpdate()->first();
             if (! $current) {
                 throw new RuntimeException('Run API checkout migrations before seeding policies.');
             }
+            $existing = json_decode($current->details_json, true, 512, JSON_THROW_ON_ERROR);
+            $details = [...$existing, ...$payload['details']];
+            if ($preserveOperationalSettings) {
+                foreach (['business_name', 'business_address', 'support_email', 'restrictions'] as $key) {
+                    if (trim($existing[$key] ?? '') !== '') {
+                        $details[$key] = $existing[$key];
+                    }
+                }
+            }
             $db->table('checkout_settings')->where('id', 1)->update([
-                ...$payload['rates'],
-                ...$payload['delivery'],
-                'details_json' => json_encode([...json_decode($current->details_json, true, 512, JSON_THROW_ON_ERROR), ...$payload['details']], JSON_THROW_ON_ERROR),
+                ...($preserveOperationalSettings ? [] : $payload['rates']),
+                ...($preserveOperationalSettings ? [] : $payload['delivery']),
+                'details_json' => json_encode($details, JSON_THROW_ON_ERROR),
                 'updated_at' => now(),
             ]);
             $values = CheckoutSettingsController::values();

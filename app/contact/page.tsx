@@ -1,8 +1,8 @@
-import { MailIcon } from "lucide-react";
+import { MailIcon, MapPinIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { ContactCard } from "@/components/ui/contact-card";
+import { ContactCard, ContactInfo } from "@/components/ui/contact-card";
 import { commerce } from "@/lib/commerce";
 import { ContactForm } from "./contact-form";
 
@@ -21,35 +21,42 @@ export default function Page() {
 				className="mx-auto max-w-5xl"
 				title="Get in touch"
 				description="Questions about a product or order? Send us a message. Include your order number if you have one, and our support team will follow up by email."
-				contactInfo={[
-					{
-						icon: MailIcon,
-						label: "Email support",
-						value: "help@teebravo.com",
-						href: "mailto:help@teebravo.com",
-					},
-				]}
+				contactInfoContent={
+					<Suspense
+						fallback={
+							<ContactInfo
+								icon={MailIcon}
+								label="Email support"
+								value="help@teebravo.com"
+								href="mailto:help@teebravo.com"
+							/>
+						}
+					>
+						<ContactDetails />
+					</Suspense>
+				}
 			>
 				<ContactForm />
 			</ContactCard>
-			<Suspense fallback={null}>
-				<ContactPolicyContent />
-			</Suspense>
 		</main>
 	);
 }
 
-async function ContactPolicyContent() {
-	const policy = await commerce.legalPageGet("contact");
-	if (!policy) return null;
+async function ContactDetails() {
+	const contact = await commerce.legalPageGet("contact");
+	const supportEmail = contact?.supportEmail || "help@teebravo.com";
 
 	return (
-		<section className="mx-auto mt-12 max-w-3xl border-t border-border pt-10">
-			<h2 className="mb-6 text-2xl font-semibold tracking-tight">{policy.label}</h2>
-			<div
-				className="prose prose-sm dark:prose-invert max-w-none"
-				dangerouslySetInnerHTML={{ __html: policy.contentHtml }}
+		<>
+			<ContactInfo
+				icon={MailIcon}
+				label="Email support"
+				value={supportEmail}
+				href={`mailto:${supportEmail}`}
 			/>
-		</section>
+			{contact?.businessAddress && (
+				<ContactInfo icon={MapPinIcon} label="Business address" value={contact.businessAddress} />
+			)}
+		</>
 	);
 }

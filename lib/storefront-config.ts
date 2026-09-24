@@ -4,9 +4,9 @@ export const storefront = {
 	url: (process.env.NEXT_PUBLIC_URL || "https://teebravo.com").replace(/\/+$/, ""),
 	positioning: "Printed apparel and accessories",
 	description:
-		"Discover TeeBravo printed T-shirts, hoodies, sweatshirts and accessories. Choose a design, then find the product, color and size that suit you.",
+		"Shop printed T-shirts, hoodies and accessories inspired by your hobbies and favorite occasions. Printed to order and shipped within the United States.",
 	heroStatement:
-		"Printed T-shirts, hoodies, sweatshirts and accessories for everyday use. Choose your design, product and color.",
+		"Find a design that feels like you, on a T-shirt, hoodie or accessory you can make part of your day.",
 	footerStatement:
-		"TeeBravo brings printed designs to clothing and accessories. Browse by interest or occasion, then choose the product that suits you.",
+		"Printed clothing and accessories for the hobbies you love and the occasions you look forward to. Made to order for you or someone you know.",
 } as const;

@@ -302,13 +302,14 @@ function AboutBlock() {
 					id="about-teebravo"
 					className="mt-5 max-w-lg font-display text-4xl leading-[0.95] tracking-tight sm:text-6xl"
 				>
-					Printed designs for the things you wear and use.
+					For what makes you, you.
 				</h2>
 			</div>
 			<div className="flex flex-col justify-center px-6 py-12 sm:px-10 md:px-16 md:py-20">
 				<p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
-					TeeBravo brings printed designs to clothing and accessories. Browse by interest or occasion, then
-					choose the product, color and size that suit you.
+					Find a shirt for your favorite hobby or a gift that reminds you of a friend. TeeBravo offers printed
+					clothing and accessories inspired by everyday interests and holidays, with each item printed after
+					you order.
 				</p>
 				<Link
 					href="/about"

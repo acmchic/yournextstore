@@ -144,3 +144,55 @@ data practices. Contact details supplied by the owner are used as given; no lega
 entity registration, phone number, operating history or certification is invented.
 Google approval still depends on the full store, products, purchase path and actual
 operations; this seed is not legal certification or a platform approval guarantee.
+
+## Editorial release (2026-09-25)
+
+Deploy this release with `sudo bash deploy.sh --api --admin` (or `--all`) from
+`/srv/teebravo/repository`. Plain `deploy.sh` deploys only the storefront and does
+not run Laravel migrations. The existing backend Dockerfile already bundles
+`api/policies.teebravo.json`; the admin deployment fingerprint includes it.
+
+Migration `2026_09_25_000010_refresh_teebravo_policy_content` runs
+`TeeBravoPolicyContentSeeder` once. It refreshes the seven policy pages and the
+About, returns, privacy and terms text in `checkout_settings.details_json` in a
+single transaction. It preserves nonempty business name/address/support email,
+shipping restrictions, all shipping rates and delivery ranges, unrelated detail
+keys, and checkout/PDP switches. Missing business identity fields use the existing
+TeeBravo seed values. Missing delivery values block publication and roll back the
+transaction. Existing CMS prose for these seven pages is intentionally replaced
+by this editorial release; later deployments do not rerun it. Rollback does not
+remove published policy data.
+
+For an intentional manual repeat of this content-only release, use
+`php artisan db:seed --class=TeeBravoPolicyContentSeeder --force`.
+Do not use the original `TeeBravoPolicySeeder` for a content refresh: that initial
+setup seeder also resets rates and business configuration to the JSON values.
+Export a backup before manually reseeding. Policies continue to render live rates,
+delivery ranges and contact fields; prose detail fields refer to the support
+address below instead of embedding a second email address.
+
+The About page's business address, operator name and support email now use the
+same API configuration as Contact. Deploy API, admin and storefront together.
+The static About editorial sections and brand descriptions are in storefront
+source; changing CMS About text does not replace that editorial layout.
+
+Reference review: TeeNavi About, shipping, replacement/refund, privacy and terms;
+TheGiftio shipping, return/refund, privacy and terms. TheGiftio About was blocked
+by Cloudflare in both the web reader and browser; its company LinkedIn description
+and homepage provided limited brand context. No competitor identity, return
+promise, customer count, origin claim or personalization capability was adopted.
+
+Official requirements reviewed:
+- https://support.google.com/merchants/answer/6150127
+- https://support.google.com/merchants/answer/14011730
+- https://policy.pinterest.com/en/merchant-guidelines
+- https://help.ads.microsoft.com/resources/Microsoft_Advertising_Agreement_08042025_Online_Terms/en.pdf
+
+Copy changes cannot guarantee approval. Before submission, verify a real purchase,
+product/feed/checkout agreement, design rights and support availability. Match
+platform shipping and returns settings to the live store. Pinterest also requires
+fresh price/availability data and excludes some product categories, including
+political campaign merchandise. Its announced November 12, 2026 guideline update
+must be reviewed when applicable. If Microsoft UET or other advertising trackers
+are introduced, update privacy disclosures and consent behavior to reflect the
+actual integration before enabling tracking. This release does not enable pixels.

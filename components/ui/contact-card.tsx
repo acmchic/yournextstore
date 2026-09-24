@@ -15,6 +15,7 @@ type ContactCardProps = React.ComponentProps<"div"> & {
 	title?: string;
 	description?: string;
 	contactInfo?: ContactInfoProps[];
+	contactInfoContent?: React.ReactNode;
 	formSectionClassName?: string;
 };
 
@@ -22,6 +23,7 @@ export function ContactCard({
 	title = "Contact TeeBravo",
 	description = "Questions about a product or order? Send us a message and our support team will follow up by email.",
 	contactInfo,
+	contactInfoContent,
 	className,
 	formSectionClassName,
 	children,
@@ -41,10 +43,11 @@ export function ContactCard({
 					<p className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Customer care</p>
 					<h1 className="font-display text-4xl leading-[0.98] tracking-[-0.035em] sm:text-5xl">{title}</h1>
 					<p className="max-w-lg text-sm leading-6 text-muted-foreground sm:text-base">{description}</p>
-					<div className="grid gap-3 sm:grid-cols-2">
+					<div className="grid gap-3">
 						{contactInfo?.map((info) => (
 							<ContactInfo key={`${info.label}-${info.value}`} {...info} />
 						))}
+						{contactInfoContent}
 					</div>
 				</div>
 			</div>
@@ -60,7 +63,7 @@ export function ContactCard({
 	);
 }
 
-function ContactInfo({ icon: Icon, label, value, href, className }: ContactInfoProps) {
+export function ContactInfo({ icon: Icon, label, value, href, className }: ContactInfoProps) {
 	const content = (
 		<>
 			<span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">

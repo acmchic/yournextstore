@@ -1,7 +1,9 @@
 import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { StoreLink } from "@/components/store-link";
 import { Button } from "@/components/ui/button";
+import { commerce } from "@/lib/commerce";
 import { StoreMedia } from "@/lib/store-media";
 import everydayWear from "@/public/images/about/everyday-wear.webp";
 import materialsAndOptions from "@/public/images/about/materials-and-options.webp";
@@ -9,7 +11,7 @@ import studioProcess from "@/public/images/about/studio-process.webp";
 
 const title = "About TeeBravo | Printed Apparel & Accessories";
 const description =
-	"Learn how TeeBravo offers printed apparel and accessories made after you order. Choose a design, product, color and size, with shipping across the United States.";
+	"Get to know TeeBravo, an online store for printed clothing and accessories inspired by hobbies and holidays. Based in Hanoi, serving customers in the US.";
 
 export const metadata: Metadata = {
 	title: { absolute: title },
@@ -77,13 +79,13 @@ export default function AboutPage() {
 							TeeBravo.
 						</h1>
 						<p className="mt-8 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
-							TeeBravo brings printed designs to T-shirts, hoodies, sweatshirts and accessories for customers
-							in the United States. Browse by interest or occasion, then choose the product, color and size
-							that suit you.
+							A shirt about your favorite hobby or a gift that reminds you of a friend can say a lot. TeeBravo
+							is an online store for printed clothing and accessories, with designs for everyday interests and
+							the occasions you look forward to.
 						</p>
 					</div>
 					<p className="max-w-sm text-xs leading-5 text-muted-foreground">
-						Browse by theme, holiday or product.
+						Printed to order. Available to customers in the United States.
 					</p>
 				</div>
 
@@ -110,12 +112,12 @@ export default function AboutPage() {
 							id="choose-design-title"
 							className="mt-5 font-display text-4xl leading-[0.98] tracking-[-0.035em] sm:text-6xl"
 						>
-							Start with the design.
+							Find something that feels like you.
 						</h2>
 						<p className="mt-7 text-base leading-7 text-muted-foreground">
-							One design can appear on more than one kind of product. After you find one you like, choose an
-							available garment or accessory. The product page shows the colors, sizes, materials and price
-							for that selection.
+							Browse designs around your interests, from pets and hobbies to holidays and family occasions.
+							Some designs come on several products, so you can choose a T-shirt, hoodie or accessory from the
+							available options. Each product page lists its materials, colors, sizes and price.
 						</p>
 						<Button asChild size="lg" className="mt-9">
 							<StoreLink href="/products">
@@ -140,9 +142,11 @@ export default function AboutPage() {
 							Made after you order.
 						</h2>
 						<p className="mt-7 text-base leading-7 text-muted-foreground">
-							Please review the product details and size guide before checkout. If an item arrives damaged,
-							has a print defect or does not match your order, contact us and we will review the issue under
-							our Returns &amp; Refunds policy.
+							We work with production partners to print each item after it is ordered. Please check the
+							product details and size guide before buying, since we do not accept returns for a change of
+							mind or a size chosen incorrectly. If your item arrives damaged, has a print defect or differs
+							from your order, contact us within 30 days of delivery. Our Returns &amp; Refunds policy
+							explains how to request a free replacement or refund after we verify the problem.
 						</p>
 						<div className="mt-9 flex flex-wrap gap-3">
 							<Button asChild variant="outline" size="lg">
@@ -174,31 +178,21 @@ export default function AboutPage() {
 					</h2>
 				</div>
 				<div className="flex flex-col justify-between gap-14 px-6 py-16 sm:px-10 sm:py-20 lg:px-16 xl:px-20">
-					<div className="grid gap-8 sm:grid-cols-2">
-						<div>
-							<p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Business address</p>
-							<address className="mt-4 max-w-xs text-sm not-italic leading-6">
-								TeeBravo
-								<br />
-								54 Lieu Giai, Ba Dinh
-								<br />
-								Hanoi 100000, Vietnam
-							</address>
-						</div>
-						<div>
-							<p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Customer support</p>
-							<a
-								href="mailto:help@teebravo.com"
-								className="mt-4 inline-flex min-h-11 items-center text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
-							>
-								help@teebravo.com
-							</a>
-						</div>
-					</div>
+					<Suspense
+						fallback={
+							<p className="text-sm text-muted-foreground">
+								Contact details are available on our contact page.
+							</p>
+						}
+					>
+						<BusinessDetails />
+					</Suspense>
 					<div>
 						<p className="max-w-lg text-sm leading-6 text-muted-foreground">
-							Questions about a product or order? Send us a message and include the details that will help us
-							look into it.
+							We are based in Hanoi, Vietnam, and work with production and shipping partners to serve
+							customers in the United States. This is our business mailing address, not a retail store or
+							returns location. For help with a product or delivery, contact us directly and include your
+							order reference if you have one.
 						</p>
 						<Button asChild className="mt-7" size="lg">
 							<StoreLink href="/contact">
@@ -210,5 +204,31 @@ export default function AboutPage() {
 				</div>
 			</section>
 		</main>
+	);
+}
+
+async function BusinessDetails() {
+	const contact = await commerce.legalPageGet("contact");
+	const supportEmail = contact?.supportEmail || "help@teebravo.com";
+	return (
+		<div className="grid gap-8 sm:grid-cols-2">
+			<div>
+				<p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Business address</p>
+				<address className="mt-4 max-w-xs text-sm not-italic leading-6">
+					{contact?.businessName || "TeeBravo"}
+					<br />
+					{contact?.businessAddress}
+				</address>
+			</div>
+			<div>
+				<p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Customer support</p>
+				<a
+					href={`mailto:${supportEmail}`}
+					className="mt-4 inline-flex min-h-11 items-center text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
+				>
+					{supportEmail}
+				</a>
+			</div>
+		</div>
 	);
 }

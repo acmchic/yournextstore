@@ -1,8 +1,16 @@
 # TeeBravo — context và kiến trúc cho AI
 
+## Policy editorial release (2026-09-25)
+
+- `api/policies.teebravo.json` chứa bản humanizer cho 7 trang. Migration `2026_09_25_000010` gọi `TeeBravoPolicyContentSeeder` một lần để cập nhật nội dung khi deploy admin, trong cùng transaction.
+- Seeder nội dung giữ business name/address/email đã có, restrictions, phí ship, delivery ranges, cấu hình ngoài phạm vi và các công tắc checkout/PDP. Các trường văn bản About/returns/privacy/terms và 7 trang CMS được cập nhật có chủ đích. Deploy sau không ghi đè chỉnh sửa CMS.
+- Dùng `sudo bash deploy.sh --api --admin` để triển khai API + admin + storefront; lệnh không tham số chỉ deploy storefront. About lấy business name/address/email từ cùng dữ liệu API với Contact; phần editorial còn lại vẫn nằm trong source storefront.
+- Chi tiết seed, nguồn tham khảo và giới hạn xét duyệt nền tảng: `docs/policy-deployment.md`.
+
+
 ## Contact form (2026-09-24)
 
-- `/contact` là trang riêng, dùng `ContactCard` và shared UI controls. Form chỉ yêu cầu email và message; không thu phone.
+- `/contact` là trang riêng, dùng `ContactCard` và shared UI controls. Form chỉ yêu cầu email và message; không thu phone. Email hỗ trợ và địa chỉ doanh nghiệp được lấy từ cấu hình DB (`checkout_settings.details_json`) cùng dữ liệu trang chính sách; trang chỉ hiển thị card, không lặp lại nội dung CMS dài bên dưới.
 - Next.js Server Action gọi `ownCommerce → POST /v1/contact-messages`. FastAPI lưu nội dung vào MySQL `contact_messages`, gửi email đồng bộ tới `CONTACT_EMAIL_TO` (mặc định `help@teebravo.com`) qua SMTP, rồi đánh dấu `email_sent_at`. Migration `018_contact_messages.sql` được áp dụng bởi `api/bootstrap-db.sh`.
 - SMTP được cấu hình bằng các biến `SMTP_*` trong API env, không phải storefront env. Nếu email không gửi được, record vẫn lưu nhưng API trả lỗi và form hướng khách tới `help@teebravo.com`; cập nhật `/etc/teebravo/api.env` rồi chạy `deploy.sh --only-api` để đổi cấu hình production.
 

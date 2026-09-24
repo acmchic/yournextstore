@@ -62,8 +62,24 @@ type OwnCommerceClient = Pick<
 	legalPageGet: (slug: string) => Promise<LegalPage | null>;
 };
 
-type LegalPage = { label: string; href: string; contentHtml: string; updatedAt: string };
-type ApiLegalPage = { slug: string; title: string; content: string; updated_at: string };
+type LegalPage = {
+	label: string;
+	href: string;
+	contentHtml: string;
+	updatedAt: string;
+	businessName?: string;
+	businessAddress?: string;
+	supportEmail?: string;
+};
+type ApiLegalPage = {
+	slug: string;
+	title: string;
+	content: string;
+	updated_at: string;
+	business_name?: string;
+	business_address?: string;
+	support_email?: string;
+};
 
 function mapLegalPage(page: ApiLegalPage): LegalPage {
 	const escaped = page.content
@@ -77,6 +93,9 @@ function mapLegalPage(page: ApiLegalPage): LegalPage {
 		href: `/${page.slug}`,
 		updatedAt: page.updated_at,
 		contentHtml: `<div style="white-space:pre-wrap">${escaped}</div>`,
+		businessName: page.business_name,
+		businessAddress: page.business_address,
+		supportEmail: page.support_email,
 	};
 }
 

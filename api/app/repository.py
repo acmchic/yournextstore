@@ -27,7 +27,7 @@ from app.rendering.print_area import (
     resolve_print_areas,
 )
 from app.settings import settings
-from app.shipping import render_policy
+from app.shipping import policy_values, render_policy
 
 
 def _decode_json(value: Any) -> Any:
@@ -138,9 +138,13 @@ class CatalogRepository:
             (),
         )
         config = await self._database.fetch_one("select * from checkout_settings where id=1", ())
+        business_info = policy_values(config)
         return [
             {
                 **page,
+                "business_name": business_info.get("business_name", ""),
+                "business_address": business_info.get("business_address", ""),
+                "support_email": business_info.get("support_email", ""),
                 "content": render_policy(page["content"], config),
                 "updated_at": max(page["updated_at"], config["updated_at"]),
             }
