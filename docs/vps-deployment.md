@@ -94,6 +94,39 @@ Setup tự sinh password DB/root, Laravel APP_KEY, signing secret và Server Act
 - `TEEBRAVO_SHARED_DIR` trong file trên: root persistent cho các bind mount Docker và các file Nginx đọc; mặc định `/srv/teebravo/shared`, dùng `/home/teebravo/shared` với Docker Snap.
 - `TEEBRAVO_DOCKER_CONFIG_DIR` trong file trên: thư mục chứa bản sao `api.env` và `admin.env` dành cho Docker bind mount; mặc định `/etc/teebravo`, dùng `/home/teebravo/config` với Docker Snap.
 
+Stripe Checkout đọc credentials từ `/etc/teebravo/api.env`, không phải
+`storefront.env` hay `.env.local`. Hai biến bắt buộc là `STRIPE_SECRET_KEY` và
+`STRIPE_WEBHOOK_SECRET`; chúng phải thuộc cùng Stripe mode và webhook endpoint.
+`CHECKOUT_SUCCESS_URL`, `CHECKOUT_CANCEL_URL` và `STRIPE_AUTOMATIC_TAX` đã có
+trong `deploy/env/api.env.example`; tax mặc định tắt. `--setup` chỉ tạo các env
+file còn thiếu, không chép credentials từ máy phát triển và không ghi đè file
+production đang có. Khi thay đổi API env trên VPS, chạy từ repository:
+
+```bash
+cd /srv/teebravo/repository
+sudo bash deploy.sh --only-api
+```
+
+Test keys chỉ tạo giao dịch thử nghiệm; trước khi nhận thanh toán thật, đổi sang
+live key cùng webhook signing secret của live endpoint.
+
+Pinterest domain verification (nếu sử dụng) thuộc cấu hình build của storefront:
+thêm `PINTEREST_DOMAIN_VERIFY=<token Pinterest cấp>` vào
+`/etc/teebravo/storefront.env` trên VPS. Không đặt giá trị này chỉ trong checkout
+`.env.local`: `deploy.sh` cố ý loại các file `.env*` khỏi rsync. Script đưa
+`storefront.env` vào fingerprint và source file đó lúc build, nên thay đổi token
+sẽ kích hoạt build storefront ở lần deploy tiếp theo. Mẫu cho VPS mới nằm tại
+`deploy/env/storefront.env.example`; `--setup` không ghi đè file env đã tồn tại.
+
+Sau khi thêm token trên VPS, deploy storefront mặc định:
+
+```bash
+cd /srv/teebravo/repository
+sudo bash deploy.sh
+```
+
+Không cần `--force` nếu chỉ thay đổi `storefront.env`; fingerprint sẽ tự phát hiện.
+
 Script không ghi đè file đã tồn tại; nếu bộ backend env chỉ có một phần thì dừng để tránh sinh password lệch. Nếu chuyển từ env native cũ: kiểm tra lại DB_HOST=db, asset/cache paths `/app/api/...`, URL loopback 1991 và bỏ tất cả placeholder. Không copy đè key/password lên database đã khởi tạo. MySQL image chỉ áp dụng MYSQL_PASSWORD khi tạo datadir mới; đổi env không tự đổi password trong DB.
 
 `db.env` chỉ root đọc; API/admin env cấp group 33 (www-data trong container) quyền đọc; storefront env cấp group teebravo. Không commit env thật. Cấu hình Stripe keys/webhook và SMTP thật trước khi sử dụng; mail mẫu ghi log. Admin đã tắt Inertia SSR để không cần thêm Node daemon.

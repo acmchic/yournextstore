@@ -100,9 +100,24 @@ async function getStoreMetadata(): Promise<Metadata> {
 
 export async function generateMetadata(): Promise<Metadata> {
 	const metadata = await getStoreMetadata();
+	const pinterestDomainVerify = process.env.PINTEREST_DOMAIN_VERIFY;
 	// URL instances can't cross the "use cache" serialization boundary, so
 	// metadataBase is attached outside the cached scope (env-only, no IO).
-	return { ...metadata, metadataBase: new URL(getCanonicalUrl()) };
+	return {
+		...metadata,
+		metadataBase: new URL(getCanonicalUrl()),
+		...(pinterestDomainVerify
+			? {
+					verification: {
+						...(metadata.verification ?? {}),
+						other: {
+							...(metadata.verification?.other ?? {}),
+							"p:domain_verify": pinterestDomainVerify,
+						},
+					},
+				}
+			: {}),
+	};
 }
 
 function CartButtonFallback() {

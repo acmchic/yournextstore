@@ -124,6 +124,18 @@ export function Footer() {
 						>
 							{storefront.brandName.toUpperCase()}
 						</StoreLink>
+						<div className="mt-4 flex flex-col gap-2 text-sm text-muted-foreground">
+							<StoreLink
+								prefetch={"eager"}
+								href="/contact"
+								className="transition-colors hover:text-foreground"
+							>
+								Contact Us
+							</StoreLink>
+							<a href="mailto:help@teebravo.com" className="transition-colors hover:text-foreground">
+								help@teebravo.com
+							</a>
+						</div>
 						<p className="mt-4 text-sm leading-relaxed text-muted-foreground">{storefront.footerStatement}</p>
 						<div className="mt-6 flex items-center gap-4 text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
 							<span>EN / USD</span>

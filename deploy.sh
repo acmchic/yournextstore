@@ -253,7 +253,9 @@ if ((api)); then
     dc build api
     # Build completes while current API is serving. Schema changes need maintenance planning.
     dc run --rm --no-deps --entrypoint bash api bootstrap-db.sh
-    dc up -d --no-deps --wait --wait-timeout 150 api
+    # Recreate even when only a bind-mounted env file changed; Docker keeps the
+    # old file inode in an existing container after an atomic host-side replace.
+    dc up -d --no-deps --force-recreate --wait --wait-timeout 150 api
     health "http://127.0.0.1:$TEEBRAVO_API_PORT/ready" || fail 'API unhealthy; inspect docker compose logs.'
     echo "$hash" > "$BASE/state/api"
   else echo 'API unchanged; skipped.'; fi
@@ -264,7 +266,8 @@ if ((admin)); then
     check_disk "$docker_root"
     dc build admin
     dc run --rm --no-deps admin php artisan migrate --force
-    dc up -d --no-deps --wait --wait-timeout 90 admin
+    # Admin shares api.env for its Python CLI, so refresh that bind mount too.
+    dc up -d --no-deps --force-recreate --wait --wait-timeout 90 admin
     # Copy from this exact image; host Nginx serves only the public directory.
     cid=$(dc ps -q admin)
     [[ -n "$cid" ]] || fail 'Admin container failed to start.'
