@@ -3,59 +3,66 @@
 import { ArrowRightIcon, CheckIcon } from "lucide-react";
 import { useActionState } from "react";
 import { sendContactMessage } from "@/app/contact/action";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 export function ContactForm() {
 	const [state, action, isPending] = useActionState(sendContactMessage, null);
 
 	if (state?.success) {
 		return (
-			<div className="rounded-lg border border-border bg-secondary/30 p-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-				<div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-foreground/5">
+			<div className="w-full rounded-lg border border-border bg-secondary/30 p-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+				<div className="mx-auto mb-6 flex size-12 items-center justify-center rounded-full bg-foreground/5">
 					<CheckIcon className="h-6 w-6" />
 				</div>
 				<h2 className="text-2xl font-medium tracking-tight">Message sent</h2>
-				<p className="mt-2 text-muted-foreground">{state.message}</p>
+				<p className="mt-2 text-muted-foreground" role="status">
+					{state.message}
+				</p>
 			</div>
 		);
 	}
 
 	return (
-		<form action={action} className="space-y-4">
-			<div>
-				<label htmlFor="contact-email" className="block text-sm font-medium text-foreground">
-					Email
-				</label>
-				<input
+		<form action={action} className="w-full space-y-5">
+			<div className="space-y-2">
+				<Label htmlFor="contact-email">
+					Email <span aria-hidden="true">*</span>
+				</Label>
+				<Input
 					id="contact-email"
 					type="email"
 					name="email"
-					placeholder="your@email.com"
+					autoComplete="email"
+					placeholder="you@example.com"
 					required
-					className="mt-2 h-12 w-full rounded-lg border border-border bg-background px-4 text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-foreground/40 focus:ring-2 focus:ring-foreground/10"
+					maxLength={320}
 				/>
 			</div>
-			<div>
-				<label htmlFor="contact-message" className="block text-sm font-medium text-foreground">
-					Message
-				</label>
-				<textarea
+			<div className="space-y-2">
+				<Label htmlFor="contact-message">
+					Message <span aria-hidden="true">*</span>
+				</Label>
+				<Textarea
 					id="contact-message"
 					name="message"
 					placeholder="How can we help?"
 					required
-					rows={6}
-					className="mt-2 w-full rounded-lg border border-border bg-background px-4 py-3 text-foreground outline-none transition-all placeholder:text-muted-foreground/60 focus:border-foreground/40 focus:ring-2 focus:ring-foreground/10"
+					maxLength={10000}
+					rows={7}
 				/>
 			</div>
-			<button
-				type="submit"
-				disabled={isPending}
-				className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-foreground px-8 font-medium text-background transition-all hover:bg-foreground/90 disabled:opacity-50"
-			>
+			<Button type="submit" disabled={isPending} size="lg" className="w-full sm:w-auto">
 				{isPending ? "Sending…" : "Send message"}
 				{!isPending && <ArrowRightIcon className="h-4 w-4" />}
-			</button>
-			{state?.error && <p className="text-sm text-red-500">{state.error}</p>}
+			</Button>
+			{state?.error && (
+				<p className="text-sm text-destructive" role="alert">
+					{state.error}
+				</p>
+			)}
 		</form>
 	);
 }

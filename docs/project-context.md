@@ -1,5 +1,11 @@
 # TeeBravo — context và kiến trúc cho AI
 
+## Contact form (2026-09-24)
+
+- `/contact` là trang riêng, dùng `ContactCard` và shared UI controls. Form chỉ yêu cầu email và message; không thu phone.
+- Next.js Server Action gọi `ownCommerce → POST /v1/contact-messages`. FastAPI lưu nội dung vào MySQL `contact_messages`, gửi email đồng bộ tới `CONTACT_EMAIL_TO` (mặc định `help@teebravo.com`) qua SMTP, rồi đánh dấu `email_sent_at`. Migration `018_contact_messages.sql` được áp dụng bởi `api/bootstrap-db.sh`.
+- SMTP được cấu hình bằng các biến `SMTP_*` trong API env, không phải storefront env. Nếu email không gửi được, record vẫn lưu nhưng API trả lỗi và form hướng khách tới `help@teebravo.com`; cập nhật `/etc/teebravo/api.env` rồi chạy `deploy.sh --only-api` để đổi cấu hình production.
+
 ## About page editorial (2026-09-23)
 
 - `/about` là route tĩnh riêng tại `app/about/page.tsx`, không còn dùng renderer plain text của `app/[slug]/page.tsx`. Trang giữ nội dung factual về sản phẩm in sau khi đặt, thị trường US, địa chỉ và hỗ trợ; metadata riêng dùng định vị "printed apparel and accessories".

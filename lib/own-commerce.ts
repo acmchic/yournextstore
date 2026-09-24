@@ -5,6 +5,7 @@ import type {
 	APICategoryGetByIdResult,
 	APICollectionGetByIdResult,
 	APICollectionsBrowseResult,
+	APIContactMessageCreateResult,
 	APIMeGetResult,
 	APIProductGetByIdResult,
 	APIProductsBrowseResult,
@@ -756,8 +757,11 @@ export const ownCommerce: OwnCommerceClient = {
 		if (!page) return null;
 		return mapLegalPage(page);
 	},
-	async contactMessageCreate() {
-		throw new Error("Contact API is not enabled");
+	async contactMessageCreate(body) {
+		return apiFetch<APIContactMessageCreateResult>("/v1/contact-messages", {
+			method: "POST",
+			body: JSON.stringify(body),
+		});
 	},
 	async subscriberCreate() {
 		throw new Error("Subscriber API is not enabled");

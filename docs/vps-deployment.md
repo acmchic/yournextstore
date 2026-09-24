@@ -110,6 +110,16 @@ sudo bash deploy.sh --only-api
 Test keys chỉ tạo giao dịch thử nghiệm; trước khi nhận thanh toán thật, đổi sang
 live key cùng webhook signing secret của live endpoint.
 
+Contact form trên `/contact` lưu mỗi message vào bảng MySQL `contact_messages`
+rồi gửi email tới `CONTACT_EMAIL_TO` (mặc định `help@teebravo.com`). Email đi
+qua SMTP, nên cần dùng thông tin của một sender/domain đã được nhà cung cấp mail
+xác minh. Thêm các biến `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`,
+`SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_USE_SSL` và `SMTP_STARTTLS` vào
+`/etc/teebravo/api.env`, sau đó chạy `sudo bash deploy.sh --only-api`. Port 587
+thường dùng STARTTLS; nếu nhà cung cấp yêu cầu SSL trực tiếp, đặt
+`SMTP_USE_SSL=true` và `SMTP_STARTTLS=false`. Nếu SMTP chưa cấu hình hoặc gửi
+thất bại, bản ghi vẫn được giữ trong DB và form báo khách dùng email hỗ trợ.
+
 Pinterest domain verification (nếu sử dụng) thuộc cấu hình build của storefront:
 thêm `PINTEREST_DOMAIN_VERIFY=<token Pinterest cấp>` vào
 `/etc/teebravo/storefront.env` trên VPS. Không đặt giá trị này chỉ trong checkout

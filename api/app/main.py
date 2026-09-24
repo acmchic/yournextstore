@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -22,8 +23,15 @@ from app.catalog import (
     split_design_and_catalog,
 )
 from app.checkout import CheckoutService
+from app.contact import ContactEmailError, send_contact_email
 from app.db import Database
-from app.models import CartItemUpsert, ImageFormat, OrderCreate, ProductSummary
+from app.models import (
+    CartItemUpsert,
+    ContactMessageCreate,
+    ImageFormat,
+    OrderCreate,
+    ProductSummary,
+)
 from app.product_media import parse_catalog_mockup_view
 from app.public_ref import build_product_ref, parse_product_ref, product_public_id
 from app.rendering.pipeline import render_blank_mockup, render_design_preview, render_mockup
@@ -155,6 +163,43 @@ async def browse_shop(
 @app.get("/v1/legal-pages")
 async def list_legal_pages(repo: Annotated[CatalogRepository, Depends(get_repository)]):
     return {"data": await repo.list_legal_pages()}
+
+
+@app.post("/v1/contact-messages", status_code=201)
+async def create_contact_message(
+    payload: ContactMessageCreate,
+    repo: Annotated[CatalogRepository, Depends(get_repository)],
+):
+    email = payload.email.strip()
+    message = payload.message.strip()
+    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+        raise HTTPException(status_code=422, detail="Enter a valid email address")
+    if not message:
+        raise HTTPException(status_code=422, detail="Message is required")
+
+    record = await repo.create_contact_message(email, message)
+    try:
+        await run_in_threadpool(send_contact_email, settings, email, message)
+    except ContactEmailError as error:
+        logger.warning(
+            "Could not deliver contact message id=%s error_type=%s",
+            record["id"],
+            type(error).__name__,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Your message could not be sent. Please email help@teebravo.com.",
+        ) from error
+
+    try:
+        await repo.mark_contact_message_email_sent(record["id"])
+    except Exception as error:  # noqa: BLE001 - mail was already accepted; don't ask customers to resubmit it
+        logger.warning(
+            "Could not mark contact email as sent id=%s error_type=%s",
+            record["id"],
+            type(error).__name__,
+        )
+    return record
 
 
 @app.get("/v1/collections/{slug}")

@@ -11,20 +11,33 @@ type ContactState = {
 export async function sendContactMessage(_prev: ContactState, formData: FormData): Promise<ContactState> {
 	const email = formData.get("email");
 	const message = formData.get("message");
+	const normalizedEmail = typeof email === "string" ? email.trim() : "";
+	const normalizedMessage = typeof message === "string" ? message.trim() : "";
 
-	if (!email || typeof email !== "string") {
+	if (
+		!normalizedEmail ||
+		normalizedEmail.length > 320 ||
+		!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+	) {
 		return { success: false, message: "", error: "Please enter a valid email address." };
 	}
 
-	if (!message || typeof message !== "string" || message.trim().length === 0) {
+	if (!normalizedMessage || normalizedMessage.length > 10000) {
 		return { success: false, message: "", error: "Please enter a message." };
 	}
 
 	try {
-		await commerce.contactMessageCreate({ email, message });
+		await commerce.contactMessageCreate({ email: normalizedEmail, message: normalizedMessage });
 
-		return { success: true, message: "Thanks for reaching out! We'll get back to you soon." };
+		return {
+			success: true,
+			message: "Thanks for reaching out! Your message has been sent to our support team.",
+		};
 	} catch {
-		return { success: false, message: "", error: "Something went wrong. Please try again." };
+		return {
+			success: false,
+			message: "",
+			error: "We couldn't send your message right now. Please email help@teebravo.com.",
+		};
 	}
 }

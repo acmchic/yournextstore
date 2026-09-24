@@ -87,6 +87,14 @@ class Settings:
     checkout_cancel_url: str = (
         os.getenv("CHECKOUT_CANCEL_URL") or storefront_public_url + "/checkout"
     )
+    contact_email_to: str = os.getenv("CONTACT_EMAIL_TO", "help@teebravo.com")
+    smtp_host: str = os.getenv("SMTP_HOST", "")
+    smtp_port: int = _int_env("SMTP_PORT", 587)
+    smtp_username: str = os.getenv("SMTP_USERNAME", "")
+    smtp_password: str = os.getenv("SMTP_PASSWORD", "")
+    smtp_from_email: str = os.getenv("SMTP_FROM_EMAIL", "")
+    smtp_use_ssl: bool = _bool_env("SMTP_USE_SSL", False)
+    smtp_starttls: bool = _bool_env("SMTP_STARTTLS", True)
 
 
 settings = Settings()

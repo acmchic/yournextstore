@@ -147,6 +147,35 @@ class CatalogRepository:
             for page in pages
         ]
 
+    async def create_contact_message(self, email: str, message: str) -> dict[str, Any]:
+        message_id = str(uuid.uuid4())
+        await self._database.execute(
+            "insert into contact_messages(id, email, message) values (%s, %s, %s)",
+            (message_id, email, message),
+        )
+        record = await self._database.fetch_one(
+            """select id, email, message, store_id, created_at, updated_at, read_at
+               from contact_messages where id=%s""",
+            (message_id,),
+        )
+        if record is None:
+            raise RuntimeError("Contact message was not saved")
+        return {
+            "id": record["id"],
+            "email": record["email"],
+            "message": record["message"],
+            "storeId": record["store_id"],
+            "createdAt": record["created_at"],
+            "updatedAt": record["updated_at"],
+            "readAt": record["read_at"],
+        }
+
+    async def mark_contact_message_email_sent(self, message_id: str) -> None:
+        await self._database.execute(
+            "update contact_messages set email_sent_at=current_timestamp(6) where id=%s",
+            (message_id,),
+        )
+
     async def get_blank_catalog_asset(
         self, catalog_slug: str, color_slug: str, placement: str
     ) -> dict[str, Any] | None:

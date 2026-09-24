@@ -52,6 +52,7 @@ next-env.d.ts
 # next-agents-md
 # .next-docs/
 *.sql
+!api/mysql/init/018_contact_messages.sql
 !api/mysql/init/001_schema.sql
 !api/mysql/init/002_seed_catalog.sql
 !api/mysql/init/004_catalog_color_sort_order.sql

@@ -64,3 +64,8 @@ class OrderCreate(BaseModel):
     cart_id: str
     email: str = Field(min_length=3, max_length=320)
     shipping_address: OrderAddressInput
+
+
+class ContactMessageCreate(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    message: str = Field(min_length=1, max_length=10000)
