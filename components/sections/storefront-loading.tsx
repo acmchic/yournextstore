@@ -52,3 +52,19 @@ export function ShopLoadingSkeleton() {
 		</div>
 	);
 }
+
+export function ShopProductGridSkeleton() {
+	return (
+		<div role="status" aria-busy="true" aria-label="Loading products">
+			<div className="grid grid-cols-2 gap-x-3 gap-y-10 lg:grid-cols-3 xl:grid-cols-4">
+				{shopSkeletonCards.slice(0, 8).map((key) => (
+					<div key={key} className="animate-pulse">
+						<div className="aspect-[3/4] bg-secondary" />
+						<div className="mt-4 h-4 w-3/4 bg-secondary" />
+						<div className="mt-2 h-4 w-1/3 bg-secondary" />
+					</div>
+				))}
+			</div>
+		</div>
+	);
+}

@@ -66,6 +66,7 @@ type LegalPage = {
 	label: string;
 	href: string;
 	contentHtml: string;
+	contentText: string;
 	updatedAt: string;
 	businessName?: string;
 	businessAddress?: string;
@@ -91,6 +92,7 @@ function mapLegalPage(page: ApiLegalPage): LegalPage {
 	return {
 		label: page.title,
 		href: `/${page.slug}`,
+		contentText: page.content,
 		updatedAt: page.updated_at,
 		contentHtml: `<div style="white-space:pre-wrap">${escaped}</div>`,
 		businessName: page.business_name,

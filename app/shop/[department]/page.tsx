@@ -1,12 +1,79 @@
 import type { Metadata } from "next";
+import { cacheLife } from "next/cache";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { ProductCard } from "@/components/product-card";
 import { OccasionCollections } from "@/components/sections/occasion-collections";
+import { ShopProductGridSkeleton } from "@/components/sections/storefront-loading";
 import { catalogNavigation, departments } from "@/lib/catalog-navigation";
 import { getCanonicalUrl } from "@/lib/commerce";
 import { JsonLdScript } from "@/lib/json-ld";
 import { catalogBrowse, shopBrowse } from "@/lib/own-commerce";
+
+async function getCachedCatalogs() {
+	"use cache";
+	cacheLife("minutes");
+	return catalogBrowse();
+}
+
+async function getCachedShopProducts(
+	department: string,
+	type: string | undefined,
+	catalog: string | undefined,
+	offset: number,
+) {
+	"use cache";
+	cacheLife("minutes");
+	return shopBrowse({ department, type, catalog, limit: 24, offset });
+}
+
+async function DepartmentProducts({
+	department,
+	type,
+	catalog,
+	page,
+}: {
+	department: string;
+	type?: string;
+	catalog?: string;
+	page: number;
+}) {
+	const products = await getCachedShopProducts(department, type, catalog, (page - 1) * 24);
+	if (page > 1 && !products.data.length) notFound();
+	const pageHref = (target: number) =>
+		`/shop/${department}?${new URLSearchParams({
+			...(type ? { type } : {}),
+			...(catalog ? { catalog } : {}),
+			page: String(target),
+		})}`;
+	return (
+		<>
+			<div className="grid grid-cols-2 gap-x-3 gap-y-10 lg:grid-cols-3 xl:grid-cols-4">
+				{products.data.map((product, index) => (
+					<ProductCard
+						key={`${product.id}:${product.category?.slug}`}
+						product={product}
+						priority={index < 4}
+						showCatalogMeta
+					/>
+				))}
+			</div>
+			{products.meta.count > 24 && (
+				<nav
+					aria-label="Pagination"
+					className="mt-12 flex items-center justify-between border-t py-6 text-sm"
+				>
+					{page > 1 ? <Link href={pageHref(page - 1)}>Previous</Link> : <span />}
+					<span>
+						Page {page} of {Math.ceil(products.meta.count / 24)}
+					</span>
+					{page * 24 < products.meta.count ? <Link href={pageHref(page + 1)}>Next</Link> : <span />}
+				</nav>
+			)}
+		</>
+	);
+}
 
 type Props = {
 	params: Promise<{ department: string }>;
@@ -26,7 +93,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 }
 
 export default async function DepartmentPage({ params, searchParams }: Props) {
-	const [{ department }, query, catalogs] = await Promise.all([params, searchParams, catalogBrowse()]);
+	const [{ department }, query, catalogs] = await Promise.all([params, searchParams, getCachedCatalogs()]);
 	const group = catalogNavigation(catalogs.data).find((item) => item.slug === department);
 	if (!group) notFound();
 	const selected = group.children.find((item) => item.slug === query.type);
@@ -35,20 +102,6 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
 	if (query.catalog && !selectedCatalog) notFound();
 	const page = Number(query.page ?? 1);
 	if (!Number.isSafeInteger(page) || page < 1) notFound();
-	const products = await shopBrowse({
-		department,
-		type: query.type,
-		catalog: query.catalog,
-		limit: 24,
-		offset: (page - 1) * 24,
-	});
-	if (page > 1 && !products.data.length) notFound();
-	const href = (target: number) =>
-		`${group.href}?${new URLSearchParams({
-			...(query.type ? { type: query.type } : {}),
-			...(query.catalog ? { catalog: query.catalog } : {}),
-			page: String(target),
-		})}`;
 	return (
 		<div>
 			<JsonLdScript
@@ -112,33 +165,20 @@ export default async function DepartmentPage({ params, searchParams }: Props) {
 					</nav>
 				</aside>
 				<section>
-					<p className="mb-6 text-xs uppercase tracking-wide">{products.meta.count} pieces</p>
-					<div className="grid grid-cols-2 gap-x-3 gap-y-10 lg:grid-cols-3 xl:grid-cols-4">
-						{products.data.map((product, index) => (
-							<ProductCard
-								key={`${product.id}:${product.category?.slug}`}
-								product={product}
-								priority={index < 2}
-								showCatalogMeta
-							/>
-						))}
-					</div>
-					{products.meta.count > 24 && (
-						<nav
-							aria-label="Pagination"
-							className="mt-12 flex items-center justify-between border-t py-6 text-sm"
-						>
-							{page > 1 ? <Link href={href(page - 1)}>Previous</Link> : <span />}
-							<span>
-								Page {page} of {Math.ceil(products.meta.count / 24)}
-							</span>
-							{page * 24 < products.meta.count ? <Link href={href(page + 1)}>Next</Link> : <span />}
-						</nav>
-					)}
+					<Suspense fallback={<ShopProductGridSkeleton />}>
+						<DepartmentProducts
+							department={department}
+							type={query.type}
+							catalog={query.catalog}
+							page={page}
+						/>
+					</Suspense>
 				</section>
 			</div>
 			{page === 1 && (
-				<OccasionCollections department={department} type={query.type} catalog={query.catalog} />
+				<Suspense fallback={null}>
+					<OccasionCollections department={department} type={query.type} catalog={query.catalog} />
+				</Suspense>
 			)}
 		</div>
 	);

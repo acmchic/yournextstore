@@ -110,10 +110,10 @@ export function ProductCard({
 							fill
 							quality={
 								isCatalogMockupUrl(primaryImage) || primaryImage.includes("/api/catalog-mockup/")
-									? 90
+									? 75
 									: undefined
 							}
-							sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+							sizes="(max-width: 640px) 50vw, (max-width: 1280px) 33vw, 25vw"
 							className="bg-white object-contain p-4 transition-opacity duration-200 ease-out group-hover:opacity-95 motion-reduce:transition-none sm:p-5"
 							priority={priority}
 						/>

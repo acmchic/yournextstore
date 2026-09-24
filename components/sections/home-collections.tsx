@@ -1,8 +1,8 @@
 import { cacheLife } from "next/cache";
 import Link from "next/link";
+import { FaqAccordion } from "@/components/faq-accordion";
 import { ProductCard } from "@/components/product-card";
 import { OccasionCollections } from "@/components/sections/occasion-collections";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import type { ApiCatalog } from "@/lib/own-commerce";
 import { catalogBrowse, homepageCollections, shopBrowse, storefrontCollections } from "@/lib/own-commerce";
 import { StoreMedia } from "@/lib/store-media";
@@ -324,36 +324,35 @@ function AboutBlock() {
 
 function BuyingFaq() {
 	return (
-		<section className="border-b border-border px-5 py-14 sm:px-8 md:py-20" aria-labelledby="buying-faq">
-			<div className="grid gap-8 md:grid-cols-[0.8fr_1.2fr] md:gap-16">
+		<section className="border-b border-border px-5 py-16 sm:px-8 md:py-24" aria-labelledby="buying-faq">
+			<div className="grid gap-10 md:grid-cols-[0.8fr_1.2fr] md:gap-16">
 				<div>
 					<p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
 						Before you check out
 					</p>
-					<h2 id="buying-faq" className="mt-3 font-display text-4xl leading-none tracking-tight sm:text-5xl">
+					<h2
+						id="buying-faq"
+						className="mt-5 font-display text-5xl leading-[0.98] tracking-tight sm:text-6xl"
+					>
 						Buying FAQ.
 					</h2>
-					<p className="mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">
+					<p className="mt-6 max-w-sm text-base leading-relaxed text-muted-foreground">
 						Short answers to the questions that matter before an order.
 					</p>
 				</div>
-				<Accordion type="single" collapsible className="border-t border-border">
-					{buyingFaq.map((item, index) => (
-						<AccordionItem key={item.question} value={`homepage-faq-${index}`}>
-							<AccordionTrigger className="py-5 text-left text-sm font-medium">
-								{item.question}
-							</AccordionTrigger>
-							<AccordionContent className="pb-5 text-sm leading-relaxed text-muted-foreground">
-								<p>
-									{item.answer}{" "}
-									<Link href={item.href} className="text-foreground underline underline-offset-4">
-										{item.linkLabel}
-									</Link>
-								</p>
-							</AccordionContent>
-						</AccordionItem>
-					))}
-				</Accordion>
+				<FaqAccordion
+					items={buyingFaq.map((item) => ({
+						question: item.question,
+						answer: (
+							<p>
+								{item.answer}{" "}
+								<Link href={item.href} className="text-foreground underline underline-offset-4">
+									{item.linkLabel}
+								</Link>
+							</p>
+						),
+					}))}
+				/>
 			</div>
 			<div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3 text-xs uppercase tracking-[0.12em]">
 				<span className="text-muted-foreground">Need more detail?</span>

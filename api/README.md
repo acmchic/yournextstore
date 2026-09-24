@@ -297,7 +297,13 @@ docker compose -f api/docker-compose.yml exec -T api \
   python -m app.cli prewarm-shop-images --department unisex --page 1 --dry-run
 docker compose -f api/docker-compose.yml exec -T api \
   python -m app.cli prewarm-shop-images --department unisex --page 1
+docker compose -f api/docker-compose.yml exec -T api \
+  python -m app.cli prewarm-shop-images --department unisex --product-type hoodies --page 1
 ```
+
+Warm the filtered landing page after deploying the API when its mockup cache is
+empty. This prepares the first 24 Unisex hoodie images before customers open the
+category; rendered files stay in the persistent shared mockup cache.
 
 Use `--product-type`, `--catalog`, or `--collection` to match filtered shop
 pages, `--page` to select a later page, and `--limit` up to 48. The command
