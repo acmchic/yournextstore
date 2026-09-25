@@ -11,25 +11,30 @@ export function generateMetadata(): Promise<Metadata> {
 	return policyMetadata({ params: Promise.resolve({ slug: "faq" }) });
 }
 
-function splitFaqContent(content: string) {
-	return content
-		.trim()
-		.split(/\r?\n\s*\r?\n/)
-		.map((block) => block.trim())
-		.filter(Boolean)
-		.reduce<{ items: { question: string; answer: string }[]; supplemental: string[] }>(
-			(result, block) => {
-				const [question, ...answerLines] = block.split(/\r?\n/);
-				const answer = answerLines.join("\n").trim();
-				if (question?.trim().endsWith("?") && answer) {
-					result.items.push({ question: question.trim(), answer });
-				} else {
-					result.supplemental.push(block);
-				}
-				return result;
-			},
-			{ items: [], supplemental: [] },
-		);
+function splitFaqContent(content: string, businessName?: string, businessAddress?: string) {
+	const lines = content.trim().split(/\r?\n/);
+	const identityLines = [businessName, businessAddress]
+		.filter((line): line is string => Boolean(line?.trim()))
+		.map((line) => line.trim());
+	const trailingLines = lines.slice(-identityLines.length).map((line) => line.trim());
+	const faqLines =
+		identityLines.length > 0 && identityLines.every((line, index) => trailingLines[index] === line)
+			? lines.slice(0, -identityLines.length)
+			: lines;
+	const questionIndexes = faqLines
+		.map((line, index) => (line.trim().endsWith("?") ? index : -1))
+		.filter((index) => index >= 0);
+
+	return questionIndexes.map((lineIndex, index) => {
+		const end = questionIndexes[index + 1] ?? faqLines.length;
+		return {
+			question: faqLines[lineIndex]?.trim() ?? "",
+			answer: faqLines
+				.slice(lineIndex + 1, end)
+				.join("\n")
+				.trim(),
+		};
+	});
 }
 
 export default async function Page() {
@@ -39,7 +44,7 @@ export default async function Page() {
 	const page = await commerce.legalPageGet("faq");
 	if (!page) notFound();
 
-	const { items, supplemental } = splitFaqContent(page.contentText);
+	const items = splitFaqContent(page.contentText, page.businessName, page.businessAddress);
 
 	return (
 		<main className="border-b border-border px-5 py-16 sm:px-8 md:py-24">
@@ -67,15 +72,6 @@ export default async function Page() {
 					/>
 				)}
 			</div>
-			{supplemental.length > 0 && (
-				<div className="mt-8 border-t border-border pt-5 text-sm leading-relaxed text-muted-foreground">
-					{supplemental.map((text) => (
-						<p key={text} className="whitespace-pre-line">
-							{text}
-						</p>
-					))}
-				</div>
-			)}
 		</main>
 	);
 }
