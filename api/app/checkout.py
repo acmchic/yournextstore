@@ -21,6 +21,27 @@ class CheckoutService:
             raise ValueError("Payments are not available yet. Please try again later.")
         return stripe.StripeClient(self.config.stripe_secret_key, stripe_version="2025-03-31.basil")
 
+    def stripe_for_session(self, session_id):
+        mode = (
+            "test"
+            if session_id.startswith("cs_test_")
+            else "live"
+            if session_id.startswith("cs_live_")
+            else None
+        )
+        if not mode:
+            return self.stripe()
+
+        secret_key = getattr(self.config, f"stripe_{mode}_secret_key", "")
+        if not secret_key and mode == getattr(self.config, "stripe_mode", mode):
+            secret_key = self.config.stripe_secret_key
+        if not secret_key:
+            raise ValueError(f"The Stripe {mode} key is required to manage this checkout session.")
+
+        import stripe
+
+        return stripe.StripeClient(secret_key, stripe_version="2025-03-31.basil")
+
     async def settings(self):
         return await self.db.fetch_one("select * from checkout_settings where id=1", ())
 
@@ -156,12 +177,13 @@ class CheckoutService:
             return attempt
 
     async def session(self, attempt):
-        client = self.stripe()
         if attempt["stripe_session_id"]:
+            client = self.stripe_for_session(attempt["stripe_session_id"])
             return await client.v1.checkout.sessions.retrieve_async(
                 attempt["stripe_session_id"],
                 {"expand": ["shipping_cost.shipping_rate", "payment_intent.latest_charge"]},
             )
+        client = self.stripe()
         snapshot = decode(attempt["snapshot_json"])
         params = {
             "mode": "payment",

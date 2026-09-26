@@ -44,8 +44,7 @@ def _stripe_mode() -> str:
     return mode
 
 
-def _stripe_credential(credential: str) -> str:
-    mode = _stripe_mode()
+def _stripe_credential_for_mode(mode: str, credential: str) -> str:
     value = os.getenv(f"STRIPE_{mode.upper()}_{credential}", "")
     if value or mode == "live":
         return value
@@ -53,6 +52,10 @@ def _stripe_credential(credential: str) -> str:
     # are moved to the explicit STRIPE_TEST_* variables.
     legacy_name = "STRIPE_SECRET_KEY" if credential == "SECRET_KEY" else "STRIPE_WEBHOOK_SECRET"
     return os.getenv(legacy_name, "")
+
+
+def _stripe_credential(credential: str) -> str:
+    return _stripe_credential_for_mode(_stripe_mode(), credential)
 
 
 @dataclass(frozen=True)
@@ -94,6 +97,8 @@ class Settings:
     ).rstrip("/")
     gearment_import_limit: int = _int_env("GEARMENT_IMPORT_LIMIT", 40)
     stripe_mode: str = _stripe_mode()
+    stripe_test_secret_key: str = _stripe_credential_for_mode("test", "SECRET_KEY")
+    stripe_live_secret_key: str = _stripe_credential_for_mode("live", "SECRET_KEY")
     stripe_secret_key: str = _stripe_credential("SECRET_KEY")
     stripe_webhook_secret: str = _stripe_credential("WEBHOOK_SECRET")
     telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
