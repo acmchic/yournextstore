@@ -103,6 +103,32 @@ def paid_session(attempt_id="attempt", subtotal=2000, quantity=2):
     }
 
 
+def test_confirmation_by_session_does_not_require_cart_cookie():
+    async def scenario():
+        db = AsyncMock()
+        db.fetch_one.side_effect = [
+            {"id": "attempt-fixture"},
+            {
+                "order_number": "TB-260926-TEST",
+                "payment_status": "paid",
+                "total_minor": 3500,
+                "currency": "USD",
+            },
+        ]
+        service = CheckoutService(db, settings)
+        service.session = AsyncMock(return_value={"id": "cs_test_fixture"})
+        service.reconcile = AsyncMock()
+
+        result = await service.confirmation_by_session("cs_test_fixture")
+
+        assert result["payment_status"] == "paid"
+        assert result["order_number"] == "TB-260926-TEST"
+        assert "stripe_session_id=%s" in db.fetch_one.await_args_list[0].args[0]
+        service.reconcile.assert_awaited_once_with({"id": "cs_test_fixture"})
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize(
     "field,value", [("currency", "eur"), ("amount_total", 1), ("amount_subtotal", 1)]
 )

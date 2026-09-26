@@ -298,6 +298,14 @@ async def checkout_confirmation(cart_id: str, session_id: str):
         raise HTTPException(404, str(error)) from error
 
 
+@app.get("/v1/checkout/confirmation")
+async def checkout_confirmation_by_session(session_id: str):
+    try:
+        return await checkout.confirmation_by_session(session_id)
+    except ValueError as error:
+        raise HTTPException(404, str(error)) from error
+
+
 @app.post("/v1/stripe/webhook")
 async def stripe_webhook(request: Request):
     import stripe

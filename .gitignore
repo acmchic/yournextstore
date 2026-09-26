@@ -70,6 +70,7 @@ next-env.d.ts
 !api/mysql/init/012_catalog_model_mockups.sql
 !api/mysql/init/013_expand_model_renderer_version.sql
 !api/mysql/init/014_catalog_code.sql
+!api/mysql/init/019_outbox_available_at.sql
 !api/mysql/init/015_catalog_base_price.sql
 !api/mysql/seed_catalog_base_prices.sql
 api/catalog-import.cache.json

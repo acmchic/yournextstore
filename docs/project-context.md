@@ -17,7 +17,9 @@
 ## Paid order alerts and receipts (2026-09-26)
 
 - `CheckoutService.reconcile` ghi order, `order.paid` và `order.receipt` trong cùng transaction sau khi Stripe xác nhận payment status `paid`; Stripe event dedupe ngăn tạo thông báo trùng khi webhook được gửi lại.
+- Trang `/checkout/success` xác nhận theo Stripe `session_id`, không phụ thuộc cart cookie sau redirect; API đối chiếu lại session với Stripe và trang tự kiểm tra lại tối đa 30 giây khi payment/webhook còn đang hoàn tất.
 - API `worker` dispatches hai event độc lập: Telegram alert cho cửa hàng và email biên nhận khách hàng qua Mailtrap. Lỗi một kênh chỉ retry event của kênh đó; event ở trạng thái pending nếu thiếu credentials.
+- Migration `019_outbox_available_at` nâng cấp DB đã tạo trước khi retry scheduling được thêm: bổ sung `available_at` và index để worker claim/retry events, tránh lỗi SQL 1054 khi đọc outbox.
 - Receipt gửi tới email Stripe Checkout đã xác thực, có ảnh preview, sản phẩm/catalog/màu/size, quantity, line price, subtotal, shipping, tax, total paid và phương thức thanh toán. Webhook mở rộng `payment_intent.latest_charge` để dùng hãng thẻ/last4; email không chứa địa chỉ giao hàng.
 - Credentials chỉ ở API env: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `EMAIL_SUPPORT`, `EMAIL_SUPPORT_NAME`, `MAILTRAP_API_KEY`. Production dùng `/etc/teebravo/api.env`; `deploy.sh --only-api` cập nhật cả API và outbox worker. Contact form vẫn dùng luồng SMTP riêng.
 

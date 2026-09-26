@@ -403,6 +403,20 @@ class CheckoutService:
         )
         if not attempt:
             raise ValueError("Order confirmation not found")
+        return await self._confirmation_for_attempt(attempt)
+
+    async def confirmation_by_session(self, session_id):
+        if not session_id.startswith(("cs_test_", "cs_live_")) or len(session_id) > 255:
+            raise ValueError("Order confirmation not found")
+        attempt = await self.db.fetch_one(
+            "select * from checkout_attempts where stripe_session_id=%s",
+            (session_id,),
+        )
+        if not attempt:
+            raise ValueError("Order confirmation not found")
+        return await self._confirmation_for_attempt(attempt)
+
+    async def _confirmation_for_attempt(self, attempt):
         await self.reconcile(await self.session(attempt))
         # Only this cart's owner receives a minimal summary, never PII through this endpoint.
         order = await self.db.fetch_one(

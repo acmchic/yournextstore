@@ -1,6 +1,6 @@
 import { checkoutFetch } from "@/lib/checkout";
-import { getCartCookieJson } from "@/lib/cookies";
 import { formatMoney } from "@/lib/money";
+import { ConfirmationRefresh } from "./confirmation-refresh";
 
 export const metadata = {
 	title: "Order confirmation",
@@ -13,21 +13,19 @@ export default async function SuccessPage({
 }: {
 	searchParams: Promise<{ session_id?: string }>;
 }) {
-	const [{ session_id }, cart] = await Promise.all([searchParams, getCartCookieJson()]);
-	const result =
-		cart && session_id
-			? await checkoutFetch<{
-					payment_status: string;
-					order_number?: string;
-					total_minor?: number;
-					currency?: string;
-				}>(
-					`/v1/carts/${encodeURIComponent(cart.id)}/confirmation?session_id=${encodeURIComponent(session_id)}`,
-				).catch(() => null)
-			: null;
+	const { session_id } = await searchParams;
+	const result = session_id
+		? await checkoutFetch<{
+				payment_status: string;
+				order_number?: string;
+				total_minor?: number;
+				currency?: string;
+			}>(`/v1/checkout/confirmation?session_id=${encodeURIComponent(session_id)}`).catch(() => null)
+		: null;
 	const paid = result?.payment_status === "paid";
 	return (
 		<main className="mx-auto max-w-2xl px-6 py-20">
+			<ConfirmationRefresh active={Boolean(session_id) && !paid} />
 			<p className="text-xs uppercase tracking-widest">TeeBravo</p>
 			<h1 className="mt-4 text-4xl font-semibold">
 				{paid ? "Thank you for your order." : "Confirming your payment"}
@@ -42,9 +40,9 @@ export default async function SuccessPage({
 					})}
 				</p>
 			) : (
-				<p className="mt-6">
-					Your confirmation is not available yet. Refresh this page in a moment. If you already paid, please
-					avoid starting another payment.
+				<p className="mt-6" role="status" aria-live="polite">
+					Your payment is still being confirmed. This page will check again automatically for 30 seconds. If
+					you already paid, please avoid starting another payment.
 				</p>
 			)}
 			<a href="/products" className="mt-8 inline-block underline">
