@@ -44,6 +44,21 @@ services:
       retries: 12
     depends_on:
       db: {condition: service_healthy}
+  worker:
+    image: teebravo-api:production
+    build:
+      context: ..
+      dockerfile: deploy/docker/backend.Dockerfile
+      target: api
+    restart: unless-stopped
+    command: ["/app/api/.venv/bin/python", "-m", "app.worker"]
+    volumes:
+      - ${TEEBRAVO_DOCKER_CONFIG_DIR:-/etc/teebravo}/api.env:/app/api/.env:ro
+    mem_limit: 512m
+    cpus: 0.5
+    logging: *logging
+    depends_on:
+      db: {condition: service_healthy}
   admin:
     environment:
       PRODUCT_IMPORT_HOST_ROOT: ${TEEBRAVO_IMAGE_SOURCE:-/srv/teebravo/shared/external-designs}

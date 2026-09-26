@@ -248,7 +248,7 @@ if ((api || admin)); then
 fi
 if ((api)); then
   hash=$(fingerprint api/app api/scripts api/policies.teebravo.json api/pyproject.toml api/mysql/init api/bootstrap-db.sh deploy/docker deploy/compose.production.yaml /etc/teebravo/api.env)
-  if changed "$BASE/state/api" "$hash" || [[ -z $(dc ps --status running -q api) ]]; then
+  if changed "$BASE/state/api" "$hash" || [[ -z $(dc ps --status running -q api) ]] || [[ -z $(dc ps --status running -q worker) ]]; then
     check_disk "$docker_root"
     dc build api
     # Build completes while current API is serving. Schema changes need maintenance planning.
@@ -257,6 +257,8 @@ if ((api)); then
     # old file inode in an existing container after an atomic host-side replace.
     dc up -d --no-deps --force-recreate --wait --wait-timeout 150 api
     health "http://127.0.0.1:$TEEBRAVO_API_PORT/ready" || fail 'API unhealthy; inspect docker compose logs.'
+    dc up -d --no-deps --force-recreate --wait --wait-timeout 150 worker
+    [[ -n $(dc ps --status running -q worker) ]] || fail 'Outbox worker failed to start; inspect docker compose logs.'
     echo "$hash" > "$BASE/state/api"
   else echo 'API unchanged; skipped.'; fi
 fi

@@ -37,6 +37,24 @@ def _env(primary: str, fallback: str, default: str) -> str:
     return os.getenv(primary) or os.getenv(fallback) or default
 
 
+def _stripe_mode() -> str:
+    mode = os.getenv("STRIPE_MODE", "test").strip().lower()
+    if mode not in {"test", "live"}:
+        raise ValueError("STRIPE_MODE must be either 'test' or 'live'")
+    return mode
+
+
+def _stripe_credential(credential: str) -> str:
+    mode = _stripe_mode()
+    value = os.getenv(f"STRIPE_{mode.upper()}_{credential}", "")
+    if value or mode == "live":
+        return value
+    # Keep existing local installations working until their generic test keys
+    # are moved to the explicit STRIPE_TEST_* variables.
+    legacy_name = "STRIPE_SECRET_KEY" if credential == "SECRET_KEY" else "STRIPE_WEBHOOK_SECRET"
+    return os.getenv(legacy_name, "")
+
+
 @dataclass(frozen=True)
 class Settings:
     mysql_host: str = _env("DB_HOST", "MYSQL_HOST", "127.0.0.1")
@@ -75,8 +93,14 @@ class Settings:
         "GEARMENT_API_BASE_URL", "https://apiv2.gearment.com/integration-handler"
     ).rstrip("/")
     gearment_import_limit: int = _int_env("GEARMENT_IMPORT_LIMIT", 40)
-    stripe_secret_key: str = os.getenv("STRIPE_SECRET_KEY", "")
-    stripe_webhook_secret: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    stripe_mode: str = _stripe_mode()
+    stripe_secret_key: str = _stripe_credential("SECRET_KEY")
+    stripe_webhook_secret: str = _stripe_credential("WEBHOOK_SECRET")
+    telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    telegram_chat_id: str = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    email_support: str = os.getenv("EMAIL_SUPPORT", "help@teebravo.com").strip()
+    email_support_name: str = os.getenv("EMAIL_SUPPORT_NAME", "TeeBravo").strip()
+    mailtrap_api_key: str = os.getenv("MAILTRAP_API_KEY", "").strip()
     stripe_automatic_tax: bool = _bool_env("STRIPE_AUTOMATIC_TAX", False)
     storefront_public_url: str = (
         os.getenv("STOREFRONT_PUBLIC_URL") or "https://teebravo.com"

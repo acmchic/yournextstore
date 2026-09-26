@@ -14,6 +14,13 @@
 - Next.js Server Action gọi `ownCommerce → POST /v1/contact-messages`. FastAPI lưu nội dung vào MySQL `contact_messages`, gửi email đồng bộ tới `CONTACT_EMAIL_TO` (mặc định `help@teebravo.com`) qua SMTP, rồi đánh dấu `email_sent_at`. Migration `018_contact_messages.sql` được áp dụng bởi `api/bootstrap-db.sh`.
 - SMTP được cấu hình bằng các biến `SMTP_*` trong API env, không phải storefront env. Nếu email không gửi được, record vẫn lưu nhưng API trả lỗi và form hướng khách tới `help@teebravo.com`; cập nhật `/etc/teebravo/api.env` rồi chạy `deploy.sh --only-api` để đổi cấu hình production.
 
+## Paid order alerts and receipts (2026-09-26)
+
+- `CheckoutService.reconcile` ghi order, `order.paid` và `order.receipt` trong cùng transaction sau khi Stripe xác nhận payment status `paid`; Stripe event dedupe ngăn tạo thông báo trùng khi webhook được gửi lại.
+- API `worker` dispatches hai event độc lập: Telegram alert cho cửa hàng và email biên nhận khách hàng qua Mailtrap. Lỗi một kênh chỉ retry event của kênh đó; event ở trạng thái pending nếu thiếu credentials.
+- Receipt gửi tới email Stripe Checkout đã xác thực, có ảnh preview, sản phẩm/catalog/màu/size, quantity, line price, subtotal, shipping, tax, total paid và phương thức thanh toán. Webhook mở rộng `payment_intent.latest_charge` để dùng hãng thẻ/last4; email không chứa địa chỉ giao hàng.
+- Credentials chỉ ở API env: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `EMAIL_SUPPORT`, `EMAIL_SUPPORT_NAME`, `MAILTRAP_API_KEY`. Production dùng `/etc/teebravo/api.env`; `deploy.sh --only-api` cập nhật cả API và outbox worker. Contact form vẫn dùng luồng SMTP riêng.
+
 ## About page editorial (2026-09-23)
 
 - `/about` là route tĩnh riêng tại `app/about/page.tsx`, không còn dùng renderer plain text của `app/[slug]/page.tsx`. Trang giữ nội dung factual về sản phẩm in sau khi đặt, thị trường US, địa chỉ và hỗ trợ; metadata riêng dùng định vị "printed apparel and accessories".

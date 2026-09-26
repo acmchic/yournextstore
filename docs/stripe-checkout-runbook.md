@@ -2,10 +2,15 @@
 
 ## Environment
 
-Set these only in the API runtime or secret manager:
+Set these only in the API runtime or secret manager. Keep test and live keys and
+webhook signing secrets in separate variables; they must come from endpoints in
+the corresponding Stripe mode:
 
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_MODE=test` or `STRIPE_MODE=live` (defaults to `test`)
+- `STRIPE_TEST_SECRET_KEY`
+- `STRIPE_TEST_WEBHOOK_SECRET`
+- `STRIPE_LIVE_SECRET_KEY`
+- `STRIPE_LIVE_WEBHOOK_SECRET`
 - `CHECKOUT_SUCCESS_URL=https://teebravo.com/checkout/success?session_id={CHECKOUT_SESSION_ID}`
 - `CHECKOUT_CANCEL_URL=https://teebravo.com/checkout`
 - `STRIPE_AUTOMATIC_TAX=false` until Stripe Tax registrations and the store's tax obligations are confirmed
@@ -21,7 +26,7 @@ Never expose either Stripe secret to the browser. The storefront calls FastAPI f
    - `checkout.session.completed`
    - `checkout.session.async_payment_succeeded`
    - `checkout.session.expired`
-5. Store the endpoint signing secret as `STRIPE_WEBHOOK_SECRET`.
+5. Store each endpoint signing secret in the matching `STRIPE_TEST_WEBHOOK_SECRET` or `STRIPE_LIVE_WEBHOOK_SECRET` variable.
 
 ## TeeBravo admin launch gate
 
@@ -40,4 +45,8 @@ Use Stripe test mode first:
 5. Test Apple Pay on an eligible Safari/Wallet device and Google Pay on an eligible signed-in Chrome/Wallet device. Wallet availability is decided by Stripe, browser and device.
 6. Confirm subtotal, shipping, tax and total are visible before payment and match the resulting admin order.
 
-After switching to live keys, run one small real order and refund it in Stripe. Do not submit the Merchant Center feed until the purchase path, contact details, policies, inventory, product price and images all match production.
+To switch modes, change only `STRIPE_MODE` and restart/redeploy the API so it
+loads the matching secret key and webhook signing secret. After switching to
+`live`, run one small real order and refund it in Stripe. Do not submit the
+Merchant Center feed until the purchase path, contact details, policies,
+inventory, product price and images all match production.

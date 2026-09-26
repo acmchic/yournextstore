@@ -159,7 +159,8 @@ class CheckoutService:
         client = self.stripe()
         if attempt["stripe_session_id"]:
             return await client.v1.checkout.sessions.retrieve_async(
-                attempt["stripe_session_id"], {"expand": ["shipping_cost.shipping_rate"]}
+                attempt["stripe_session_id"],
+                {"expand": ["shipping_cost.shipping_rate", "payment_intent.latest_charge"]},
             )
         snapshot = decode(attempt["snapshot_json"])
         params = {
@@ -353,8 +354,43 @@ class CheckoutService:
                     json.dumps(
                         {
                             "order_number": number,
+                            "total_minor": session["amount_total"],
+                            "currency": "USD",
+                            "item_count": sum(item["quantity"] for item in snapshot["items"]),
                             "shipping_method": shipping["id"],
                             "stripe_session_id": session["id"],
+                        }
+                    ),
+                ),
+            )
+            await cursor.execute(
+                "insert into outbox_events(event_type,aggregate_type,aggregate_id,payload_json) values ('order.receipt','order',%s,%s)",
+                (
+                    order_id,
+                    json.dumps(
+                        {
+                            "email": customer["email"],
+                            "order_number": number,
+                            "currency": "USD",
+                            "subtotal_minor": snapshot["subtotal"],
+                            "shipping_minor": shipping["amount_minor"],
+                            "shipping_method": shipping["name"],
+                            "tax_minor": session["total_details"]["amount_tax"],
+                            "total_minor": session["amount_total"],
+                            "payment_method": payment_method_label(session),
+                            "items": [
+                                {
+                                    "title": item["title"],
+                                    "catalog_name": item["catalog_name"],
+                                    "color_name": item["color_name"],
+                                    "size_code": item["size_code"],
+                                    "quantity": item["quantity"],
+                                    "unit_price_minor": item["price_minor"],
+                                    "line_total_minor": item["price_minor"] * item["quantity"],
+                                    "image_url": item["image_url"],
+                                }
+                                for item in snapshot["items"]
+                            ],
                         }
                     ),
                 ),
@@ -426,3 +462,22 @@ def validate_paid_session(session, snapshot):
         if snapshot.get("selected_shipping") and method != snapshot["selected_shipping"]:
             raise ValueError("Shipping method does not match the order snapshot")
     return shipping, {"email": customer["email"], "name": name}, address
+
+
+def payment_method_label(session):
+    payment_intent = session.get("payment_intent") or {}
+    if not isinstance(payment_intent, dict):
+        return "Card"
+    charge = payment_intent.get("latest_charge") or {}
+    if not isinstance(charge, dict):
+        return "Card"
+    details = charge.get("payment_method_details") or {}
+    if not isinstance(details, dict):
+        return "Card"
+    method = details.get("type") or "card"
+    if method == "card":
+        card = details.get("card") or {}
+        if isinstance(card, dict) and card.get("brand") and card.get("last4"):
+            return f"Card · {str(card['brand']).title()} ending in {card['last4']}"
+        return "Card"
+    return str(method).replace("_", " ").title()

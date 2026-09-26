@@ -319,7 +319,8 @@ async def stripe_webhook(request: Request):
     ):
         # Retrieve authoritative current state, including rate metadata, before fulfillment.
         session = await checkout.stripe().v1.checkout.sessions.retrieve_async(
-            event["data"]["object"]["id"], {"expand": ["shipping_cost.shipping_rate"]}
+            event["data"]["object"]["id"],
+            {"expand": ["shipping_cost.shipping_rate", "payment_intent.latest_charge"]},
         )
         await checkout.reconcile(session, event["id"], event["type"])
     return {"received": True}

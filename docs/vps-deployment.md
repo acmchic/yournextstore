@@ -10,6 +10,7 @@ Host: Ubuntu 20.04.6, PHP 7.4/8.1 đang phục vụ domain cũ, Node 22.21.1, Py
 |---|---|---|
 | Storefront root | Node host, Next.js standalone, systemd `teebravo-storefront` | `127.0.0.1:1990` |
 | `api/` | Container `api`, Python 3.11/venv trên Debian Bookworm | host `127.0.0.1:1991` → container 8000 |
+| Outbox worker | Container `worker`, cùng API image và `/etc/teebravo/api.env` | MySQL + outbound Telegram/Mailtrap APIs; không mở port |
 | `admin/` | Container `admin`, PHP 8.4-FPM + Python 3.11 cho importer | Unix socket riêng qua bind mount |
 | Database | Container MySQL 8.4, database `pod_store` | `db:3306` trong mạng Compose, không publish port |
 | Public HTTPS | Nginx và Certbot hiện tại trên host | 3 vhost: teebravo.com, admin.teebravo.com, api.teebravo.com |
@@ -23,6 +24,7 @@ Cloudflare → Nginx :443 + Certbot
               └─ admin.teebravo.com → Unix socket → container PHP-FPM
 
 Node → HTTP loopback API → db:3306
+worker → db:3306 + Telegram Bot API + Mailtrap (outbound HTTPS)
 PHP-FPM → db:3306
 PHP-FPM → Python CLI cùng image → db:3306 và thư mục assets/cache chung
 ```
@@ -95,8 +97,9 @@ Setup tự sinh password DB/root, Laravel APP_KEY, signing secret và Server Act
 - `TEEBRAVO_DOCKER_CONFIG_DIR` trong file trên: thư mục chứa bản sao `api.env` và `admin.env` dành cho Docker bind mount; mặc định `/etc/teebravo`, dùng `/home/teebravo/config` với Docker Snap.
 
 Stripe Checkout đọc credentials từ `/etc/teebravo/api.env`, không phải
-`storefront.env` hay `.env.local`. Hai biến bắt buộc là `STRIPE_SECRET_KEY` và
-`STRIPE_WEBHOOK_SECRET`; chúng phải thuộc cùng Stripe mode và webhook endpoint.
+`storefront.env` hay `.env.local`. Giữ riêng cặp secret key và webhook secret
+test/live trong file API này; chọn cặp đang dùng bằng `STRIPE_MODE=test` hoặc
+`STRIPE_MODE=live` (mặc định `test`).
 `CHECKOUT_SUCCESS_URL`, `CHECKOUT_CANCEL_URL` và `STRIPE_AUTOMATIC_TAX` đã có
 trong `deploy/env/api.env.example`; tax mặc định tắt. `--setup` chỉ tạo các env
 file còn thiếu, không chép credentials từ máy phát triển và không ghi đè file
@@ -120,6 +123,15 @@ thường dùng STARTTLS; nếu nhà cung cấp yêu cầu SSL trực tiếp, đ
 `SMTP_USE_SSL=true` và `SMTP_STARTTLS=false`. Nếu SMTP chưa cấu hình hoặc gửi
 thất bại, bản ghi vẫn được giữ trong DB và form báo khách dùng email hỗ trợ.
 
+Email biên nhận đơn hàng là luồng riêng: outbox worker gửi sau khi Stripe xác
+nhận thanh toán, qua Mailtrap Email Sending API. Thêm `EMAIL_SUPPORT`,
+`EMAIL_SUPPORT_NAME` và `MAILTRAP_API_KEY` vào `/etc/teebravo/api.env`; để gửi
+Telegram alert cho cửa hàng, điền `TELEGRAM_BOT_TOKEN` và `TELEGRAM_CHAT_ID` tại
+cùng file. Mailtrap yêu cầu sender domain/address đã được xác minh. Event email
+và Telegram retry riêng, nên lỗi cấu hình một kênh không gửi lặp kênh kia.
+Xem [hướng dẫn email receipt](order-confirmation-email.md) và
+[Telegram alert](telegram-order-notifications.md).
+
 Pinterest domain verification (nếu sử dụng) thuộc cấu hình build của storefront:
 thêm `PINTEREST_DOMAIN_VERIFY=<token Pinterest cấp>` vào
 `/etc/teebravo/storefront.env` trên VPS. Không đặt giá trị này chỉ trong checkout
@@ -139,7 +151,7 @@ Không cần `--force` nếu chỉ thay đổi `storefront.env`; fingerprint s�
 
 Script không ghi đè file đã tồn tại; nếu bộ backend env chỉ có một phần thì dừng để tránh sinh password lệch. Nếu chuyển từ env native cũ: kiểm tra lại DB_HOST=db, asset/cache paths `/app/api/...`, URL loopback 1991 và bỏ tất cả placeholder. Không copy đè key/password lên database đã khởi tạo. MySQL image chỉ áp dụng MYSQL_PASSWORD khi tạo datadir mới; đổi env không tự đổi password trong DB.
 
-`db.env` chỉ root đọc; API/admin env cấp group 33 (www-data trong container) quyền đọc; storefront env cấp group teebravo. Không commit env thật. Cấu hình Stripe keys/webhook và SMTP thật trước khi sử dụng; mail mẫu ghi log. Admin đã tắt Inertia SSR để không cần thêm Node daemon.
+`db.env` chỉ root đọc; API/admin env cấp group 33 (www-data trong container) quyền đọc; storefront env cấp group teebravo. Không commit env thật. Cấu hình Stripe keys/webhook, SMTP cho contact form, Mailtrap và Telegram trước khi bật các luồng tương ứng. Admin đã tắt Inertia SSR để không cần thêm Node daemon.
 
 ### Dữ liệu và ảnh
 
@@ -183,9 +195,9 @@ sudo certbot renew --dry-run
 
 Hoặc thay ba bước trên bằng `sudo bash deploy.sh --production YOUR_REAL_EMAIL`.
 
-`--all`: ensure MySQL khỏe → build API → bootstrap SQL → start API → build admin → migrate → start PHP → copy public assets → build/restart Node. Build backend xong mới thay container đang chạy. `--production` chạy cùng chuỗi sau khi setup host, kiểm tra port mapping, rồi cài cert/vhost HTTPS ở cuối. `--wait` kết hợp healthcheck kiểm tra API/DB; health admin chỉ kiểm tra socket, cần test `/up`/login sau HTTPS. [Compose startup/readiness](https://docs.docker.com/compose/how-tos/startup-order/).
+`--all`: ensure MySQL khỏe → build API → bootstrap SQL → start API + outbox worker → build admin → migrate → start PHP → copy public assets → build/restart Node. `--only-api` cũng cập nhật/restart worker cùng API image và API env. Build backend xong mới thay container đang chạy. `--production` chạy cùng chuỗi sau khi setup host, kiểm tra port mapping, rồi cài cert/vhost HTTPS ở cuối. `--wait` kết hợp healthcheck kiểm tra API/DB; health admin chỉ kiểm tra socket, cần test `/up`/login sau HTTPS. [Compose startup/readiness](https://docs.docker.com/compose/how-tos/startup-order/).
 
-Build đầu cần Internet để kéo image/package/font. Docker BuildKit giữ layer/cache; PHP/Python runtime chung giúp hai image chia sẻ lớp dependency. Runtime giới hạn tổng xấp xỉ 4 GiB cho ba backend container và 4 CPU quota cộng dồn; frontend riêng. **Giới hạn runtime Compose không giới hạn Docker build**: build tuần tự/lúc ít tải, quan sát RAM/CPU/disk. Build Next heap 2 GiB, nice=10. Không cam kết hoàn toàn không ảnh hưởng latency các site khác vì dùng chung VPS.
+Build đầu cần Internet để kéo image/package/font. Docker BuildKit giữ layer/cache; PHP/Python runtime chung giúp các image chia sẻ lớp dependency. Runtime giới hạn tổng xấp xỉ 4.5 GiB cho bốn backend container (DB, API, worker, admin) và 4.5 CPU quota cộng dồn; frontend riêng. **Giới hạn runtime Compose không giới hạn Docker build**: build tuần tự/lúc ít tải, quan sát RAM/CPU/disk. Build Next heap 2 GiB, nice=10. Không cam kết hoàn toàn không ảnh hưởng latency các site khác vì dùng chung VPS.
 
 Certbot vẫn chạy host, webroot `/var/www/letsencrypt`, một SAN cert cho 3 domain. Chỉ cài vhost HTTPS sau khi có cert, chạy `nginx -t` rồi reload. Không restart Nginx. Nếu dùng timer Certbot Snap thì chỉnh timer tương ứng trước khi chạy `--ssl`. [Certbot](https://eff-certbot.readthedocs.io/en/stable/using.html#webroot).
 
@@ -232,7 +244,7 @@ sudo certbot renew --dry-run
 
 Test domain cũ (nhất là orders.idreamshirt.com) sau reload Nginx. Test TeeBravo: ảnh HTTPS, login admin, import nhỏ, cart, checkout test và webhook; xem Cache-Control/CF-Cache-Status. PHP stdout/log có thể chứa dữ liệu ứng dụng; kiểm tra trước khi gửi log ra ngoài.
 
-Operations import hiện đồng bộ; import lớn có thể vượt timeout Nginx/Cloudflare. Chạy CLI bằng `docker compose ... exec -u www-data -w /app/api admin /app/api/.venv/bin/python -m app.cli ...` với lệnh đã kiểm tra. Không cấp Docker socket cho admin. API worker hiện chưa fulfillment/email nên chưa chạy worker placeholder.
+Operations import hiện đồng bộ; import lớn có thể vượt timeout Nginx/Cloudflare. Chạy CLI bằng `docker compose ... exec -u www-data -w /app/api admin /app/api/.venv/bin/python -m app.cli ...` với lệnh đã kiểm tra. Không cấp Docker socket cho admin. Worker xử lý notification outbox; fulfillment vẫn chưa được tích hợp.
 
 ## 6. Backup và rollback
 
@@ -253,7 +265,7 @@ Nếu đã từng chạy bộ native cũ, **không chạy hai API/FPM cùng lúc
 
 ## Trạng thái kiểm chứng
 
-Workspace không có Docker CLI/daemon, nên chưa build/chạy image thực hoặc kiểm tra bằng `docker compose config` tại đây. YAML được parse cục bộ; Bash/helpers và tests mô phỏng kiểm tra được, nhưng không thay thế build/integration test Linux trên VPS. Chưa có truy cập SSH; chưa thay đổi server, database hoặc domain thật. Các phụ thuộc launch (SMTP, Stripe live, policy publish, quyền artwork, fulfillment, monitoring) vẫn cần hoàn tất trước mở bán.
+Workspace không có Docker CLI/daemon, nên chưa build/chạy image thực hoặc kiểm tra bằng `docker compose config` tại đây; Compose YAML mới cũng chưa được kiểm chứng cục bộ. Bash syntax và lint/compile tĩnh không thay thế build/integration test Linux trên VPS. Chưa có truy cập SSH; chưa thay đổi server, database hoặc domain thật. Các phụ thuộc launch (SMTP, Mailtrap/Telegram production credentials, Stripe live, policy publish, quyền artwork, fulfillment, monitoring) vẫn cần hoàn tất trước mở bán.
 
 Kiểm tra bộ mới: 8 tests Python (default chỉ storefront, chỉ API không recreate DB, disk guard, rollback Node, secrets/mapping đồng bộ và partial env), Bash syntax, template rendering và kiểm tra port/limits đều qua. Chạy lại bằng `python3 -m unittest discover -s deploy/tests -p 'test_*.py'`. Trên VPS cần thêm `sudo docker compose --env-file /etc/teebravo/deploy.env -p teebravo-prod -f deploy/compose.production.yaml config --quiet` sau setup và build thực trong cửa sổ ít tải trước khi mở domain.
 

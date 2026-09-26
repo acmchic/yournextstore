@@ -36,8 +36,13 @@ The compose stack starts:
 
 - `db`: MySQL 8.4, exposed on `127.0.0.1:${DB_PORT}`.
 - `api`: FastAPI renderer, exposed on `http://localhost:8000`.
+- `worker`: transactional outbox dispatcher for Telegram alerts and Mailtrap customer receipts after paid orders.
 
 Inside Docker the API connects to MySQL with `DB_HOST=db`. From your Mac, use `127.0.0.1`.
+
+For Telegram alerts and Mailtrap customer order confirmations, see
+[Telegram order notifications](../docs/telegram-order-notifications.md) and
+[customer order emails](../docs/order-confirmation-email.md).
 
 ## Import Existing MySQL Dump
 
